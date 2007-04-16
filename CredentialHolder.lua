@@ -1,6 +1,9 @@
---
+-----------------------------------------------------------------------------
 -- Objeto que armazena a credencial de um membro
 --
+-- Última alteração:
+--   $Id$
+-----------------------------------------------------------------------------
 local oop = require "loop.base"
 
 module ("openbus.common.CredentialHolder", oop.class)

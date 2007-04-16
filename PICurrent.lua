@@ -1,7 +1,10 @@
---
+-----------------------------------------------------------------------------
 -- Objeto que permite a transferência de informações de um interceptador
 -- para o tratador de uma requisição de serviço.
 --
+-- Última alteração:
+--   $Id$
+-----------------------------------------------------------------------------
 local oil = require "oil"
 local oop = require "loop.base"
 

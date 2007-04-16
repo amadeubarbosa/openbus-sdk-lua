@@ -1,7 +1,10 @@
---
+-----------------------------------------------------------------------------
 -- Interceptador de requisições de serviço, responsável por inserir no
 --   contexto da requisição a credencial do cliente
 --
+-- Última alteração:
+--   $Id$
+-----------------------------------------------------------------------------
 local oil = require "oil"
 local oop = require "loop.base"
 

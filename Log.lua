@@ -1,8 +1,9 @@
---
+-----------------------------------------------------------------------------
 -- Mecanismo para debug do OpenBus baseado no módulo Verbose provido pelo LOOP
 --
--- $Id$
---
+-- Última alteração:
+--   $Id$
+-----------------------------------------------------------------------------
 local Viewer = require "loop.debug.Viewer"
 local Verbose = require "loop.debug.Verbose"
 

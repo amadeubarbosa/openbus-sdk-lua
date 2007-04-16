@@ -1,7 +1,10 @@
---
+-----------------------------------------------------------------------------
 -- Interceptador de requisições de serviço, responsável por verificar se
 --  o emissor da requisição foi autenticado (possui uma credencial válida)
 --
+-- Última alteração:
+--   $Id$
+-----------------------------------------------------------------------------
 local oil = require "oil"
 local oop = require "loop.base"
 
