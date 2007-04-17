@@ -27,7 +27,8 @@ function __init(self, config, picurrent, accessControlService)
       local iface = lir:resolve(iconfig.interface)
       verbose:interceptor(true, "checar interface: "..iconfig.interface)
       local excluded_ops = iconfig.excluded_ops or {}
-      for op, member in pairs(iface.members) do
+      for _, member in ipairs(iface.definitions) do
+        local op = member.name
         if member._type == "operation" and not excluded_ops[op] then
           checkedOperations[op] = true
           verbose:interceptor("checar operação: "..op)
