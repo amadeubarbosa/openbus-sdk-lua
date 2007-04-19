@@ -8,14 +8,14 @@
 local oil = require "oil"
 local oop = require "loop.base"
 
-local verbose = require "openbus.common.Log"
+local log = require "openbus.common.Log"
 
 module("openbus.common.ClientInterceptor", oop.class)
 
 -- Constrói o interceptador
 function __init(self, config, credentialHolder)
 
-  verbose:interceptor("Construindo interceptador para cliente")
+  log:interceptor("Construindo interceptador para cliente")
   local lir = oil.getLIR()
   return oop.rawnew(self, 
                     {credentialHolder = credentialHolder,
@@ -25,14 +25,14 @@ end
 
 -- Intercepta o request para envio da informação de contexto (credencial)
 function sendrequest(self, request)
-  verbose:interceptor("INTERCEPTAÇÂO CLIENTE OP: "..request.operation)
+  log:interceptor("INTERCEPTAÇÂO CLIENTE OP: "..request.operation)
 
   -- Verifica de existe credencial para envio
   if not self.credentialHolder:hasValue() then
-    verbose:interceptor "SEM CREDENCIAL !"
+    log:interceptor "SEM CREDENCIAL !"
     return
   end
-  verbose:interceptor("TEM CREDENCIAL!")
+  log:interceptor("TEM CREDENCIAL!")
 
   -- Insere a credencial no contexto do serviço
   local encoder = oil.newencoder()
@@ -41,7 +41,7 @@ function sendrequest(self, request)
   request.service_context =  {
     { context_id = self.contextID, context_data = encoder:getdata() }
   }
-  verbose:interceptor("INSERI CREDENCIAL")
+  log:interceptor("INSERI CREDENCIAL")
 end
 
 function receivereply(reply)
