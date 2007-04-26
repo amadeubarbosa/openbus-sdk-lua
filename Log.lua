@@ -18,7 +18,7 @@ viewer = Viewer{
 
 -- Definição dos tags que compõem cada grupo
 groups.basic = {"init", "warn", "error"}
-groups.mechanism = {"interceptor"}
+groups.mechanism = {"interceptor", "lease"}
 groups.core = {"scs", "member"}
 groups.all = {"basic", "service", "mechanism", "core"}
 
