@@ -2,7 +2,7 @@
 -- Objeto que é responsável por verificar os leases oferecidos
 --
 -- Última alteração:
---   $Id:$
+--   $Id$
 -----------------------------------------------------------------------------
 
 local oil = require"oil"
@@ -26,7 +26,7 @@ function __init(self, checkLeases, rate)
   return newObj
 end
 
-function seCheckLeasesFunction(self, checkLeases)
+function setCheckLeasesFunction(self, checkLeases)
   self.timer.action = checkLeases
 end
 
