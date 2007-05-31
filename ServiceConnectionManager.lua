@@ -41,7 +41,6 @@ function connect(self, name)
     return false
   end
   local answer = lce.cipher.decrypt(privateKey, challenge)
-  privateKey:release()
 
   local certificate = lce.x509.readfromderfile(self.certificateFile)
   answer = lce.cipher.encrypt(certificate:getpublickey(), answer)
