@@ -44,7 +44,6 @@ function connect(self, name)
 
   local certificate = lce.x509.readfromderfile(self.certificateFile)
   answer = lce.cipher.encrypt(certificate:getpublickey(), answer)
-  certificate:release()
 
   local success, credential, lease =
     self.accessControlService:loginByCertificate(name, answer)
