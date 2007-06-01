@@ -13,9 +13,9 @@ local ConnectionManager = require "openbus.common.ConnectionManager"
 
 module("openbus.common.ServiceConnectionManager", oop.class, ConnectionManager)
 
-function __init(self, accessControlService, credentialHolder, 
+function __init(self, accessControlServerHost, credentialHolder, 
                 privateKeyFile, certificateFile)
-  local obj = { accessControlService = accessControlService, 
+  local obj = { accessControlServerHost = accessControlServerHost, 
                 credentialHolder = credentialHolder,
                 privateKeyFile = privateKeyFile, 
                 certificateFile = certificateFile }
@@ -27,7 +27,11 @@ end
 -- Conecta o serviço ao barramento com autenticação via certificado
 --
 function connect(self, name)
-  local challenge = self.accessControlService:getChallenge(name)
+  local accessControlService = self:getAccessControlService()
+  if accessControlService == nil then
+    return false
+  end
+  local challenge = accessControlService:getChallenge(name)
   if not challenge then
     log:error("ServiceConnectionManager: o desafio para "..name..
               " não foi obtido junto ao Servico de Controle de Acesso.")
@@ -46,7 +50,7 @@ function connect(self, name)
   answer = lce.cipher.encrypt(certificate:getpublickey(), answer)
 
   local success, credential, lease =
-    self.accessControlService:loginByCertificate(name, answer)
+    accessControlService:loginByCertificate(name, answer)
   if not success then
     log:error("ServiceConnectionManager: insucesso no login de "..name)
     return false

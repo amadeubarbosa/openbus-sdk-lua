@@ -4,15 +4,31 @@
 -- Última alteração:
 --   $Id$
 -----------------------------------------------------------------------------
+local oil = require "oil"
 local oop = require "loop.base"
 local log = require "openbus.common.Log"
 local LeaseHolder = require "openbus.common.LeaseHolder"
-local print = print
 
 module("openbus.common.ConnectionManager", oop.class)
 
 function __init(self, obj)
  return oop.rawnew(self, obj)
+end
+
+--
+-- Obtém referência para o serviço de controle de acesso
+--
+function getAccessControlService(self)
+  if self.accessControlService == nil then
+    local acs = oil.newproxy("corbaloc::"..self.accessControlServerHost.."/ACS",
+                             "IDL:openbusidl/acs/IAccessControlService:1.0")
+    if acs:_non_existent() then
+      log:error("ConnectionManager: Servico de controle de acesso nao encontrado.")
+      return nil
+    end
+    self.accessControlService = acs
+  end
+  return self.accessControlService
 end
 
 --

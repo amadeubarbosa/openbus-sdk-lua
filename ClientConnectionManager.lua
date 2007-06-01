@@ -12,12 +12,11 @@ local ConnectionManager = require "openbus.common.ConnectionManager"
 
 module("openbus.common.ClientConnectionManager", oop.class, ConnectionManager)
 
-function __init(self, accessControlService, credentialHolder, 
+function __init(self, accessControlServerHost, credentialHolder, 
                 user, password)
-  local obj = { accessControlService = accessControlService, 
+  local obj = { accessControlServerHost = accessControlServerHost, 
                 credentialHolder = credentialHolder,
-                user = user, 
-                password = password }
+                user = user, password = password }
   ConnectionManager:__init(obj)
   return oop.rawnew(self, obj)
 end
@@ -26,8 +25,12 @@ end
 -- Conecta o serviço ao barramento com autenticação via user/password
 --
 function connect(self)
+  local accessControlService = self:getAccessControlService()
+  if accessControlService == nil then
+    return false
+  end
   local success, credential, lease =
-    self.accessControlService:loginByPassword(self.user, self.password)
+    accessControlService:loginByPassword(self.user, self.password)
   if not success then
     log:error("ClientConnectionManager: insucesso no login de "..self.user)
     return false
