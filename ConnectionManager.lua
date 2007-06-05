@@ -49,7 +49,12 @@ end
 -- Desconecta um membro do barramento
 --
 function disconnect(self)
-  self.leaseHolder:stopRenew()
-  self.accessControlService:logout(self.credentialHolder:getValue())
-  self.credentialHolder:invalidate()
+  if self.leaseHolder then
+    self.leaseHolder:stopRenew()
+    self.leaseHolder = nil
+  end
+  if self.accessControlService and self.credentialHolder:hasValue() then
+    self.accessControlService:logout(self.credentialHolder:getValue())
+    self.credentialHolder:invalidate()
+  end
 end
