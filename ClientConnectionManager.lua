@@ -10,15 +10,17 @@ local oop = require "loop.simple"
 
 local ConnectionManager = require "openbus.common.ConnectionManager"
 
-module("openbus.common.ClientConnectionManager", oop.class, ConnectionManager)
+module "openbus.common.ClientConnectionManager"
+
+oop.class(_M, ConnectionManager)
 
 function __init(self, accessControlServerHost, credentialHolder, 
                 user, password)
-  local obj = { accessControlServerHost = accessControlServerHost, 
-                credentialHolder = credentialHolder,
-                user = user, password = password }
-  ConnectionManager:__init(obj)
-  return oop.rawnew(self, obj)
+  local obj = 
+    ConnectionManager.__init(self, accessControlServerHost, credentialHolder)
+  obj.user = user
+  obj.password = password
+  return obj
 end
 
 --

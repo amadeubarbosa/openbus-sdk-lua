@@ -11,8 +11,12 @@ local LeaseHolder = require "openbus.common.LeaseHolder"
 
 module("openbus.common.ConnectionManager", oop.class)
 
-function __init(self, obj)
- return oop.rawnew(self, obj)
+function __init(self, accessControlServerHost, credentialHolder)
+  local obj = {
+    accessControlServerHost = accessControlServerHost,
+    credentialHolder = credentialHolder
+  }
+  return oop.rawnew(self, obj)
 end
 
 --

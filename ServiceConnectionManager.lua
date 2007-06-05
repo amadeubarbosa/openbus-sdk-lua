@@ -11,16 +11,17 @@ local lce = require "lce"
 
 local ConnectionManager = require "openbus.common.ConnectionManager"
 
-module("openbus.common.ServiceConnectionManager", oop.class, ConnectionManager)
+module "openbus.common.ServiceConnectionManager"
+
+oop.class(_M, ConnectionManager)
 
 function __init(self, accessControlServerHost, credentialHolder, 
                 privateKeyFile, certificateFile)
-  local obj = { accessControlServerHost = accessControlServerHost, 
-                credentialHolder = credentialHolder,
-                privateKeyFile = privateKeyFile, 
-                certificateFile = certificateFile }
-  ConnectionManager:__init(obj)
-  return oop.rawnew(self, obj)
+  local obj = 
+    ConnectionManager.__init(self, accessControlServerHost, credentialHolder)
+  obj.privateKeyFile = privateKeyFile 
+  obj.certificateFile = certificateFile
+  return obj
 end
 
 --
