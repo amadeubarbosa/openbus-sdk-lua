@@ -72,10 +72,14 @@ function receiverequest(self, request)
     end
   end
 
-  if credential and self.accessControlService:isValid(credential) then
+  if credential then
+    local success, res = oil.pcall(self.accessControlService.isValid,
+                                   self.accessControlService, credential)
+    if success and res then
       log:interceptor("CREDENCIAL VALIDADA PARA "..request.operation)
       self.picurrent:setValue(credential)
       return
+    end
   end
 
   -- Credencial inválida ou sem credencial
