@@ -26,7 +26,7 @@ end
 --
 -- Conecta o serviço ao barramento com autenticação via user/password
 --
-function connect(self)
+function connect(self, leaseExpiredCallback)
   local accessControlService = self:getAccessControlService()
   if accessControlService == nil then
     return false
@@ -37,6 +37,6 @@ function connect(self)
     log:error("ClientConnectionManager: insucesso no login de "..self.user)
     return false
   end
-  self:completeConnection(credential, lease)
+  self:completeConnection(credential, lease, leaseExpiredCallback)
   return true
 end

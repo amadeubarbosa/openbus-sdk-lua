@@ -39,9 +39,10 @@ end
 -- Finaliza o procedimento de conexão, após um login bem sucedido
 --  salva a credencial e inicia o processo de renovação de lease
 --
-function completeConnection(self, credential, lease)
+function completeConnection(self, credential, lease, leaseExpiredCallback)
   self.credentialHolder:setValue(credential)
-  self.leaseHolder = LeaseHolder(lease, credential, self.accessControlService)
+  self.leaseHolder = LeaseHolder(
+    lease, credential, self.accessControlService, leaseExpiredCallback)
   self.leaseHolder:startRenew()
 end
 
