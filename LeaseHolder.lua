@@ -2,7 +2,7 @@
 -- Objeto que é responsável por renovar o lease junto a um Provider
 --
 -- Última alteração:
---   $Id:$
+--   $Id$
 -----------------------------------------------------------------------------
 
 local oil = require"oil"
@@ -69,7 +69,7 @@ function startRenew(self)
         log:lease("Lease não renovado.")
         timer:disable()
         if self.leaseExpiredCallback then
-          self:leaseExpiredCallback()
+          self.leaseExpiredCallback()
         end
         return
       end

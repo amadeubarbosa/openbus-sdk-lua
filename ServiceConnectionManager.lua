@@ -28,6 +28,8 @@ end
 -- Conecta o serviço ao barramento com autenticação via certificado
 --
 function connect(self, name, leaseExpiredCallback)
+  self.name = name
+  self.leaseExpiredCallback = leaseExpiredCallback
   local accessControlService = self:getAccessControlService()
   if accessControlService == nil then
     return false
@@ -56,6 +58,22 @@ function connect(self, name, leaseExpiredCallback)
     log:error("ServiceConnectionManager: insucesso no login de "..name)
     return false
   end
-  self:completeConnection(credential, lease, leaseExpiredCallback)
+  self:completeConnection(credential, lease,
+    function() self.reconnect(self) end)
   return true
+end
+
+--
+-- Reconecta o cliente após uma expiração de lease
+--
+function reconnect(self)
+  log:conn("ServiceConnectionManager: reconectando "..self.name)
+  if self:connect(self.name, self.leaseExpiredCallback) then
+    log:conn("ServiceConnectionManager: "..self.name.." reconectado")
+    if self.leaseExpiredCallback then
+      self.leaseExpiredCallback()
+    end
+  else
+    log:error("ServiceConnectionManager: insucesso na reconexão de "..self.name)
+  end
 end
