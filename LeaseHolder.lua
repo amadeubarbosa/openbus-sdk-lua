@@ -46,7 +46,7 @@ function startRenew(self)
   if not self.timer then
     -- Aloca uma "thread" para a renovação do lease
     local timer = Timer{
-      scheduler = oil.scheduler,
+      scheduler = oil.tasks,
       rate = self.lease,
     }
     function timer.action(timer)

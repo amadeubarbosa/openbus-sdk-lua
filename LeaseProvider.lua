@@ -15,7 +15,7 @@ module ("openbus.common.LeaseProvider", oop.class)
 -- Constrói o provider
 function __init(self, checkLeases, rate)
   local timer = Timer{
-    scheduler = oil.scheduler,
+    scheduler = oil.tasks,
     action = checkLeases,
     rate = rate,
   }

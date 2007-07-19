@@ -26,10 +26,10 @@ end
 
 -- Insere um valor na tabela de transferência
 function setValue(self, value)
-  self.picurrentTable[oil.Components.TaskManager.current] = value
+  self.picurrentTable[oil.tasks.current] = value
 end
 
 -- Obtém um valor da tabela de transferência
 function getValue(self)
-  return self.picurrentTable[oil.Components.TaskManager.current]
+  return self.picurrentTable[oil.tasks.current]
 end
