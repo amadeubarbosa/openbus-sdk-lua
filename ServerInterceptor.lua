@@ -5,19 +5,20 @@
 -- Última alteração:
 --   $Id$
 -----------------------------------------------------------------------------
-local oil = require "oil"
-local oop = require "loop.base"
-
-local log = require "openbus.common.Log" 
-
+local print = print
 local pairs = pairs
 local ipairs = ipairs
 
+local oil = require "oil"
+
+local Log = require "openbus.common.Log" 
+
+local oop = require "loop.base"
 module("openbus.common.ServerInterceptor", oop.class)
 
 -- Constrói o interceptador
 function __init(self, config, picurrent, accessControlService)
-  log:interceptor("Construindo interceptador para serviço")
+  Log:interceptor("Construindo interceptador para serviço")
   local lir = oil.getLIR()
 
   -- Obtém as operações das interfaces que devem ser verificadas
@@ -25,21 +26,21 @@ function __init(self, config, picurrent, accessControlService)
   if config.interfaces then
     for _, iconfig in ipairs(config.interfaces) do
       local iface = lir:resolve(iconfig.interface)
-      log:interceptor(true, "checar interface: "..iconfig.interface)
+      Log:interceptor(true, "checar interface: "..iconfig.interface)
       local excluded_ops = iconfig.excluded_ops or {}
       for _, member in ipairs(iface.definitions) do
         local op = member.name
         if member._type == "operation" and not excluded_ops[op] then
           checkedOperations[op] = true
-          log:interceptor("checar operação: "..op)
+          Log:interceptor("checar operação: "..op)
         end
       end
-      log:interceptor(false)
+      Log:interceptor(false)
     end
   else
     -- Se nenhuma interface especificada, checa todas as operações
     checkedOperations.all = true
-    log:interceptor("checar todas as operações de qualquer interface")
+    Log:interceptor("checar todas as operações de qualquer interface")
   end
 
   return oop.rawnew(self, 
@@ -52,22 +53,22 @@ end
 
 -- Intercepta o request para obtenção da informação de contexto (credencial)
 function receiverequest(self, request)
-  log:interceptor "INTERCEPTAÇÂO SERVIDOR!"
+  Log:interceptor "INTERCEPTAÇÂO SERVIDOR!"
 
   if not (self.checkedOperations.all or 
           self.checkedOperations[request.operation]) then
-    log:interceptor ("OPERAÇÂO "..request.operation.." NÂO È CHECADA")
+    Log:interceptor ("OPERAÇÂO "..request.operation.." NÂO È CHECADA")
     return
   end
-  log:interceptor ("OPERAÇÂO "..request.operation.." É CHECADA")
+  Log:interceptor ("OPERAÇÂO "..request.operation.." É CHECADA")
 
   local credential
   for _, context in ipairs(request.service_context) do
     if context.context_id == self.contextID then
-      log:interceptor "TEM CREDENCIAL!"
+      Log:interceptor "TEM CREDENCIAL!"
       local decoder = oil.newdecoder(context.context_data)
       credential = decoder:get(self.credentialType)
-      log:interceptor("CREDENCIAL: "..credential.identifier..","..credential.entityName)
+      Log:interceptor("CREDENCIAL: "..credential.identifier..","..credential.entityName)
       break
     end
   end
@@ -76,7 +77,7 @@ function receiverequest(self, request)
     local success, res = oil.pcall(self.accessControlService.isValid,
                                    self.accessControlService, credential)
     if success and res then
-      log:interceptor("CREDENCIAL VALIDADA PARA "..request.operation)
+      Log:interceptor("CREDENCIAL VALIDADA PARA "..request.operation)
       self.picurrent:setValue(credential)
       return
     end
@@ -84,13 +85,13 @@ function receiverequest(self, request)
 
   -- Credencial inválida ou sem credencial
   if credential then
-    log:interceptor("\n ***CREDENCIAL INVALIDA ***\n")
+    Log:interceptor("\n ***CREDENCIAL INVALIDA ***\n")
   else
-    log:interceptor("\n***NÂO TEM CREDENCIAL ***\n")
+    Log:interceptor("\n***NÂO TEM CREDENCIAL ***\n")
   end
   request.success = false
   request.count = 1
-  request[1] = oil.newexcept{"NO_PERMISSION", minor_code_value = 0}
+  request[1] = oil.newexcept{"CORBA::NO_PERMISSION", minor_code_value = 0}
 end
 
 --
