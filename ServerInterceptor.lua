@@ -11,13 +11,14 @@ local ipairs = ipairs
 
 local oil = require "oil"
 
-local Log = require "openbus.common.Log" 
+local Log = require "openbus.common.Log"
+local PICurrent = require "openbus.common.PICurrent"
 
 local oop = require "loop.base"
 module("openbus.common.ServerInterceptor", oop.class)
 
 -- Constrói o interceptador
-function __init(self, config, picurrent, accessControlService)
+function __init(self, config, accessControlService)
   Log:interceptor("Construindo interceptador para serviço")
   local lir = oil.getLIR()
 
@@ -43,11 +44,11 @@ function __init(self, config, picurrent, accessControlService)
     Log:interceptor("checar todas as operações de qualquer interface")
   end
 
-  return oop.rawnew(self, 
+  return oop.rawnew(self,
                     { checkedOperations = checkedOperations,
                       credentialType = lir:lookup_id(config.credential_type).type,
                       contextID = config.contextID,
-                      picurrent = picurrent,
+                      picurrent = PICurrent(),
                       accessControlService = accessControlService })
 end
 
@@ -55,7 +56,7 @@ end
 function receiverequest(self, request)
   Log:interceptor "INTERCEPTAÇÂO SERVIDOR!"
 
-  if not (self.checkedOperations.all or 
+  if not (self.checkedOperations.all or
           self.checkedOperations[request.operation]) then
     Log:interceptor ("OPERAÇÂO "..request.operation.." NÂO È CHECADA")
     return
@@ -99,4 +100,8 @@ end
 --
 function sendreply(self, request)
   request.service_context = {}
+end
+
+function getCredential(self)
+  return self.picurrent:getValue()
 end
