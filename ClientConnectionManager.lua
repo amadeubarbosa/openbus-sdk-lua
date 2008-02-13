@@ -1,20 +1,19 @@
------------------------------------------------------------------------------
--- Gerenciador de conexões e desconexões de clientes ao barramento
--- (autenticados por user/passwordd)
--- 
--- Última alteração:
---   $Id$
------------------------------------------------------------------------------
+-- $Id$
+
 local log = require "openbus.common.Log"
 local oop = require "loop.simple"
 
 local ConnectionManager = require "openbus.common.ConnectionManager"
 
+---
+--Gerenciador de conexões e desconexões de clientes ao barramento
+--(autenticados por user/passwordd).
+---
 module "openbus.common.ClientConnectionManager"
 
 oop.class(_M, ConnectionManager)
 
-function __init(self, accessControlServerHost, credentialHolder, 
+function __init(self, accessControlServerHost, credentialHolder,
                 user, password)
   local obj = 
     ConnectionManager.__init(self, accessControlServerHost, credentialHolder)
@@ -23,9 +22,11 @@ function __init(self, accessControlServerHost, credentialHolder,
   return obj
 end
 
---
--- Conecta o cliente ao barramento com autenticação via user/password
---
+---
+--Conecta o cliente ao barramento com autenticação via user/password.
+--@param leaseExpiredCallback Função que será executada quando o lease
+--expirar.
+---
 function connect(self, leaseExpiredCallback)
   self.leaseExpiredCallback = leaseExpiredCallback
   local accessControlService = self:getAccessControlService()
@@ -43,9 +44,9 @@ function connect(self, leaseExpiredCallback)
   return true
 end
 
---
--- Reconecta o cliente após uma expiração de lease
---
+---
+--Reconecta o cliente após uma expiração de lease.
+---
 function reconnect(self)
   log:conn("ClientConnectionManager: reconectando "..self.user)
   if self:connect(self.leaseExpiredCallback) then

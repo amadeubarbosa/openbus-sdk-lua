@@ -1,11 +1,10 @@
------------------------------------------------------------------------------
--- Objeto que armazena a credencial de um membro
---
--- Última alteração:
---   $Id$
------------------------------------------------------------------------------
+-- $Id$
+
 local oop = require "loop.base"
 
+---
+-- Objeto que armazena a credencial de um membro
+---
 module ("openbus.common.CredentialHolder", oop.class)
 
 function setValue(self, credential)

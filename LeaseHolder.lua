@@ -1,9 +1,4 @@
------------------------------------------------------------------------------
--- Objeto que é responsável por renovar o lease junto a um Provider
---
--- Última alteração:
---   $Id$
------------------------------------------------------------------------------
+-- $Id$
 
 local oil = require"oil"
 local oop = require "loop.base"
@@ -12,9 +7,19 @@ local log = require "openbus.common.Log"
 
 local tostring = tostring
 
+---
+--Objeto que é responsável por renovar o lease junto a um Provider.
+---
 module ("openbus.common.LeaseHolder", oop.class)
 
--- Constrói o holder
+---
+--Constrói o holder.
+--
+--@param lease
+--@param credential
+--@param leaseProvider
+--@param leaseExpiredCallback
+---
 function __init(self, lease, credential, leaseProvider, leaseExpiredCallback)
   log:lease("Lease set to "..lease)
   return oop.rawnew(self,

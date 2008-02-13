@@ -1,6 +1,3 @@
------------------------------------------------------------------------------
--- Interceptador de requisições de serviço, responsável por verificar se
---  o emissor da requisição foi autenticado (possui uma credencial válida)
 --
 -- Última alteração:
 --   $Id$
@@ -15,9 +12,19 @@ local Log = require "openbus.common.Log"
 local PICurrent = require "openbus.common.PICurrent"
 
 local oop = require "loop.base"
+
+---
+--Interceptador de requisições de serviço, responsável por verificar se o
+--emissor da requisição foi autenticado (possui uma credencial válida).
+---
 module("openbus.common.ServerInterceptor", oop.class)
 
--- Constrói o interceptador
+---
+--Constrói o interceptador.
+--
+--@param config
+--@param accessControlService
+---
 function __init(self, config, accessControlService)
   Log:interceptor("Construindo interceptador para serviço")
   local lir = oil.getLIR()
@@ -52,7 +59,11 @@ function __init(self, config, accessControlService)
                       accessControlService = accessControlService })
 end
 
--- Intercepta o request para obtenção da informação de contexto (credencial)
+---
+--Intercepta o request para obtenção da informação de contexto (credencial).
+--
+--@param request
+---
 function receiverequest(self, request)
   Log:interceptor "INTERCEPTAÇÂO SERVIDOR!"
 
@@ -95,9 +106,11 @@ function receiverequest(self, request)
   request[1] = oil.newexcept{"CORBA::NO_PERMISSION", minor_code_value = 0}
 end
 
+---
+--Intercepta a resposta ao request para "limpar" o contexto.
 --
--- Intercepta a resposta ao request para "limpar" o contexto
---
+--@param request
+---
 function sendreply(self, request)
   request.service_context = {}
 end

@@ -1,18 +1,21 @@
------------------------------------------------------------------------------
--- Objeto que é responsável por verificar os leases oferecidos
---
--- Última alteração:
---   $Id$
------------------------------------------------------------------------------
+-- $Id$
 
 local oil = require"oil"
 local oop = require "loop.base"
 local Timer = require "loop.thread.Timer"
 local log = require "openbus.common.Log"
 
+---
+--Objeto que é responsável por verificar os leases oferecidos.
+---
 module ("openbus.common.LeaseProvider", oop.class)
 
--- Constrói o provider
+---
+--Constrói o provider.
+--
+--@param checkLease
+--@param rate
+---
 function __init(self, checkLeases, rate)
   local timer = Timer{
     scheduler = oil.tasks,

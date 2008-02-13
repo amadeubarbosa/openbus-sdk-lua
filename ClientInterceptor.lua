@@ -1,18 +1,22 @@
------------------------------------------------------------------------------
--- Interceptador de requisições de serviço, responsável por inserir no
---   contexto da requisição a credencial do cliente
---
--- Última alteração:
---   $Id$
------------------------------------------------------------------------------
+-- $Id$
+
 local oil = require "oil"
 local oop = require "loop.base"
 
 local log = require "openbus.common.Log"
 
+---
+--Interceptador de requisições de serviço, responsável por inserir no contexto
+--da requisição a credencial do cliente.
+---
 module("openbus.common.ClientInterceptor", oop.class)
 
--- Constrói o interceptador
+---
+--Constrói o interceptador.
+--
+--@param config
+--@param credentialHolder
+---
 function __init(self, config, credentialHolder)
 
   log:interceptor("Construindo interceptador para cliente")
@@ -23,7 +27,10 @@ function __init(self, config, credentialHolder)
                      contextID = config.contextID})
 end
 
--- Intercepta o request para envio da informação de contexto (credencial)
+---
+--Intercepta o request para envio da informação de contexto (credencial)
+--@param request Informações sobre a requisição.
+---
 function sendrequest(self, request)
   log:interceptor("INTERCEPTAÇÂO CLIENTE OP: "..request.operation)
 

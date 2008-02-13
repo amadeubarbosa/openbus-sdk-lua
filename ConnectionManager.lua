@@ -1,14 +1,13 @@
------------------------------------------------------------------------------
--- Gerenciador de conexões de membros ao barramento
---
--- Última alteração:
---   $Id$
------------------------------------------------------------------------------
+-- $Id$
+
 local oil = require "oil"
 local oop = require "loop.base"
 local log = require "openbus.common.Log"
 local LeaseHolder = require "openbus.common.LeaseHolder"
 
+---
+--Gerenciador de conexões de membros ao barramento.
+---
 module("openbus.common.ConnectionManager", oop.class)
 
 function __init(self, accessControlServerHost, credentialHolder)
@@ -19,9 +18,9 @@ function __init(self, accessControlServerHost, credentialHolder)
   return oop.rawnew(self, obj)
 end
 
---
--- Obtém referência para o serviço de controle de acesso
---
+---
+--Obtém referência para o serviço de controle de acesso.
+--=
 function getAccessControlService(self)
   if self.accessControlService == nil then
     local acs = oil.newproxy("corbaloc::"..self.accessControlServerHost.."/ACS",
@@ -35,10 +34,14 @@ function getAccessControlService(self)
   return self.accessControlService
 end
 
+---
+--Finaliza o procedimento de conexão, após um login bem sucedido salva a
+--credencial e inicia o processo de renovação de lease.
 --
--- Finaliza o procedimento de conexão, após um login bem sucedido
---  salva a credencial e inicia o processo de renovação de lease
---
+--@param credential
+--@param lease
+--@param leaseExpiredCallbak
+---
 function completeConnection(self, credential, lease, leaseExpiredCallback)
   self.credentialHolder:setValue(credential)
   self.leaseHolder = LeaseHolder(
@@ -46,9 +49,9 @@ function completeConnection(self, credential, lease, leaseExpiredCallback)
   self.leaseHolder:startRenew()
 end
 
---
--- Desconecta um membro do barramento
---
+---
+--Desconecta um membro do barramento.
+---
 function disconnect(self)
   if self.leaseHolder then
     self.leaseHolder:stopRenew()
