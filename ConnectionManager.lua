@@ -10,6 +10,14 @@ local LeaseHolder = require "openbus.common.LeaseHolder"
 ---
 module("openbus.common.ConnectionManager", oop.class)
 
+---
+--Cria o gerenciador de conexões.
+--
+--@param accessControlServerHost A localização do serviço de controle de acesso.
+--@param credentialHolder O objeto onde a credencial do membro fica armazenada.
+--
+--@return O gerenciador de conexões.
+---
 function __init(self, accessControlServerHost, credentialHolder)
   local obj = {
     accessControlServerHost = accessControlServerHost,
@@ -20,6 +28,8 @@ end
 
 ---
 --Obtém referência para o serviço de controle de acesso.
+--
+--@return O Serviço de Controle de Acesso, ou nil, caso não esteja definido.
 --=
 function getAccessControlService(self)
   if self.accessControlService == nil then
@@ -38,9 +48,9 @@ end
 --Finaliza o procedimento de conexão, após um login bem sucedido salva a
 --credencial e inicia o processo de renovação de lease.
 --
---@param credential
---@param lease
---@param leaseExpiredCallbak
+--@param credential A credencial do membro.
+--@param lease O período de tempo entre as renovações do lease.
+--@param leaseExpiredCallback Função que será executada quando o lease expirar.
 ---
 function completeConnection(self, credential, lease, leaseExpiredCallback)
   self.credentialHolder:setValue(credential)

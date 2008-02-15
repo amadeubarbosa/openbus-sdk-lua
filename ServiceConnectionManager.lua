@@ -14,8 +14,17 @@ module "openbus.common.ServiceConnectionManager"
 
 oop.class(_M, ConnectionManager)
 
-function __init(self, accessControlServerHost, credentialHolder, 
-                privateKeyFile, certificateFile)
+---
+--Cria o gerenciador de conexões.
+--
+--@param accessControlServerHost A localização do serviço de controle de acesso.
+--@param credentialHolder O objeto onde a credencial do membro fica armazenada.
+--@param privateKeyFile O caminho para o arquivo da chave privada do serviço.
+--@param certificateFile O caminho para o arquivo do certificado do serviço.
+--
+--@return O gerenciador de conexões.
+---
+function __init(self, accessControlServerHost, credentialHolder, privateKeyFile, certificateFile)
   local obj = 
     ConnectionManager.__init(self, accessControlServerHost, credentialHolder)
   obj.privateKeyFile = privateKeyFile 
@@ -26,8 +35,10 @@ end
 ---
 --Conecta o serviço ao barramento com autenticação via certificado.
 --
---@param name
---@param leaseExpiredCallback
+--@param name O nome do serviço.
+--@param leaseExpiredCallback Função que será executada quando o lease expirar.
+--
+--@return true caso o serviço tenha sido conectado, ou false caso contrário.
 ---
 function connect(self, name, leaseExpiredCallback)
   self.name = name

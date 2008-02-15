@@ -13,8 +13,17 @@ module "openbus.common.ClientConnectionManager"
 
 oop.class(_M, ConnectionManager)
 
-function __init(self, accessControlServerHost, credentialHolder,
-                user, password)
+---
+--Cria o gerenciador de conexões.
+--
+--@param accessControlServerHost A localização do Serviço de Controle de Acesso.
+--@param credentialHolder O objeto onde a credencial do membro fica armazenada.
+--@param user O nome do usuário.
+--@param password A senha do usuário.
+--
+--@return O gerenciador de conexões.
+---
+function __init(self, accessControlServerHost, credentialHolder, user, password)
   local obj = 
     ConnectionManager.__init(self, accessControlServerHost, credentialHolder)
   obj.user = user
@@ -24,8 +33,11 @@ end
 
 ---
 --Conecta o cliente ao barramento com autenticação via user/password.
+--
 --@param leaseExpiredCallback Função que será executada quando o lease
 --expirar.
+--
+--@return true caso o cliente tenha sido conectado, ou false em caso contrário.
 ---
 function connect(self, leaseExpiredCallback)
   self.leaseExpiredCallback = leaseExpiredCallback

@@ -12,10 +12,12 @@ local log = require "openbus.common.Log"
 module("openbus.common.ClientInterceptor", oop.class)
 
 ---
---Constrói o interceptador.
+--Cria o interceptador.
 --
---@param config
---@param credentialHolder
+--@param config As configurações do interceptador.
+--@param credentialHolder O objeto onde a credencial do membro fica armazenada.
+--
+--@return O interceptador.
 ---
 function __init(self, config, credentialHolder)
 
@@ -29,6 +31,7 @@ end
 
 ---
 --Intercepta o request para envio da informação de contexto (credencial)
+--
 --@param request Informações sobre a requisição.
 ---
 function sendrequest(self, request)
@@ -49,7 +52,4 @@ function sendrequest(self, request)
     { context_id = self.contextID, context_data = encoder:getdata() }
   }
   log:interceptor("INSERI CREDENCIAL")
-end
-
-function receivereply(reply)
 end

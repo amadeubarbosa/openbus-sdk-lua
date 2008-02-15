@@ -1,7 +1,5 @@
---
--- Última alteração:
---   $Id$
------------------------------------------------------------------------------
+-- $Id$
+
 local print = print
 local pairs = pairs
 local ipairs = ipairs
@@ -22,8 +20,10 @@ module("openbus.common.ServerInterceptor", oop.class)
 ---
 --Constrói o interceptador.
 --
---@param config
---@param accessControlService
+--@param config As configurações do interceptador.
+--@param accessControlService O serviço de controle de acesso.
+--
+--@return O interceptador.
 ---
 function __init(self, config, accessControlService)
   Log:interceptor("Construindo interceptador para serviço")
@@ -62,7 +62,7 @@ end
 ---
 --Intercepta o request para obtenção da informação de contexto (credencial).
 --
---@param request
+--@param request Dados sobre o request.
 ---
 function receiverequest(self, request)
   Log:interceptor "INTERCEPTAÇÂO SERVIDOR!"
@@ -109,12 +109,17 @@ end
 ---
 --Intercepta a resposta ao request para "limpar" o contexto.
 --
---@param request
+--@param request Dados sobre o request.
 ---
 function sendreply(self, request)
   request.service_context = {}
 end
 
+---
+--Obtém a credencial da entidade que está realizando uma requisição.
+--
+--@return A credencial da entidade.
+---
 function getCredential(self)
   return self.picurrent:getValue()
 end

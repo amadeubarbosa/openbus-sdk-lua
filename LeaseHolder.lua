@@ -15,10 +15,12 @@ module ("openbus.common.LeaseHolder", oop.class)
 ---
 --Constrói o holder.
 --
---@param lease
---@param credential
---@param leaseProvider
---@param leaseExpiredCallback
+--@param lease O período de tempo entre as renovações do lease.
+--@param credential A credencial do membro.
+--@param leaseProvider A entidade onde se deve renovar o lease.
+--@param leaseExpiredCallback Função que será executada quando o lease expirar.
+--
+--@return O holder.
 ---
 function __init(self, lease, credential, leaseProvider, leaseExpiredCallback)
   log:lease("Lease set to "..lease)
@@ -30,23 +32,47 @@ function __init(self, lease, credential, leaseProvider, leaseExpiredCallback)
     })
 end
 
+---
+--Define por quanto tempo o lease será válido.
+--
+--@param lease O tempo de validade do lease.
+---
 function setLease(self, lease)
   self.lease = lease
   log:lease("Lease set to "..lease)
 end
 
+---
+--Obtém o tempo de validade do lease.
+--
+--@return O tempo de validade do lease.
+---
 function getLease(self)
   return self.lease
 end
 
+---
+--Define o provedor responsável pelo lease, ou seja, onde o lease deve ser
+--renovado.
+--
+--@provider O provedor.
+---
 function setProvider(self, provider)
   self.provider = provider
 end
 
+---
+--Obtém o provedor do lease.
+--
+--@return O provedor do lease.
+---
 function getProvider(self)
   return self.provider
 end
 
+---
+--Inicia a execução do renovador de lease.
+---
 function startRenew(self)
   if not self.timer then
     -- Aloca uma "thread" para a renovação do lease
@@ -89,6 +115,9 @@ function startRenew(self)
   self.timer:enable()
 end
 
+---
+--Termina a execução do renovador.
+---
 function stopRenew(self)
   self.timer:disable()
 end
