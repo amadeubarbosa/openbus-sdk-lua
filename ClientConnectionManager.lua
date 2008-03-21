@@ -17,15 +17,15 @@ oop.class(_M, ConnectionManager)
 --Cria o gerenciador de conexões.
 --
 --@param accessControlServerHost A localização do Serviço de Controle de Acesso.
---@param credentialHolder O objeto onde a credencial do membro fica armazenada.
+--@param credentialManager O objeto onde a credencial do membro fica armazenada.
 --@param user O nome do usuário.
 --@param password A senha do usuário.
 --
 --@return O gerenciador de conexões.
 ---
-function __init(self, accessControlServerHost, credentialHolder, user, password)
+function __init(self, accessControlServerHost, credentialManager, user, password)
   local obj = 
-    ConnectionManager.__init(self, accessControlServerHost, credentialHolder)
+    ConnectionManager.__init(self, accessControlServerHost, credentialManager)
   obj.user = user
   obj.password = password
   return obj

@@ -18,15 +18,15 @@ oop.class(_M, ConnectionManager)
 --Cria o gerenciador de conexões.
 --
 --@param accessControlServerHost A localização do serviço de controle de acesso.
---@param credentialHolder O objeto onde a credencial do membro fica armazenada.
+--@param credentialManager O objeto onde a credencial do membro fica armazenada.
 --@param privateKeyFile O caminho para o arquivo da chave privada do serviço.
 --@param certificateFile O caminho para o arquivo do certificado do serviço.
 --
 --@return O gerenciador de conexões.
 ---
-function __init(self, accessControlServerHost, credentialHolder, privateKeyFile, certificateFile)
+function __init(self, accessControlServerHost, credentialManager, privateKeyFile, certificateFile)
   local obj = 
-    ConnectionManager.__init(self, accessControlServerHost, credentialHolder)
+    ConnectionManager.__init(self, accessControlServerHost, credentialManager)
   obj.privateKeyFile = privateKeyFile 
   obj.certificateFile = certificateFile
   return obj

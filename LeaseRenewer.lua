@@ -10,17 +10,17 @@ local tostring = tostring
 ---
 --Objeto que é responsável por renovar o lease junto a um Provider.
 ---
-module ("openbus.common.LeaseHolder", oop.class)
+module ("openbus.common.LeaseRenewer", oop.class)
 
 ---
---Constrói o holder.
+--Constrói o renovador de lease.
 --
 --@param lease O período de tempo entre as renovações do lease.
 --@param credential A credencial do membro.
 --@param leaseProvider A entidade onde se deve renovar o lease.
 --@param leaseExpiredCallback Função que será executada quando o lease expirar.
 --
---@return O holder.
+--@return O renovador de lease.
 ---
 function __init(self, lease, credential, leaseProvider, leaseExpiredCallback)
   log:lease("Lease set to "..lease)
@@ -81,7 +81,6 @@ function startRenew(self)
       rate = self.lease,
     }
     function timer.action(timer)
-      -- self é o leaseHolder
       local provider = self:getProvider()
       local success, granted, newlease  =
         oil.pcall(provider.renewLease, provider, self.credential)

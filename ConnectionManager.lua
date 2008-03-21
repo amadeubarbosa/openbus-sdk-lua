@@ -3,7 +3,7 @@
 local oil = require "oil"
 local oop = require "loop.base"
 local log = require "openbus.common.Log"
-local LeaseHolder = require "openbus.common.LeaseHolder"
+local LeaseRenewer = require "openbus.common.LeaseRenewer"
 
 ---
 --Gerenciador de conexões de membros ao barramento.
@@ -14,14 +14,14 @@ module("openbus.common.ConnectionManager", oop.class)
 --Cria o gerenciador de conexões.
 --
 --@param accessControlServerHost A localização do serviço de controle de acesso.
---@param credentialHolder O objeto onde a credencial do membro fica armazenada.
+--@param credentialManager O objeto onde a credencial do membro fica armazenada.
 --
 --@return O gerenciador de conexões.
 ---
-function __init(self, accessControlServerHost, credentialHolder)
+function __init(self, accessControlServerHost, credentialManager)
   local obj = {
     accessControlServerHost = accessControlServerHost,
-    credentialHolder = credentialHolder
+    credentialManager = credentialManager
   }
   return oop.rawnew(self, obj)
 end
@@ -53,22 +53,22 @@ end
 --@param leaseExpiredCallback Função que será executada quando o lease expirar.
 ---
 function completeConnection(self, credential, lease, leaseExpiredCallback)
-  self.credentialHolder:setValue(credential)
-  self.leaseHolder = LeaseHolder(
+  self.credentialManager:setValue(credential)
+  self.leaseRenewer = LeaseRenewer(
     lease, credential, self.accessControlService, leaseExpiredCallback)
-  self.leaseHolder:startRenew()
+  self.leaseRenewer:startRenew()
 end
 
 ---
 --Desconecta um membro do barramento.
 ---
 function disconnect(self)
-  if self.leaseHolder then
-    self.leaseHolder:stopRenew()
-    self.leaseHolder = nil
+  if self.leaseRenewer then
+    self.leaseRenewer:stopRenew()
+    self.leaseRenewer = nil
   end
-  if self.accessControlService and self.credentialHolder:hasValue() then
-    self.accessControlService:logout(self.credentialHolder:getValue())
-    self.credentialHolder:invalidate()
+  if self.accessControlService and self.credentialManager:hasValue() then
+    self.accessControlService:logout(self.credentialManager:getValue())
+    self.credentialManager:invalidate()
   end
 end
