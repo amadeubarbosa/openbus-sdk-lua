@@ -1,6 +1,8 @@
 -- $Id$
 
 local oil = require "oil"
+local orb = oil.orb
+
 local oop = require "loop.base"
 
 local log = require "openbus.common.Log"
@@ -22,7 +24,7 @@ module("openbus.common.ClientInterceptor", oop.class)
 function __init(self, config, credentialManager)
 
   log:interceptor("Construindo interceptador para cliente")
-  local lir = oil.getLIR()
+  local lir = orb:getLIR()
   return oop.rawnew(self, 
                     {credentialManager = credentialManager,
                      credentialType = lir:lookup_id(config.credential_type).type,
@@ -45,7 +47,7 @@ function sendrequest(self, request)
   log:interceptor("TEM CREDENCIAL!")
 
   -- Insere a credencial no contexto do serviço
-  local encoder = oil.newencoder()
+  local encoder = orb:newencoder()
   encoder:put(self.credentialManager:getValue(), 
               self.credentialType)
   request.service_context =  {

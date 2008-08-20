@@ -5,6 +5,7 @@ local pairs = pairs
 local ipairs = ipairs
 
 local oil = require "oil"
+local orb = oil.orb
 
 local Log = require "openbus.common.Log"
 local PICurrent = require "openbus.common.PICurrent"
@@ -27,7 +28,7 @@ module("openbus.common.ServerInterceptor", oop.class)
 ---
 function __init(self, config, accessControlService)
   Log:interceptor("Construindo interceptador para serviço")
-  local lir = oil.getLIR()
+  local lir = orb:getLIR()
 
   -- Obtém as operações das interfaces que devem ser verificadas
   local checkedOperations = {}
@@ -78,7 +79,7 @@ function receiverequest(self, request)
   for _, context in ipairs(request.service_context) do
     if context.context_id == self.contextID then
       Log:interceptor "TEM CREDENCIAL!"
-      local decoder = oil.newdecoder(context.context_data)
+      local decoder = orb:newdecoder(context.context_data)
       credential = decoder:get(self.credentialType)
       Log:interceptor("CREDENCIAL: "..credential.identifier..","..credential.entityName)
       break
@@ -103,7 +104,7 @@ function receiverequest(self, request)
   end
   request.success = false
   request.count = 1
-  request[1] = oil.newexcept{"CORBA::NO_PERMISSION", minor_code_value = 0}
+  request[1] = orb:newexcept{"CORBA::NO_PERMISSION", minor_code_value = 0}
 end
 
 ---

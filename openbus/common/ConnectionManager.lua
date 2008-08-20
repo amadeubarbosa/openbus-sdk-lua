@@ -1,6 +1,8 @@
 -- $Id$
 
 local oil = require "oil"
+local orb = oil.orb
+
 local oop = require "loop.base"
 local log = require "openbus.common.Log"
 local LeaseRenewer = require "openbus.common.LeaseRenewer"
@@ -33,7 +35,7 @@ end
 --=
 function getAccessControlService(self)
   if self.accessControlService == nil then
-    local acs = oil.newproxy("corbaloc::"..self.accessControlServerHost.."/ACS",
+    local acs = orb:newproxy("corbaloc::"..self.accessControlServerHost.."/ACS",
                              "IDL:openbusidl/acs/IAccessControlService:1.0")
     if acs:_non_existent() then
       log:error("ConnectionManager: Servico de controle de acesso nao encontrado.")
