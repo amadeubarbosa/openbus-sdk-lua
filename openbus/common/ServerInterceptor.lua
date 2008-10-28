@@ -81,7 +81,7 @@ function receiverequest(self, request)
       Log:interceptor "TEM CREDENCIAL!"
       local decoder = orb:newdecoder(context.context_data)
       credential = decoder:get(self.credentialType)
-      Log:interceptor("CREDENCIAL: "..credential.identifier..","..credential.entityName)
+      Log:interceptor("CREDENCIAL: "..credential.identifier..","..credential.owner)
       break
     end
   end
