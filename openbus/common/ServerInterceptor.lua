@@ -68,6 +68,11 @@ end
 function receiverequest(self, request)
   Log:interceptor "INTERCEPTAÇÂO SERVIDOR!"
 
+  if (request.operation == "loginByPassword") then
+    Log:interceptor("Desligando verbose do dispatcher...")
+    oil.verbose:flag("dispatcher", false)
+  end
+
   if not (self.checkedOperations.all or
           self.checkedOperations[request.operation]) then
     Log:interceptor ("OPERAÇÂO "..request.operation.." NÂO È CHECADA")
@@ -113,6 +118,10 @@ end
 --@param request Dados sobre o request.
 ---
 function sendreply(self, request)
+  if (request.operation == "loginByPassword") then
+    Log:interceptor("Ligando verbose do dispatcher...")
+    oil.verbose:flag("dispatcher", true)
+  end
   request.service_context = {}
 end
 
