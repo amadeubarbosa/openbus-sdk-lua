@@ -42,6 +42,20 @@ function getAccessControlService(self)
       return nil
     end
     self.accessControlService = acs
+    if self.ACSLeaseProvider == nil then
+      local status, ACSIComponent = oil.pcall(acs._component, acs)
+      if not status then
+        log:error("ConnectionManager: Erro ao obter faceta IComponent do Servico de Controle de Acesso.")
+        return nil
+      end
+      ACSIComponent = ACSIComponent:_narrow()
+      local status, ACSLeaseProvider = oil.pcall(ACSIComponent.getFacet, ACSIComponent, "IDL:openbusidl/acs/ILeaseProvider:1.0")
+      if not status then
+        log:error("ConnectionManager: Erro ao obter faceta ILeaseProvider do Servico de Controle de Acesso.")
+        return nil
+      end
+      self.ACSLeaseProvider = ACSLeaseProvider:_narrow()
+    end
   end
   return self.accessControlService
 end
@@ -57,7 +71,7 @@ end
 function completeConnection(self, credential, lease, leaseExpiredCallback)
   self.credentialManager:setValue(credential)
   self.leaseRenewer = LeaseRenewer(
-    lease, credential, self.accessControlService, leaseExpiredCallback)
+    lease, credential, self.ACSLeaseProvider, leaseExpiredCallback)
   self.leaseRenewer:startRenew()
 end
 
