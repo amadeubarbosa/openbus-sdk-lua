@@ -18,7 +18,8 @@ module ("openbus.lease.LeaseRenewer", oop.class)
 --@param lease O período de tempo entre as renovações do lease.
 --@param credential A credencial do membro.
 --@param leaseProvider A entidade onde se deve renovar o lease.
---@param leaseExpiredCallback Função que será executada quando o lease expirar.
+--@param leaseExpiredCallback Instância de LeaseExpiredCallback que será
+--       executada quando o lease expirar.
 --
 --@return O renovador de lease.
 ---
@@ -99,7 +100,7 @@ function startRenew(self)
         log:lease("Lease não renovado.")
         timer:disable()
         if self.leaseExpiredCallback then
-          self.leaseExpiredCallback()
+          self.leaseExpiredCallback:expired()
         end
         return
       end
