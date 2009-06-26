@@ -7,8 +7,8 @@ local ipairs = ipairs
 local oil = require "oil"
 local orb = oil.orb
 
-local Log = require "openbus.common.Log"
-local PICurrent = require "openbus.common.PICurrent"
+local Log = require "openbus.util.Log"
+local PICurrent = require "openbus.interceptors.PICurrent"
 
 local oop = require "loop.base"
 
@@ -16,7 +16,7 @@ local oop = require "loop.base"
 --Interceptador de requisições de serviço, responsável por verificar se o
 --emissor da requisição foi autenticado (possui uma credencial válida).
 ---
-module("openbus.common.ServerInterceptor", oop.class)
+module("openbus.interceptors.ServerInterceptor", oop.class)
 
 ---
 --Constrói o interceptador.

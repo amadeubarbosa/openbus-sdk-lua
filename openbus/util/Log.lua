@@ -6,7 +6,7 @@ local Verbose = require "loop.debug.Verbose"
 ---
 --Mecanismo para debug do OpenBus baseado no módulo Verbose provido pelo LOOP
 ---
-module ("openbus.common.Log", Verbose)
+module ("openbus.util.Log", Verbose)
 
 -- Coloca data e hora no log
 timed = "%d/%m %H:%M:%S"

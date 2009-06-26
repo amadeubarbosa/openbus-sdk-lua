@@ -2,7 +2,7 @@
 
 local oil = require "oil"
 local oop = require "loop.base"
-local log = require "openbus.common.Log"
+local log = require "openbus.util.Log"
 
 local tostring = tostring
 

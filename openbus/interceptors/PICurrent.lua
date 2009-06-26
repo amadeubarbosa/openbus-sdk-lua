@@ -9,7 +9,7 @@ local setmetatable = setmetatable
 --Objeto que permite a transferência de informações de um interceptador
 --para o tratador de uma requisição de serviço.
 ---
-module("openbus.common.PICurrent", oop.class)
+module("openbus.interceptors.PICurrent", oop.class)
 
 ---
 --Constrói o objeto.

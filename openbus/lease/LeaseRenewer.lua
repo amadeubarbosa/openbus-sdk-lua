@@ -3,14 +3,14 @@
 local oil = require"oil"
 local oop = require "loop.base"
 local Timer = require "loop.thread.Timer"
-local log = require "openbus.common.Log"
+local log = require "openbus.util.Log"
 
 local tostring = tostring
 
 ---
 --Objeto que é responsável por renovar o lease junto a um Provider.
 ---
-module ("openbus.common.LeaseRenewer", oop.class)
+module ("openbus.lease.LeaseRenewer", oop.class)
 
 ---
 --Constrói o renovador de lease.

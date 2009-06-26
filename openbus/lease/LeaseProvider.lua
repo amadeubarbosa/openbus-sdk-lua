@@ -3,12 +3,12 @@
 local oil = require"oil"
 local oop = require "loop.base"
 local Timer = require "loop.thread.Timer"
-local log = require "openbus.common.Log"
+local log = require "openbus.util.Log"
 
 ---
 --Responsável por verificar os leases oferecidos.
 ---
-module ("openbus.common.LeaseProvider", oop.class)
+module ("openbus.lease.LeaseProvider", oop.class)
 
 ---
 --Cria o provedor de leases.

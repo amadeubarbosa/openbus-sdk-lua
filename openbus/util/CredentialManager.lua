@@ -6,7 +6,7 @@ local oop = require "loop.base"
 -- Responsável por armazenar a credencial de um membro. É usado pelo
 -- interceptador para obtenção da credencial do membro.
 ---
-module ("openbus.common.CredentialManager", oop.class)
+module ("openbus.util.CredentialManager", oop.class)
 
 ---
 --Define a credencial do membro.

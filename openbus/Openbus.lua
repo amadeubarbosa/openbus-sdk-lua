@@ -6,10 +6,10 @@ local oil = require "oil"
 
 local oop = require "loop.base"
 local lce = require "lce"
-local log = require "openbus.common.Log"
-local CredentialManager = require "openbus.common.CredentialManager"
+local log = require "openbus.util.Log"
+local CredentialManager = require "openbus.util.CredentialManager"
 local Utils = require "openbus.util.Utils"
-local LeaseRenewer = require "openbus.common.LeaseRenewer"
+local LeaseRenewer = require "openbus.lease.LeaseRenewer"
 local LeaseExpiredCallback = require "openbus.lease.LeaseExpiredCallback"
 
 local pairs = pairs
@@ -255,8 +255,8 @@ function Openbus:resetAndInitialize(host, port, props)
   --TODO: remover esse uso de oil.orb no Openbus e mover os requires abaixo para
   --      o topo.
   oil.orb = self.orb
-  ClientInterceptor = require "openbus.common.ClientInterceptor"
-  ServerInterceptor = require "openbus.common.ServerInterceptor"
+  ClientInterceptor = require "openbus.interceptors.ClientInterceptor"
+  ServerInterceptor = require "openbus.interceptors.ServerInterceptor"
   -- carrega IDLs
   local status, err = oil.pcall(self._loadIDLs, self)
   if not status then
