@@ -73,9 +73,17 @@ Openbus = oop.class {
   ---
   serverInterceptor = nil,
   ---
+  -- Configuração do interceptador servidor.
+  ---
+  serverInterceptorConfig = nil,
+  ---
   -- Interceptador cliente.
   ---
   clientInterceptor = nil,
+  ---
+  -- Configuração do interceptador cliente.
+  ---
+  clientInterceptorConfig = nil,
   ---
   -- Credencial recebida ao se conectar ao barramento.
   ---
@@ -129,7 +137,9 @@ function Openbus:_reset()
   self.rgs = nil
   self.ss = nil
   self.serverInterceptor = nil
+  self.serverInterceptorConfig = nil
   self.clientInterceptor = nil
+  self.clientInterceptorConfig = nil
   self.connectionState = 2
 end
 
@@ -137,12 +147,18 @@ end
 -- Cadastra os interceptadores cliente e servidor no ORB.
 ---
 function Openbus:_setInterceptors()
-  local DATA_DIR = os.getenv("OPENBUS_DATADIR")
-  local config = assert(loadfile(DATA_DIR ..
-    "/conf/advanced/InterceptorsConfiguration.lua"))()
-  self.serverInterceptor = ServerInterceptor(config, self.acs)
+  self.credentialManager = CredentialManager()
+  local config
+  if not self.serverInterceptorConfig or not self.clientInterceptorConfig then
+    local DATA_DIR = os.getenv("OPENBUS_DATADIR")
+    config = assert(loadfile(DATA_DIR ..
+      "/conf/advanced/InterceptorsConfiguration.lua"))()
+  end
+  self.serverInterceptor = ServerInterceptor(self.serverInterceptorConfig or
+    config, self.acs)
   self.orb:setserverinterceptor(self.serverInterceptor)
-  self.clientInterceptor = ClientInterceptor(config, self.credentialManager)
+  self.clientInterceptor = ClientInterceptor(self.clientInterceptorConfig or
+    config, self.credentialManager)
   self.orb:setclientinterceptor(self.clientInterceptor)
 end
 
@@ -165,7 +181,6 @@ function Openbus:_fetchACS()
     return false
   end
   self.acs, self.lp = acs, lp
-  self.credentialManager = CredentialManager()
   local status, err = oil.pcall(self._setInterceptors, self)
   if not status then
     log:error("Erro ao cadastrar interceptadores no ORB. Erro: " .. err)
@@ -191,8 +206,8 @@ function Openbus:_loadIDLs()
   self.orb:loadidlfile(idlfile)
   idlfile = IDLPATH_DIR .. "/session_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/data_service.idl"
-  self.orb:loadidlfile(idlfile)
+--  idlfile = IDLPATH_DIR .. "/data_service.idl"
+--  self.orb:loadidlfile(idlfile)
   return true
 end
 
@@ -221,10 +236,15 @@ end
 -- @param host Endereço do Serviço de Controle de Acesso.
 -- @param port Porta do Serviço de Controle de Acesso.
 -- @param props Conjunto de propriedades para a criação do ORB.
+-- @param serverInterceptorConfig Configuração opcional do interceptador
+--        servidor.
+-- @param clientInterceptorConfig Configuração opcional do interceptador
+--        cliente.
 --
 -- @return {@code false} caso ocorra algum erro, {@code true} caso contrário.
 ---
-function Openbus:resetAndInitialize(host, port, props)
+function Openbus:resetAndInitialize(host, port, props, serverInterceptorConfig,
+  clientInterceptorConfig)
   if not host then
     log:error("OpenBus: O campo 'host' não pode ser nil")
     return false
@@ -237,6 +257,8 @@ function Openbus:resetAndInitialize(host, port, props)
   -- init
   self.host = host
   self.port = port
+  self.serverInterceptorConfig = serverInterceptorConfig
+  self.clientInterceptorConfig = clientInterceptorConfig
   self.leaseExpiredCallback = LeaseExpiredCallback()
   -- configuração do OiL
   if not props then
@@ -286,6 +308,9 @@ end
 -- Finaliza a execução do ORB.
 ---
 function Openbus:finish()
+  if not self.orb then
+    return
+  end
   self.orb:shutdown()
   self.isORBFinished = true
 end
@@ -311,7 +336,7 @@ function Openbus:getRegistryService()
   if not self.rgs and self.acs then
     local status, err = oil.pcall(self.acs.getRegistryService, self.acs)
     if not status then
-      log:error("OpenBus: Não foi possível obter o Serviço de Registro. Erro: " ..
+      log:warn("OpenBus: Não foi possível obter o Serviço de Registro. Erro: " ..
         err)
       return nil
     end
@@ -381,6 +406,9 @@ end
 -- @return A credencial da requisição.
 ---
 function Openbus:getInterceptedCredential()
+  if not self.serverInterceptor then
+    return nil
+  end
   return self.serverInterceptor:getCredential()
 end
 
