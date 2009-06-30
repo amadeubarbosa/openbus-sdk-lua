@@ -1,9 +1,6 @@
 -- $Id: Openbus.lua 90798 2009-04-23 02:06:47Z augusto $
 
 local oil = require "oil"
-
---TODO: modificar registro e outros servicos para utilizar o novo mecanismo de adicao de leaseExpiredCallbacks. Chamar addLeaseExpiredCallback da API diretamente ao inves de passar pro connect.
-
 local oop = require "loop.base"
 local lce = require "lce"
 local log = require "openbus.util.Log"
