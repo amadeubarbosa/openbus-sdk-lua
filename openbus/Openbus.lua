@@ -86,10 +86,6 @@ Openbus = oop.class {
   ---
   credentialManager = nil,
   ---
-  -- A credencial da entidade, válida apenas na <i>thread</i> corrente.
-  ---
-  threadLocalCredential = nil,
-  ---
   -- O slot da credencial da requisição.
   ---
   requestCredentialSlot = -1,
@@ -116,7 +112,6 @@ end
 -- realizadas.
 ---
 function Openbus:_reset()
-  self.threadLocalCredential = nil
   self.credentialManager = nil
   self.requestCredentialSlot = -1
   if not self.isORBFinished and self.orb then
@@ -389,13 +384,9 @@ end
 -- @param credential Credencial a ser usada nas requisições a serem
 --        realizadas.
 ---
---TODO: verificar como setar a credencial da thread atual no OiL ou modificar
---      CredentialManager para poder descomentar o codigo abaixo.
---      O CredentialManager poderia receber uma credencial extra que só seria
---      válida até a próxima chamada ao seu método getValue(), p.ex.
---function Openbus:setThreadCredential(credential)
-  --self.threadLocalCredential.set(credential)
---end
+function Openbus:setThreadCredential(credential)
+  self.credentialManager:setThreadValue(credential)
+end
 
 ---
 -- Fornece a credencial interceptada a partir da requisição atual.

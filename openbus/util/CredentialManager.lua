@@ -1,5 +1,6 @@
 -- $Id$
 
+local oil = require "oil"
 local oop = require "loop.base"
 
 ---
@@ -24,6 +25,10 @@ end
 --definida.
 ---
 function getValue(self)
+  if self.threadCredentialValue and
+    self.threadCredentialValue[oil.tasks.current] then
+    return self.threadCredentialValue[oil.tasks.current]
+  end
   return self.credentialValue
 end
 
@@ -34,6 +39,10 @@ end
 --caso contrário.
 ---
 function hasValue(self)
+  if self.threadCredentialValue and
+    self.threadCredentialValue[oil.tasks.current] then
+    return true
+  end
   return self.credentialValue ~= nil
 end
 
@@ -42,4 +51,35 @@ end
 ---
 function invalidate(self)
   self.credentialValue = nil
+end
+
+---
+--Define a credencial da thread atual.
+--
+--@param credential A credencial.
+---
+function setThreadValue(self, credential)
+  if not self.threadCredentialValue then
+    self.threadCredentialValue = {}
+  end
+  self.threadCredentialValue[oil.tasks.current] = credential
+end
+
+---
+--Fornece a credencial da thread atual.
+---
+function getThreadValue(self)
+  if self.threadCredentialValue then
+    return self.threadCredentialValue[oil.tasks.current]
+  end
+  return nil
+end
+
+---
+--Remove a credencial da thread atual.
+---
+function invalidateThreadValue(self)
+  if self.threadCredentialValue then
+    self.threadCredentialValue[oil.tasks.current] = nil
+  end
 end
