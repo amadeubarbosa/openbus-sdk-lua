@@ -1,16 +1,18 @@
 -- $Id$
 
-local print = print
-local pairs = pairs
+local print  = print
+local pairs  = pairs
 local ipairs = ipairs
+local format = string.format
 
 local oil = require "oil"
 local orb = oil.orb
 
-local Log = require "openbus.util.Log"
+local Log       = require "openbus.util.Log"
 local PICurrent = require "openbus.interceptors.PICurrent"
 
-local oop = require "loop.base"
+local oop  = require "loop.base"
+local giop = require "oil.corba.giop"
 
 ---
 --Interceptador de requisições de serviço, responsável por verificar se o
@@ -29,35 +31,34 @@ module("openbus.interceptors.ServerInterceptor", oop.class)
 function __init(self, config, accessControlService)
   Log:interceptor("Construindo interceptador para serviço")
   local lir = orb:getLIR()
-
+  
   -- Obtém as operações das interfaces que devem ser verificadas
-  local checkedOperations = {}
+  local allowedOperations
   if config.interfaces then
+    allowedOperations = {}
     for _, iconfig in ipairs(config.interfaces) do
-      local iface = lir:resolve(iconfig.interface)
-      Log:interceptor(true, "checar interface: "..iconfig.interface)
+      local allowed = {}
+      allowedOperations[iconfig.interface] = allowed
+      Log:interceptor(true, format("Checar interface: %s", iconfig.interface))
       local excluded_ops = iconfig.excluded_ops or {}
-      for _, member in ipairs(iface.definitions) do
-        local op = member.name
-        if member._type == "operation" and not excluded_ops[op] then
-          checkedOperations[op] = true
-          Log:interceptor("checar operação: "..op)
-        end
+      for _, op in ipairs(excluded_ops) do
+        allowed[op] = true
+        Log:interceptor(format("Não checar operação: %s", op))
       end
       Log:interceptor(false)
     end
   else
     -- Se nenhuma interface especificada, checa todas as operações
-    checkedOperations.all = true
     Log:interceptor("checar todas as operações de qualquer interface")
   end
 
-  return oop.rawnew(self,
-                    { checkedOperations = checkedOperations,
-                      credentialType = lir:lookup_id(config.credential_type).type,
-                      contextID = config.contextID,
-                      picurrent = PICurrent(),
-                      accessControlService = accessControlService })
+  return oop.rawnew(self, {
+    allowedOperations = allowedOperations,
+    credentialType = lir:lookup_id(config.credential_type).type,
+    contextID = config.contextID,
+    picurrent = PICurrent(),
+    accessControlService = accessControlService
+  })
 end
 
 ---
@@ -68,17 +69,27 @@ end
 function receiverequest(self, request)
   Log:interceptor "INTERCEPTAÇÂO SERVIDOR!"
 
-  if (request.operation == "loginByPassword") then
+  -- XXX: nao existe forma padrao de recuperar o repID, esta e' uma
+  -- intrusao no OiL, ou seja, pode quebrar no futuro.
+  local repID = orb.ServantIndexer.indexer:typeof(request.object_key).repID
+  local op = request.operation
+  local allowed = self.allowedOperations and 
+                  self.allowedOperations[repID] and
+                  self.allowedOperations[repID][op]
+  local corba = giop.ObjectOperations[op]
+
+  if (repID == "IDL:openbusidl/acs/IAccessControlService:1.0") and
+     (op == "loginByPassword")
+  then
     Log:interceptor("Desligando verbose do dispatcher...")
     oil.verbose:flag("dispatcher", false)
   end
 
-  if not (self.checkedOperations.all or
-          self.checkedOperations[request.operation]) then
-    Log:interceptor ("OPERAÇÂO "..request.operation.." NÂO È CHECADA")
+  if corba or allowed then
+    Log:interceptor(format("OPERAÇÂO %s NÂO È CHECADA", op))
     return
   end
-  Log:interceptor ("OPERAÇÂO "..request.operation.." É CHECADA")
+  Log:interceptor(format("OPERAÇÂO %s É CHECADA", op))
 
   local credential
   for _, context in ipairs(request.service_context) do
@@ -86,7 +97,8 @@ function receiverequest(self, request)
       Log:interceptor "TEM CREDENCIAL!"
       local decoder = orb:newdecoder(context.context_data)
       credential = decoder:get(self.credentialType)
-      Log:interceptor("CREDENCIAL: "..credential.identifier..","..credential.owner)
+      Log:interceptor(format("CREDENCIAL: %s, %s", credential.identifier,
+         credential.owner))
       break
     end
   end
@@ -95,7 +107,7 @@ function receiverequest(self, request)
     local success, res = oil.pcall(self.accessControlService.isValid,
                                    self.accessControlService, credential)
     if success and res then
-      Log:interceptor("CREDENCIAL VALIDADA PARA "..request.operation)
+      Log:interceptor(format("CREDENCIAL VALIDADA PARA %s", request.operation))
       self.picurrent:setValue(credential)
       return
     end
