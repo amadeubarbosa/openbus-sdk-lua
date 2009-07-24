@@ -526,9 +526,6 @@ end
 --
 -- @return {@code true} caso a conexão seja desfeita, ou {@code false} se
 --         nenhuma conexão estiver ativa ou ocorra um erro.
---
--- @throws OpenBusException Caso ocorra erro ao parar a renovação de lease.
--- @throws ACSLoginFailureException O logout não foi executado corretamente.
 ---
 function Openbus:disconnect()
   if self.connectionState == 1 then
