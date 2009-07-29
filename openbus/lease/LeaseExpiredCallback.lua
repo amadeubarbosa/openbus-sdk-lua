@@ -31,7 +31,9 @@ function expired(self)
     temp[i] = v
   end
   for i, v in ipairs(temp) do
-    temp[i]:expired()
+    if self.callbacks:contains(v) then
+      v:expired()
+    end
   end
 end
 
