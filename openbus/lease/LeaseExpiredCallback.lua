@@ -4,6 +4,7 @@ local oop = require "loop.base"
 local set = require "loop.collection.UnorderedArraySet"
 
 local type = type
+local ipairs = ipairs
 
 ---
 -- API de adição de callbacks para expiração de lease.
@@ -24,11 +25,14 @@ function expired(self)
   if #(self.callbacks) == 0 then
     return
   end
-  local i = 1
-  repeat
-    self.callbacks[i]:expired()
-    i = i + 1
-  until i > #(self.callbacks)
+  -- cria copia da tabela para garantir que todas as callbacks sejam chamadas
+  local temp = {}
+  for i, v in ipairs(self.callbacks) do
+    temp[i] = v
+  end
+  for i, v in ipairs(temp) do
+    temp[i]:expired()
+  end
 end
 
 ---
