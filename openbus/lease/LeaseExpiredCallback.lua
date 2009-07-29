@@ -3,6 +3,8 @@
 local oop = require "loop.base"
 local set = require "loop.collection.UnorderedArraySet"
 
+local type = type
+
 ---
 -- API de adição de callbacks para expiração de lease.
 ---
@@ -24,7 +26,7 @@ function expired(self)
   end
   local i = 1
   repeat
-    self.callbacks[i]()
+    self.callbacks[i]:expired()
     i = i + 1
   until i > #(self.callbacks)
 end
@@ -32,12 +34,15 @@ end
 ---
 -- Adiciona um observador para receber eventos de expiração do <i>lease</i>.
 --
--- @param lec O observador.
+-- @param lec O observador. Deve ser um objeto, contendo um metodo expired().
 --
 -- @return {@code true}, caso o observador seja adicionado, ou {@code false}
 --         , caso contrário.
 ---
 function addLeaseExpiredCallback(self, lec)
+  if not lec.expired or type(lec.expired) ~= "function" then
+    return false
+  end
   if self.callbacks:add(lec) then
     return true
   end
