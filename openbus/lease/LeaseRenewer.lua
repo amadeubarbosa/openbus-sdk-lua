@@ -72,6 +72,15 @@ function getProvider(self)
 end
 
 ---
+--Define o observador do lease.
+--
+--@lec o Observador.
+---
+function setLeaseExpiredCallback(self, lec)
+  self.leaseExpiredCallback = lec
+end
+
+---
 --Inicia a execução do renovador de lease.
 ---
 function startRenew(self)

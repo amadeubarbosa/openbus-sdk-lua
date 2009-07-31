@@ -7,7 +7,6 @@ local log = require "openbus.util.Log"
 local CredentialManager = require "openbus.util.CredentialManager"
 local Utils = require "openbus.util.Utils"
 local LeaseRenewer = require "openbus.lease.LeaseRenewer"
-local LeaseExpiredCallback = require "openbus.lease.LeaseExpiredCallback"
 
 local pairs = pairs
 local os = os
@@ -251,7 +250,6 @@ function Openbus:resetAndInitialize(host, port, props, serverInterceptorConfig,
   self.port = port
   self.serverInterceptorConfig = serverInterceptorConfig
   self.clientInterceptorConfig = clientInterceptorConfig
-  self.leaseExpiredCallback = LeaseExpiredCallback()
   -- configuração do OiL
   if not props then
     props = {}
@@ -576,23 +574,27 @@ end
 --
 -- @param lec O observador.
 --
--- @return {@code true}, caso o observador seja adicionado, ou {@code false},
---         caso contrário.
 ---
 function Openbus:addLeaseExpiredCallback(lec)
-  return self.leaseExpiredCallback:addLeaseExpiredCallback(lec)
+  self.leaseExpiredCallback = lec
+  if self.connectionState == 1 then
+    if self.leaseRenewer then
+      self.leaseRenewer:setLeaseExpiredCallback(lec)
+    end
+  end
 end
 
 ---
 -- Remove um observador de expiração do <i>lease</i>.
 --
--- @param lec O observador.
---
--- @return {@code true}, caso o observador seja removido, ou {@code false},
---         caso contrário.
 ---
-function Openbus:removeLeaseExpiredCallback(lec)
-  return self.leaseExpiredCallback:removeLeaseExpiredCallback(lec)
+function Openbus:removeLeaseExpiredCallback()
+  self.leaseExpiredCallback = nil
+  if self.connectionState == 1 then
+    if self.leaseRenewer then
+      self.leaseRenewer:setLeaseExpiredCallback(nil)
+    end
+  end
 end
 
 return Openbus()
