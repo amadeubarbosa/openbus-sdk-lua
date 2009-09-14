@@ -376,6 +376,17 @@ function Openbus:getCredential()
 end
 
 ---
+-- Configura a credencial da entidade.
+--
+-- @param credential A nova credencial
+---
+function Openbus:setCredential(credential)
+  if self.credentialManager then
+    self.credentialManager:setValue(credential)
+  end
+end
+
+---
 -- Define uma credencial a ser utilizada no lugar da credencial corrente. Útil
 -- para fornecer uma credencial com o campo delegate preenchido.
 --
