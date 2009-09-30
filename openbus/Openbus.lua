@@ -7,6 +7,7 @@ local log = require "openbus.util.Log"
 local CredentialManager = require "openbus.util.CredentialManager"
 local Utils = require "openbus.util.Utils"
 local LeaseRenewer = require "openbus.lease.LeaseRenewer"
+log:level(5)
 
 local pairs = pairs
 local os = os
@@ -196,6 +197,10 @@ function Openbus:_loadIDLs()
   idlfile = IDLPATH_DIR .. "/registry_service.idl"
   self.orb:loadidlfile(idlfile)
   idlfile = IDLPATH_DIR .. "/session_service.idl"
+  self.orb:loadidlfile(idlfile)
+  idlfile = IDLPATH_DIR .. "/ft_service.idl"
+  self.orb:loadidlfile(idlfile)
+  idlfile = IDLPATH_DIR .. "/ft_service_monitor.idl"
   self.orb:loadidlfile(idlfile)
 --  idlfile = IDLPATH_DIR .. "/data_service.idl"
 --  self.orb:loadidlfile(idlfile)
