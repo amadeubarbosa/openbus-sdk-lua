@@ -7,7 +7,6 @@ local log = require "openbus.util.Log"
 local CredentialManager = require "openbus.util.CredentialManager"
 local Utils = require "openbus.util.Utils"
 local LeaseRenewer = require "openbus.lease.LeaseRenewer"
-log:level(5)
 
 local pairs = pairs
 local os = os
