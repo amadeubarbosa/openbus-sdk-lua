@@ -23,11 +23,18 @@ ACCESS_CONTROL_SERVICE_INTERFACE =
 LEASE_PROVIDER_INTERFACE = "IDL:openbusidl/acs/ILeaseProvider:1.0"
 
 ---
+--  A interface IFaultTolerantService.
+---
+FAULT_TOLERANT_SERVICE_INTERFACE = 
+  "IDL:openbusidl/ft/IFaultTolerantService:1.0"
+
+---
 --  As chaves CORBALOC para obtenção das interfaces do ACS.
 ---
 ICOMPONENT_KEY = "/IC"
 ACCESS_CONTROL_SERVICE_KEY = "/ACS"
 LEASE_PROVIDER_KEY = "/LP"
+FAULT_TOLERANT_SERVICE_KEY = "/FTACS"
 
 ---
 --  A interface ISessionService.
@@ -78,6 +85,11 @@ function fetchAccessControlService(orb, host, port)
   if ic:_non_existent() then
     log:error("Utils: Faceta IComponent não encontrada.")
   end
-  return acs, lp, ic
+  local ft = orb:newproxy("corbaloc::".. host .. ":" .. port .. FAULT_TOLERANT_SERVICE_KEY,
+    "IDL:openbusidl/ft/IFaultTolerantService:1.0")
+  if ft:_non_existent() then
+    log:error("Utils: Faceta IFaultTolerantService não encontrada.")
+  end
+  return acs, lp, ic, ft
 end
 
