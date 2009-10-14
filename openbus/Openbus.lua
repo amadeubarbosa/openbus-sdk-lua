@@ -381,18 +381,20 @@ function Openbus:getRegistryService()
   return self.rgs
 end
 
+
 ---
--- Retorna o Servico de Registro em um Smart Proxy se o mecanismo de tolerancia a falhas estiver habilitado
--- @return o servico de registro smart.
--- @return {@code nil} se nao tiver habilitado.
+-- Retorna um Smart Proxy 
+-- @return o smart proxy do proxy, se o mecanismo de tolerancia a falhas estiver habilitado.
+-- @return o mesmo proxy, se nao tiver habilitado.
 ---
-function Openbus:getSmartRegistryService(registry)
-	if self.isFaultToleranceEnable then
-		registry = registry.__smart
-		log:faulttolerance("Servico de registro adaptado para ser um smart proxy.")
-		return registry
-  	end
-  	return registry
+function Openbus:getSmartProxy(proxyS)
+	if not self.isFaultToleranceEnable then
+		log:error("OpenBus: Não foi possível obter o smart proxy porque o mecanismo de TF nao esta habilitado ")
+		return nil
+	end
+	local smartProxy = proxyS.__smart
+	log:faulttolerance("Proxy adaptado para ser um smart proxy.")
+	return smartProxy
 end
 
 ---
