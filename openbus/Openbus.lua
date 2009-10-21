@@ -50,6 +50,10 @@ Openbus = oop.class {
   ---
   lp = nil,
   ---
+  -- Interface IComponent do Serviço de Controle de Acesso.
+  ---
+  ic = nil,
+  ---
   -- Interface IFaultTolerantService do Serviço de Controle de Acesso.
   ---
   ft = nil,  
@@ -132,6 +136,7 @@ function Openbus:_reset()
   self.host = nil
   self.port = -1
   self.lp = nil
+  self.ic = nil
   self.ft = nil
   self.leaseRenewer = nil
   self.leaseExpiredCallback = nil
@@ -172,8 +177,8 @@ end
 -- @return {@code false} caso ocorra algum erro, {@code true} caso contrário.
 ---
 function Openbus:_fetchACS()
-  local status, acs, lp, ft = oil.pcall(Utils.fetchAccessControlService, self.orb,
-    self.host, self.port)
+  local status, acs, lp, ic, ft = oil.pcall(Utils.fetchAccessControlService,
+    self.orb, self.host, self.port)
   if not status then
     log:error("Erro ao obter as facetas do Serviço de Controle de Acesso." ..
       "Erro: " .. acs)
@@ -191,7 +196,7 @@ function Openbus:_fetchACS()
   	log:faulttolerance("Servico de controle de acesso adaptado para ser um smart proxy.")
   end
   
-  self.acs, self.lp, self.ft = acs, lp, ft
+  self.acs, self.lp, self.ic, self.ft = acs, lp, ic, ft
   local status, err = oil.pcall(self._setInterceptors, self)
   if not status then
     log:error("Erro ao cadastrar interceptadores no ORB. Erro: " .. err)
@@ -369,14 +374,20 @@ end
 --         referência e o Serviço de Controle de Acesso estiver inacessível.
 ---
 function Openbus:getRegistryService()
-  if not self.rgs and self.acs then
-    local status, err = oil.pcall(self.acs.getRegistryService, self.acs)
+  if not self.rgs and self.ic then
+    local acsIRecep =  self.ic:getFacetByName("IReceptacles")
+    acsIRecep = self.orb:narrow(acsIRecep, "IDL:scs/core/IReceptacles:1.0")
+    local status, conns = oil.pcall(acsIRecep.getConnections, acsIRecep,
+                                   "RegistryServiceReceptacle")
     if not status then
       log:warn("OpenBus: Não foi possível obter o Serviço de Registro. Erro: " ..
         err)
+      log:warn(conns)
       return nil
     end
-    self.rgs = err
+    if conns[1] ~= nil then 
+      self.rgs = conns[1].objref
+    end
   end
   return self.rgs
 end
