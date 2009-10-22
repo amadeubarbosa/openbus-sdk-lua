@@ -386,7 +386,8 @@ function Openbus:getRegistryService()
       return nil
     end
     if conns[1] ~= nil then 
-      self.rgs = conns[1].objref
+      self.rgs = self.orb:narrow(conns[1].objref,
+                                "IDL:openbusidl/rs/IRegistryService:1.0")
     end
   end
   return self.rgs
