@@ -1,3 +1,5 @@
+local print = print
+
 local tabop       = require "loop.table"
 local ObjectCache = require "loop.collection.ObjectCache"
 
@@ -16,12 +18,46 @@ for _, repid in pairs(giop.SystemExceptionIDs) do
 end
 
 local Replicas = {}
+local indexCurr = {}
+local Components = {}
 
 local orb
+
+function addSmart(componentId, replica)
+	replica = replica.__smart
+	if Components[componentId] == nil then
+		k = 1
+		Components[componentId] = {}
+	else
+	    k = # Components[componentId] 
+	end
+	Components[componentId][k] = replica
+end
 
 --Lista de replicas para cada objectkey
 function setreplicas(objkey, refs)
 	Replicas[objkey] = refs
+	indexCurr[objkey] = 0
+end
+
+function getCurrRef(objkey)
+	local replicas = Replicas[objkey]
+	for i=1, table.maxn(replicas) do
+		if i==indexCurr[objkey] then
+    		return tostring(replicas[i])
+    	end
+	end
+	return nil
+end
+
+function updateHostInUse(objkey)
+    local numberOfHosts = # Replicas[objkey]
+
+	if indexCurr[objkey] == numberOfHosts then
+	   indexCurr[objkey] = 1
+    else
+       indexCurr[objkey] = indexCurr[objkey] + 1
+	end
 end
 
 function setorb(value)
@@ -61,25 +97,47 @@ function smartmethod(invoker, operation)
 		if ex then
 			-- se excecao estiver na lista das excecoes trataveis
 			if CriticalExceptions[ex[1]] then
+			    local objkey = self.__reference._object
 			    log:faulttolerance("[smartpatch] tratando requisicao")
 				--pega a lista de replicas com o objectkey do servidor "interceptado"
-				local replicas = Replicas[self.__reference._object]
+				local replicas = Replicas[objkey]
 				-- se nao tiver a lista de replicas retorna com erro
 				if replicas == nil then error(ex) end
 				local prx2
 				repeat
-					-- pega a referencia para a proxima replica da lista
-					local nexttobeused = (self.lastused or 0) + 1
-					-- se ja tentou todas, sai com erro
-					if replicas[nexttobeused] == nil then
-						error(ex)
-					end
+					self:updateHostInUse(objkey)
 					-- pega o proxy da proxima replica
-					prx2 = orb:newproxy(replicas[nexttobeused],
+					prx2 = orb:newproxy(replicas[indexCurr[objkey]],
 					                    self.__type)
-					self.lastused = nexttobeused
+					local stop = false                    
+					if not prx2:_non_existent() then
+					    local componentId
+						for compId,v in pairs(Components) do 
+								for i,rep in ipairs(v) do 
+									if rep.__reference._object == objKey then
+										componentId = compId
+										break
+					                end
+								end
+						end
+						
+						stop = true 
+						for i, rep in ipairs(Components[compId]) do
+							self:updateHostInUse(rep.__reference._object)
+										
+							rep = orb:newproxy(replicas[indexCurr[rep.__reference._object]],
+													self.__type)
+							if not rep:_non_existent() then				
+								tabop.copy(rep.__smart, rep)
+							else
+								stop = false
+								break
+							end
+						end
+					end					
+					
 				--verifica se nao esta com problema
-				until not prx2:_non_existent()
+				until stop
 
 				--troca a referencia do proxy para a nova replica
 				tabop.copy(prx2.__smart, self)

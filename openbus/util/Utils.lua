@@ -3,6 +3,7 @@
 local oil = require "oil"
 local oop = require "loop.base"
 local log = require "openbus.util.Log"
+local OilUtilities = require "openbus.util.OilUtilities"
 
 local tostring = tostring
 
@@ -34,7 +35,9 @@ FAULT_TOLERANT_SERVICE_INTERFACE =
 ICOMPONENT_KEY = "/IC"
 ACCESS_CONTROL_SERVICE_KEY = "/ACS"
 LEASE_PROVIDER_KEY = "/LP"
-FAULT_TOLERANT_SERVICE_KEY = "/FTACS"
+FAULT_TOLERANT_ACS_KEY = "/FTACS"
+REGISTRY_SERVICE_KEY = "/RS"
+FAULT_TOLERANT_RS_KEY = "/FTRS"
 
 ---
 --  A interface ISessionService.
@@ -85,11 +88,13 @@ function fetchAccessControlService(orb, host, port)
   if ic:_non_existent() then
     log:error("Utils: Faceta IComponent não encontrada.")
   end
-  local ft = orb:newproxy("corbaloc::".. host .. ":" .. port .. FAULT_TOLERANT_SERVICE_KEY,
+  local ft = orb:newproxy("corbaloc::".. host .. ":" .. port .. FAULT_TOLERANT_ACS_KEY,
     "IDL:openbusidl/ft/IFaultTolerantService:1.0")
   if ft:_non_existent() then
     log:error("Utils: Faceta IFaultTolerantService não encontrada.")
   end
   return acs, lp, ic, ft
 end
+
+
 

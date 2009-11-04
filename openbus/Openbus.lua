@@ -7,13 +7,16 @@ local log = require "openbus.util.Log"
 local CredentialManager = require "openbus.util.CredentialManager"
 local Utils = require "openbus.util.Utils"
 local LeaseRenewer = require "openbus.lease.LeaseRenewer"
+local OilUtilities = require "openbus.util.OilUtilities"
 local smartpatch = require "openbus.faulttolerance.smartpatch"
+local SmartComponent = require "openbus.faulttolerance.SmartComponent"
 
 local pairs = pairs
 local os = os
 local loadfile = loadfile
 local assert = assert
 local require = require
+local print = print
 
 ---
 -- API de acesso a um barramento OpenBus.
@@ -105,11 +108,15 @@ Openbus = oop.class {
   -- Indica se o mecanismo de tolerancia a falhas esta ativo
   ---
   isFaultToleranceEnable = false,
+
+  smartACS = nil,
+
   ---
   -- Guarda os métodos que não devem ser interceptados.
   -- Política padrão é de interceptar todos.
   ---
   ifaceMap = nil,
+
 }
 
 ---
@@ -153,6 +160,7 @@ function Openbus:_reset()
   self.clientInterceptorConfig = nil
   self.connectionState = 2
   self.isFaultToleranceEnable = false
+  self.smartACS = nil
   self.ifaceMap = {}
 end
 
@@ -183,26 +191,35 @@ end
 -- @return {@code false} caso ocorra algum erro, {@code true} caso contrário.
 ---
 function Openbus:_fetchACS()
-  local status, acs, lp, ic, ft = oil.pcall(Utils.fetchAccessControlService,
-    self.orb, self.host, self.port)
-  if not status then
-    log:error("Erro ao obter as facetas do Serviço de Controle de Acesso." ..
-      "Erro: " .. acs)
-    return false
+
+  local status, acs, lp, ft, ic 
+  
+  if self.isFaultToleranceEnable then
+  	status, services = self.smartACS:_fetchSmartComponent()
+  else
+    status, acs, lp, ic, ft = oil.pcall(Utils.fetchAccessControlService, self.orb, self.host, self.port)
   end
-  if not acs then
-    -- erro já foi pego e logado pela Utils
-    return false
+  
+  if not status then
+		log:error("Erro ao obter as facetas do Serviço de Controle de Acesso." ..
+		  "Erro: " .. acs)
+		return false
+  end
+  if (self.isFaultToleranceEnable and not services) or 
+  	 (not self.isFaultToleranceEnable and not acs) then
+		-- o erro já foi pego e logado
+		return false
   end
   
   if self.isFaultToleranceEnable then
-  	acs = acs.__smart
-  	lp  = lp.__smart
-  	ft  = ft.__smart
-  	log:faulttolerance("Servico de controle de acesso adaptado para ser um smart proxy.")
+  	acs = services[Utils.ACCESS_CONTROL_SERVICE_KEY]
+    lp = services[Utils.LEASE_PROVIDER_KEY]
+    ic = services[Utils.ICOMPONENT_KEY]
+    ft = services[Utils.FAULT_TOLERANT_ACS_KEY]
   end
   
   self.acs, self.lp, self.ic, self.ft = acs, lp, ic, ft
+
   local status, err = oil.pcall(self._setInterceptors, self)
   if not status then
     log:error("Erro ao cadastrar interceptadores no ORB. Erro: " .. err)
@@ -252,7 +269,10 @@ function Openbus:_completeConnection(credential, lease)
     lease, credential, self.lp, self.leaseExpiredCallback)
   self.leaseRenewer:startRenew()
   self.connectionState = 1
-  return self:getRegistryService()
+  if not self.rgs then
+  	self.rgs = self.acs:getRegistryService()
+  end
+  return self.rgs
 end
 
 ---
@@ -264,15 +284,24 @@ function Openbus:enableFaultTolerance()
        log:error("OpenBus: O orb precisa ser inicializado.")
        return false
     end 
-    smartpatch.setorb(self.orb)
     
-    local DATA_DIR = os.getenv("OPENBUS_DATADIR")
-    local ftconfig = assert(loadfile(DATA_DIR .."/conf/FaultToleranceConfiguration.lua"))()
-    
-    smartpatch.setreplicas("ACS", ftconfig.hosts.ACS)
-    smartpatch.setreplicas("RS", ftconfig.hosts.RS)
-    
-	log:faulttolerance("smartpatch configurado.")
+    if not self.isFaultToleranceEnable then
+    	local DATA_DIR = os.getenv("OPENBUS_DATADIR")
+    	local ftconfig = assert(loadfile(DATA_DIR .."/conf/FaultToleranceConfiguration.lua"))()
+    	local keys = {}
+    	keys[Utils.ACCESS_CONTROL_SERVICE_KEY] = { interface = "IDL:openbusidl/acs/IAccessControlService:1.0",
+    												  hosts = ftconfig.hosts.ACS, }
+    	keys[Utils.LEASE_PROVIDER_KEY] = { interface = "IDL:openbusidl/acs/ILeaseProvider:1.0",
+    										  hosts = ftconfig.hosts.LP, }
+    	keys[Utils.ICOMPONENT_KEY] = { interface = "IDL:scs/core/IComponent:1.0",
+    									  hosts = ftconfig.hosts.ACSIC, }
+    	keys[Utils.FAULT_TOLERANT_ACS_KEY] = { interface = "IDL:openbusidl/ft/IFaultTolerantService:1.0",
+    									  		  hosts = ftconfig.hosts.FTACS, }
+
+    	self.smartACS = SmartComponent:__init(self.orb, "ACS", keys)
+    	
+    end
+
 	self.isFaultToleranceEnable = true
 	return true
 end
@@ -364,56 +393,37 @@ end
 
 ---
 -- Fornece o Serviço de Controle de Acesso.
+-- Caso esteja em estado de falha e o mecanismo de tolerancia a falhas esteja ativado,
+-- obtem outra réplica ativa
 --
 -- @return O Serviço de Controle de Acesso.
 ---
 function Openbus:getAccessControlService()
+
+  if self.acs and self.isFaultToleranceEnable then
+  	if not OilUtilities:existent(self.acs)  then
+      if not self:_fetchACS() then
+        log:error("OpenBus: Não foi possível acessar o servico de controle de acesso.")
+        return false
+      end
+    end
+  end
   return self.acs
 end
 
----
--- Fornece o Serviço de Registro. Caso o Openbus ainda não tenha a referência
--- para o Serviço de Registro, obtém a mesma a partir do Serviço de Controle de
--- Acesso.
---
--- @return O Serviço de Registro. Nil caso ainda não tenha sido obtida uma
---         referência e o Serviço de Controle de Acesso estiver inacessível.
----
-function Openbus:getRegistryService()
-  if not self.rgs and self.ic then
-    local acsIRecep =  self.ic:getFacetByName("IReceptacles")
-    acsIRecep = self.orb:narrow(acsIRecep, "IDL:scs/core/IReceptacles:1.0")
-    local status, conns = oil.pcall(acsIRecep.getConnections, acsIRecep,
-                                   "RegistryServiceReceptacle")
-    if not status then
-      log:warn("OpenBus: Não foi possível obter o Serviço de Registro. Erro: " ..
-        err)
-      log:warn(conns)
-      return nil
-    end
-    if conns[1] ~= nil then 
-      self.rgs = self.orb:narrow(conns[1].objref,
-                                "IDL:openbusidl/rs/IRegistryService:1.0")
+function Openbus:getACSIComponent()
+  if self.ic and self.isFaultToleranceEnable then
+  	if not OilUtilities:existent(self.ic)  then
+      if not self:_fetchACS() then
+        log:error("OpenBus: Não foi possível acessar o servico de controle de acesso.")
+        return false
+      end
     end
   end
-  return self.rgs
+  return self.ic
 end
 
 
----
--- Retorna um Smart Proxy 
--- @return o smart proxy do proxy, se o mecanismo de tolerancia a falhas estiver habilitado.
--- @return o mesmo proxy, se nao tiver habilitado.
----
-function Openbus:getSmartProxy(proxyS)
-	if not self.isFaultToleranceEnable then
-		log:error("OpenBus: Não foi possível obter o smart proxy porque o mecanismo de TF nao esta habilitado ")
-		return nil
-	end
-	local smartProxy = proxyS.__smart
-	log:faulttolerance("Proxy adaptado para ser um smart proxy.")
-	return smartProxy
-end
 
 ---
 -- Fornece o Serviço de Sessão. Caso o Openbus ainda não tenha a referência
@@ -424,7 +434,9 @@ end
 ---
 function Openbus:getSessionService()
   if not self.rgs then
-    self:getRegistryService()
+  	local registryService = self.acs:getRegistryService()
+  	self.rgs = self.orb:narrow(registryService,
+                    "IDL:openbusidl/rs/IRegistryService:1.0")
   end
   if not self.ss and self.rgs then
     local facets = { Utils.SESSION_SERVICE_FACET_NAME }
@@ -604,7 +616,12 @@ function Openbus:connectByCredential(credential)
   end
   if self.acs:isValid(credential) then
     self.credentialManager:setValue(credential)
-    return self:getRegistryService()
+    if not self.rgs then
+    	local registryService = self.acs:getRegistryService()
+  			self.rgs = self.orb:narrow(registryService,
+                    "IDL:openbusidl/rs/IRegistryService:1.0")
+    end
+    return self.rgs
   end
   log:error("OpenBus: Credencial inválida.")
   return false
