@@ -8,6 +8,7 @@ local format = string.format
 local oil = require "oil"
 local orb = oil.orb
 
+local Openbus   = require "openbus.Openbus"
 local Log       = require "openbus.util.Log"
 local PICurrent = require "openbus.interceptors.PICurrent"
 
@@ -30,19 +31,14 @@ module("openbus.interceptors.ServerInterceptor", oop.class)
 ---
 function __init(self, config, accessControlService)
   Log:interceptor("Construindo interceptador para serviço")
-  local lir = orb:getLIR()
+  local lir = Openbus:getORB():getLIR()
   
   -- Obtém as operações das interfaces que devem ser verificadas
-  local allowedOperations
   if config.interfaces then
-    allowedOperations = {}
     for _, iconfig in ipairs(config.interfaces) do
-      local allowed = {}
-      allowedOperations[iconfig.interface] = allowed
       Log:interceptor(true, format("Checar interface: %s", iconfig.interface))
-      local excluded_ops = iconfig.excluded_ops or {}
-      for _, op in ipairs(excluded_ops) do
-        allowed[op] = true
+      for _, op in ipairs(iconfig.excluded_ops or {}) do
+        Openbus:setInterceptable(iconfig.interface, op, false)
         Log:interceptor(format("Não checar operação: %s", op))
       end
       Log:interceptor(false)
@@ -52,8 +48,13 @@ function __init(self, config, accessControlService)
     Log:interceptor("checar todas as operações de qualquer interface")
   end
 
+  -- Adiciona as operações de CORBA como não verificadas.
+  -- A classe Object de CORBA não tem repID, criar um identificar interno.
+  for op in pairs(giop.ObjectOperations) do
+    Openbus:setInterceptable("::CORBA::Object", op, false)
+  end
+
   return oop.rawnew(self, {
-    allowedOperations = allowedOperations,
     credentialType = lir:lookup_id(config.credential_type).type,
     contextID = config.contextID,
     picurrent = PICurrent(),
@@ -72,24 +73,21 @@ function receiverequest(self, request)
   -- XXX: nao existe forma padrao de recuperar o repID, esta e' uma
   -- intrusao no OiL, ou seja, pode quebrar no futuro.
   local repID = orb.ServantIndexer.indexer:typeof(request.object_key).repID
-  local op = request.operation
-  local allowed = self.allowedOperations and 
-                  self.allowedOperations[repID] and
-                  self.allowedOperations[repID][op]
-  local corba = giop.ObjectOperations[op]
+  local allowed = not (Openbus:isInterceptable(repID, request.operation) and
+    Openbus:isInterceptable("::CORBA::Object", request.operation))
 
   if (repID == "IDL:openbusidl/acs/IAccessControlService:1.0") and
-     (op == "loginByPassword")
+     (request.operation == "loginByPassword")
   then
     Log:interceptor("Desligando verbose do dispatcher...")
     oil.verbose:flag("dispatcher", false)
   end
 
-  if corba or allowed then
-    Log:interceptor(format("OPERAÇÂO %s NÂO È CHECADA", op))
+  if allowed then
+    Log:interceptor(format("OPERAÇÂO %s NÂO È CHECADA", request.operation))
     return
   end
-  Log:interceptor(format("OPERAÇÂO %s É CHECADA", op))
+  Log:interceptor(format("OPERAÇÂO %s É CHECADA", request.operation))
 
   local credential
   for _, context in ipairs(request.service_context) do

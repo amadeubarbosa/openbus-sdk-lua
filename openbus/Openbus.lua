@@ -105,6 +105,11 @@ Openbus = oop.class {
   -- Indica se o mecanismo de tolerancia a falhas esta ativo
   ---
   isFaultToleranceEnable = false,
+  ---
+  -- Guarda os métodos que não devem ser interceptados.
+  -- Política padrão é de interceptar todos.
+  ---
+  ifaceMap = nil,
 }
 
 ---
@@ -148,6 +153,7 @@ function Openbus:_reset()
   self.clientInterceptorConfig = nil
   self.connectionState = 2
   self.isFaultToleranceEnable = false
+  self.ifaceMap = {}
 end
 
 ---
@@ -680,6 +686,47 @@ function Openbus:removeLeaseExpiredCallback()
       self.leaseRenewer:setLeaseExpiredCallback(nil)
     end
   end
+end
+
+---
+-- Indica se o método da interface deve ser interceptado.
+--
+-- @param iface RepID da interface do método.
+-- @param method Nome do método.
+-- @param interceptable Indica se o método deve ser interceptado ou não.
+--
+function Openbus:setInterceptable(iface, method, interceptable)
+  -- Guarda apenas os métodos que não devem ser interceptados
+  local methods
+  if interceptable then
+    methods = self.ifaceMap[iface]
+    if methods then
+      methods[method] = nil
+      if not next(method) then
+        self.ifaceMap[iface] = nil
+      end
+    end
+  else
+    methods = self.ifaceMap[iface]
+    if not methods then
+      methods = {}
+      self.ifaceMap[iface] = methods
+    end
+    methods[method] = true
+  end
+end
+
+---
+-- Consulta se o método deve ser interceptado.
+--
+-- @param iface RepID da interface do método.
+-- @param method Nome do método.
+--
+-- @return true se o método deve ser interceptado e false, caso contrário.
+--
+function Openbus:isInterceptable(iface, method)
+  local methods = self.ifaceMap[iface]
+  return not (methods and methods[method])
 end
 
 return Openbus()
