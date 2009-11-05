@@ -1,11 +1,20 @@
 -- $Id: $
 
+local type = type
+local ipairs = ipairs
+local print = print
+local tostring = tostring
+local assert = assert
+local os = os
+local string = string
+local table  = table
+local unpack = unpack
+
 local oil = require "oil"
 local oop = require "loop.base"
 local log = require "openbus.util.Log"
 local OilUtilities = require "openbus.util.OilUtilities"
 
-local tostring = tostring
 
 ---
 -- API utilitária.
@@ -95,6 +104,39 @@ function fetchAccessControlService(orb, host, port)
   end
   return acs, lp, ic, ft
 end
+
+
+patt="%-?%-?(%w+)(=?)(.*)"
+-- Parsing arguments and returns a 'table[option]=value'
+function parse_args(arg, usage_msg, allowempty)
+	assert(type(arg)=="table","ERROR: Missing arguments! This program should be loaded from console.")
+	local arguments = {}
+	-- concatenates with the custom usage_msg
+	usage_msg=[[
+ Usage: ]]..arg[0]..[[ OPTIONS
+ Valid OPTIONS:
+]] ..usage_msg
+
+	if not (arg[1]) and not allowempty then print(usage_msg) ; os.exit(1) end
+
+	for i,param in ipairs(arg) do
+		local opt,_,value = param:match(patt)
+		if opt == "h" or opt == "help" then
+			print(usage_msg)
+			os.exit(1)
+		end
+		if opt and value then
+			if arguments[opt] then
+				arguments[opt] = arguments[opt].." "..value
+			else
+				arguments[opt] = value
+			end
+		end
+	end
+
+	return arguments
+end
+
 
 
 
