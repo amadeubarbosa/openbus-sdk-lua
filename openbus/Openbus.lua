@@ -653,15 +653,14 @@ function Openbus:disconnect()
       log:error("OpenBus: Não foi possível realizar o logout. Erro " .. err)
       return false
     end
-    if status then
-      self:_reset()
-    else
-      self.connectionState = 1
-    end
     return status
   else
     return false
   end
+end
+
+function Openbus:destroy()
+  self:_reset()
 end
 
 ---
