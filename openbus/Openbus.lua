@@ -2,7 +2,6 @@
 
 local oil = require "oil"
 local oop = require "loop.base"
-local lce = require "lce"
 local log = require "openbus.util.Log"
 local CredentialManager = require "openbus.util.CredentialManager"
 local Utils = require "openbus.util.Utils"
@@ -10,6 +9,11 @@ local LeaseRenewer = require "openbus.lease.LeaseRenewer"
 local OilUtilities = require "openbus.util.OilUtilities"
 local smartpatch = require "openbus.faulttolerance.smartpatch"
 local SmartComponent = require "openbus.faulttolerance.SmartComponent"
+
+local LoginPasswordAuthenticator =
+    require "openbus.authenticators.LoginPasswordAuthenticator"
+local CertificateAuthenticator =
+    require "openbus.authenticators.CertificateAuthenticator"
 
 local pairs = pairs
 local os = os
@@ -32,10 +36,6 @@ Openbus = oop.class {
   -- O ORB.
   ---
   orb = nil,
-  ---
-  -- Indica se o ORB já foi finalizado.
-  ---
-  isORBFinished = true,
   ---
   -- O host do Serviço de Controle de Acesso.
   ---
@@ -101,10 +101,6 @@ Openbus = oop.class {
   ---
   requestCredentialSlot = -1,
   ---
-  -- Indica o estado da conexão. 1 = conectado, 2 = desconectado
-  ---
-  connectionState = 2,
-  ---
   -- Indica se o mecanismo de tolerancia a falhas esta ativo
   ---
   isFaultToleranceEnable = false,
@@ -116,7 +112,6 @@ Openbus = oop.class {
   -- Política padrão é de interceptar todos.
   ---
   ifaceMap = nil,
-
 }
 
 ---
@@ -128,47 +123,16 @@ function Openbus:__init()
   if not self._instance then
     self._instance = oop.rawnew(self, {})
   end
-  return self._instance
-end
-
----
--- Retorna ao seu estado inicial, ou seja, desfaz as definições de atributos
--- realizadas.
----
-function Openbus:_reset()
-  self.credentialManager = nil
-  self.requestCredentialSlot = -1
-  if not self.isORBFinished and self.orb then
-    self:finish()
-  end
-  self.orb = nil
-  self.rootPOA = nil
-  self.isORBFinished = true
-  self.acs = nil
-  self.host = nil
-  self.port = -1
-  self.lp = nil
-  self.ic = nil
-  self.ft = nil
-  self.leaseRenewer = nil
-  self.leaseExpiredCallback = nil
-  self.rgs = nil
-  self.ss = nil
-  self.serverInterceptor = nil
-  self.serverInterceptorConfig = nil
-  self.clientInterceptor = nil
-  self.clientInterceptorConfig = nil
-  self.connectionState = 2
-  self.isFaultToleranceEnable = false
-  self.smartACS = nil
-  self.ifaceMap = {}
+  local instance = self._instance
+  instance.ifaceMap = {}
+  instance.credentialManager = CredentialManager()
+  return instance
 end
 
 ---
 -- Cadastra os interceptadores cliente e servidor no ORB.
 ---
 function Openbus:_setInterceptors()
-  self.credentialManager = CredentialManager()
   local config
   if not self.serverInterceptorConfig or not self.clientInterceptorConfig then
     local DATA_DIR = os.getenv("OPENBUS_DATADIR")
@@ -268,7 +232,6 @@ function Openbus:_completeConnection(credential, lease)
   self.leaseRenewer = LeaseRenewer(
     lease, credential, self.lp, self.leaseExpiredCallback)
   self.leaseRenewer:startRenew()
-  self.connectionState = 1
   if not self.rgs then
   	self.rgs = self.acs:getRegistryService()
   end
@@ -320,8 +283,8 @@ end
 --
 -- @return {@code false} caso ocorra algum erro, {@code true} caso contrário.
 ---
-function Openbus:resetAndInitialize(host, port, props, serverInterceptorConfig,
-  clientInterceptorConfig)
+function Openbus:init(host, port, props, serverInterceptorConfig,
+	clientInterceptorConfig)
   if not host then
     log:error("OpenBus: O campo 'host' não pode ser nil")
     return false
@@ -330,7 +293,7 @@ function Openbus:resetAndInitialize(host, port, props, serverInterceptorConfig,
     log:error("OpenBus: O campo 'port' não pode ser nil nem negativo.")
     return false
   end
-  self:_reset()
+
   -- init
   self.host = host
   self.port = port
@@ -388,7 +351,6 @@ function Openbus:finish()
     return
   end
   self.orb:shutdown()
-  self.isORBFinished = true
 end
 
 ---
@@ -513,29 +475,13 @@ end
 -- @throws InvalidCredentialException Caso a credencial seja rejeitada ao
 --         tentar obter o Serviço de Registro.
 ---
-function Openbus:connect(user, password)
+function Openbus:connectByLoginPassword(user, password)
   if not user or not password then
     log:error("OpenBus: Os parâmetros 'user' e 'password' não podem ser nil.")
     return false
   end
-  if self.connectionState == 2 then
-    if not self.acs then
-      if not self:_fetchACS() then
-        log:error("OpenBus: Não foi possível acessar o barramento.")
-        return false
-      end
-    end
-    local success, credential, lease = self.acs:loginByPassword(user, password)
-    if success then
-      return self:_completeConnection(credential, lease)
-    else
-      log:error("OpenBus: Não foi possível conectar ao barramento.")
-      return false
-    end
-  else
-    log:error("OpenBus: O barramento já está conectado.")
-    return false
-  end
+  local authenticator = LoginPasswordAuthenticator(user, password)
+  return self:connect(authenticator)
 end
 
 ---
@@ -557,33 +503,24 @@ function Openbus:connectByCertificate(name, privateKeyFile, acsCertificateFile)
     log:error("OpenBus: Nenhum parâmetro pode ser nil.")
     return false
   end
-  if self.connectionState == 2 then
+  local authenticator = CertificateAuthenticator(name, privateKeyFile,
+      acsCertificateFile)
+  return self:connect(authenticator)
+end
+
+function Openbus:connect(authenticator)
+  if not self.credentialManager:hasValue() then
     if not self.acs then
       if not self:_fetchACS() then
         log:error("OpenBus: Não foi possível acessar o barramento.")
         return false
       end
     end
-    local challenge = self.acs:getChallenge(name)
-    if not challenge or #challenge == 0 then
-      log:error("OpenBus: o desafio para " .. name ..
-        " não foi obtido junto ao Servico de Controle de Acesso.")
-      return false
-    end
-    local privateKey, err = lce.key.readprivatefrompemfile(privateKeyFile)
-    if not privateKey then
-      log:error("OpenBus: erro obtendo chave privada para ".. name .. " em " ..
-        privateKeyFile .. ": " .. err)
-      return false
-    end
-    local answer = lce.cipher.decrypt(privateKey, challenge)
-    local certificate = lce.x509.readfromderfile(acsCertificateFile)
-    answer = lce.cipher.encrypt(certificate:getpublickey(), answer)
-    local success, credential, lease = self.acs:loginByCertificate(name, answer)
-    if success then
+    local credential, lease = authenticator:authenticate(self.acs)
+    if credential then
       return self:_completeConnection(credential, lease)
     else
-      log:error("OpenBus: Falha no login de " .. name)
+      log:error("OpenBus: Não foi possível conectar ao barramento.")
       return false
     end
   else
@@ -634,12 +571,13 @@ end
 --         nenhuma conexão estiver ativa ou ocorra um erro.
 ---
 function Openbus:disconnect()
-  if self.connectionState == 1 then
+  if self.credentialManager:hasValue() then
     if self.leaseRenewer then
       local status, err = oil.pcall(self.leaseRenewer.stopRenew,
         self.leaseRenewer)
       if not status then
-        self.connectionState = 1
+	    self.credentialManager:invalidate()
+	    self.credentialManager:invalidateThreadValue()
         log:error(
           "OpenBus: Não foi possível parar a renovação de lease. Erro: " .. err)
         return false
@@ -649,18 +587,36 @@ function Openbus:disconnect()
     status, err = oil.pcall(self.acs.logout, self.acs,
       self.credentialManager:getValue())
     if not status then
-      self.connectionState = 1
       log:error("OpenBus: Não foi possível realizar o logout. Erro " .. err)
-      return false
     end
-    return status
+    return true
   else
     return false
   end
 end
 
 function Openbus:destroy()
-  self:_reset()
+  self.requestCredentialSlot = -1
+  self:finish()
+  self.orb = nil
+  self.rootPOA = nil
+  self.acs = nil
+  self.host = nil
+  self.port = -1
+  self.lp = nil
+  self.ic = nil
+  self.ft = nil
+  self.leaseRenewer = nil
+  self.leaseExpiredCallback = nil
+  self.rgs = nil
+  self.ss = nil
+  self.serverInterceptor = nil
+  self.serverInterceptorConfig = nil
+  self.clientInterceptor = nil
+  self.clientInterceptorConfig = nil
+  self.isFaultToleranceEnable = false
+  self.smartACS = nil
+  self.ifaceMap = {}
 end
 
 ---
@@ -670,7 +626,7 @@ end
 --         contrário.
 ---
 function Openbus:isConnected()
-  if self.connectionState == 1 then
+  if self.credentialManager:hasValue() then
     return true
   end
   return false
@@ -684,10 +640,8 @@ end
 ---
 function Openbus:addLeaseExpiredCallback(lec)
   self.leaseExpiredCallback = lec
-  if self.connectionState == 1 then
-    if self.leaseRenewer then
-      self.leaseRenewer:setLeaseExpiredCallback(lec)
-    end
+  if self.leaseRenewer then
+    self.leaseRenewer:setLeaseExpiredCallback(lec)
   end
 end
 
@@ -697,10 +651,8 @@ end
 ---
 function Openbus:removeLeaseExpiredCallback()
   self.leaseExpiredCallback = nil
-  if self.connectionState == 1 then
-    if self.leaseRenewer then
-      self.leaseRenewer:setLeaseExpiredCallback(nil)
-    end
+  if self.leaseRenewer then
+    self.leaseRenewer:setLeaseExpiredCallback(nil)
   end
 end
 
