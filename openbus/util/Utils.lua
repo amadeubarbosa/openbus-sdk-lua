@@ -37,6 +37,18 @@ LEASE_PROVIDER_INTERFACE = "IDL:openbusidl/acs/ILeaseProvider:1.0"
 ---
 FAULT_TOLERANT_SERVICE_INTERFACE = 
   "IDL:openbusidl/ft/IFaultTolerantService:1.0"
+  
+---
+--  A interface IComponent.
+---
+COMPONENT_INTERFACE = 
+  "IDL:scs/core/IComponent:1.0"
+  
+---
+--  A interface IRegistryService.
+---
+REGISTRY_SERVICE_INTERFACE =
+  "IDL:openbusidl/rs/IRegistryService:1.0"
 
 ---
 --  As chaves CORBALOC para obtenção das interfaces do ACS.
@@ -103,6 +115,33 @@ function fetchAccessControlService(orb, host, port)
     log:error("Utils: Faceta IFaultTolerantService não encontrada.")
   end
   return acs, lp, ic, ft
+end
+
+
+function fetchService(orb, objReference, objType)
+   
+   local success, service = oil.pcall(orb.newproxy, orb, objReference, objType)
+
+   log:faulttolerance("[fetchService]"..objReference.."-TYPE:"..objType)
+
+
+   if success then 
+		 --TODO: Quando o bug do oil for consertado, mudar para: if not service:_non_existent() then
+		 --local succ, non_existent = service.__try:_non_existent()
+		 --if succ and not non_existent then
+		if OilUtilities:existent(service) then
+	 	     --OK
+	         log:faulttolerance("[fetchService] Servico encontrado.")
+		     --TODO: Essa linha é devido a um outro bug no OiL: type_id = ""
+		     service.__reference.type_id = objType
+		     -- fim do TODO
+		     
+		     return true, service
+		 end
+    end
+    log:error("[fetchService]: Faceta ".. objType .." não encontrada.")
+    return false, nil
+
 end
 
 

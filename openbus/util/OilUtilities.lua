@@ -28,14 +28,14 @@ function existent(self, proxy)
 	oil.tasks:remove(thread)
 
 	if not_exists ~= nil then
-	        Log:warn("Ele existe ?", not not_exists)
+	    Log:warn("Ele existe ?", not not_exists)
 		if succ and not not_exists then
 			return true
 		else
 			return false
 		end
 	else
-	        Log:warn("Deu timeout")
+	    Log:warn("Deu timeout")
 		return false
 	end
 end

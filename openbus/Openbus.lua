@@ -250,15 +250,15 @@ function Openbus:enableFaultTolerance()
     
     if not self.isFaultToleranceEnable then
     	local DATA_DIR = os.getenv("OPENBUS_DATADIR")
-    	local ftconfig = assert(loadfile(DATA_DIR .."/conf/FaultToleranceConfiguration.lua"))()
+    	local ftconfig = assert(loadfile(DATA_DIR .."/conf/ACSFaultToleranceConfiguration.lua"))()
     	local keys = {}
-    	keys[Utils.ACCESS_CONTROL_SERVICE_KEY] = { interface = "IDL:openbusidl/acs/IAccessControlService:1.0",
+    	keys[Utils.ACCESS_CONTROL_SERVICE_KEY] = { interface = Utils.ACCESS_CONTROL_SERVICE_INTERFACE,
     												  hosts = ftconfig.hosts.ACS, }
-    	keys[Utils.LEASE_PROVIDER_KEY] = { interface = "IDL:openbusidl/acs/ILeaseProvider:1.0",
+    	keys[Utils.LEASE_PROVIDER_KEY] = { interface = Utils.LEASE_PROVIDER_INTERFACE,
     										  hosts = ftconfig.hosts.LP, }
-    	keys[Utils.ICOMPONENT_KEY] = { interface = "IDL:scs/core/IComponent:1.0",
+    	keys[Utils.ICOMPONENT_KEY] = { interface = Utils.COMPONENT_INTERFACE,
     									  hosts = ftconfig.hosts.ACSIC, }
-    	keys[Utils.FAULT_TOLERANT_ACS_KEY] = { interface = "IDL:openbusidl/ft/IFaultTolerantService:1.0",
+    	keys[Utils.FAULT_TOLERANT_ACS_KEY] = { interface = Utils.FAULT_TOLERANT_SERVICE_INTERFACE,
     									  		  hosts = ftconfig.hosts.FTACS, }
 
     	self.smartACS = SmartComponent:__init(self.orb, "ACS", keys)
@@ -384,8 +384,6 @@ function Openbus:getACSIComponent()
   end
   return self.ic
 end
-
-
 
 ---
 -- Fornece o Serviço de Sessão. Caso o Openbus ainda não tenha a referência

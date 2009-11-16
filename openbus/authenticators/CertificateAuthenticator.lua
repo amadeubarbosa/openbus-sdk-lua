@@ -3,6 +3,7 @@
 local lce = require "lce"
 
 local Authenticator = require "openbus.authenticators.Authenticator"
+local log = require "openbus.util.Log"
 
 local oop = require "loop.simple"
 

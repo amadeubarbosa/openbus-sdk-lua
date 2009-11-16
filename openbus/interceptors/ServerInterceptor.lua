@@ -4,6 +4,7 @@ local print  = print
 local pairs  = pairs
 local ipairs = ipairs
 local format = string.format
+local coroutine = coroutine
 
 local oil = require "oil"
 local orb = oil.orb
@@ -11,6 +12,7 @@ local orb = oil.orb
 local Openbus   = require "openbus.Openbus"
 local Log       = require "openbus.util.Log"
 local PICurrent = require "openbus.interceptors.PICurrent"
+local ServiceStatusManager = require "openbus.faulttolerance.ServiceStatusManager"
 
 local oop  = require "loop.base"
 local giop = require "oil.corba.giop"
@@ -58,7 +60,8 @@ function __init(self, config, accessControlService)
     credentialType = lir:lookup_id(config.credential_type).type,
     contextID = config.contextID,
     picurrent = PICurrent(),
-    accessControlService = accessControlService
+    accessControlService = accessControlService,
+    serviceStatusManager = ServiceStatusManager:__init()
   })
 end
 
@@ -69,6 +72,8 @@ end
 ---
 function receiverequest(self, request)
   Log:interceptor "INTERCEPTAÇÂO SERVIDOR!"
+  
+  local OK = false
 
   -- XXX: nao existe forma padrao de recuperar o repID, esta e' uma
   -- intrusao no OiL, ou seja, pode quebrar no futuro.
@@ -85,41 +90,55 @@ function receiverequest(self, request)
 
   if allowed then
     Log:interceptor(format("OPERAÇÂO %s NÂO È CHECADA", request.operation))
-    return
-  end
-  Log:interceptor(format("OPERAÇÂO %s É CHECADA", request.operation))
-
-  local credential
-  for _, context in ipairs(request.service_context) do
-    if context.context_id == self.contextID then
-      Log:interceptor "TEM CREDENCIAL!"
-      local decoder = orb:newdecoder(context.context_data)
-      credential = decoder:get(self.credentialType)
-      Log:interceptor(format("CREDENCIAL: %s, %s", credential.identifier,
-         credential.owner))
-      break
-    end
-  end
-
-  if credential then
-    local success, res = oil.pcall(self.accessControlService.isValid,
-                                   self.accessControlService, credential)
-    if success and res then
-      Log:interceptor(format("CREDENCIAL VALIDADA PARA %s", request.operation))
-      self.picurrent:setValue(credential)
-      return
-    end
-  end
-
-  -- Credencial inválida ou sem credencial
-  if credential then
-    Log:interceptor("\n ***CREDENCIAL INVALIDA ***\n")
+    OK = true
   else
-    Log:interceptor("\n***NÂO TEM CREDENCIAL ***\n")
+  	Log:interceptor(format("OPERAÇÂO %s É CHECADA", request.operation))
+
+  	local credential
+  	for _, context in ipairs(request.service_context) do
+    	if context.context_id == self.contextID then
+	      Log:interceptor "TEM CREDENCIAL!"
+    	  local decoder = orb:newdecoder(context.context_data)
+	      credential = decoder:get(self.credentialType)
+    	  Log:interceptor(format("CREDENCIAL: %s, %s", credential.identifier,
+        	 credential.owner))
+      	  break
+    	end
+  	end
+
+  	if credential then
+    	local success, res = oil.pcall(self.accessControlService.isValid,
+        	                           self.accessControlService, credential)
+    	if success and res then
+    	  	Log:interceptor(format("CREDENCIAL VALIDADA PARA %s", request.operation))
+      		self.picurrent:setValue(credential)
+      		OK = true
+    	end
+  	end
+  	
+  	if OK then
+  		-- TODO: Verificar se faz sentido a atualização do estado ser antes
+  		-- ou depois da validação da credencial
+  		if self:needUpdate(request) then
+  			oil.newthread(function() 
+  						 self.serviceStatusManager:updateStatus(request.object_key) 
+  					  end)
+  		end
+  		return
+  	else
+  		-- Credencial inválida ou sem credencial
+  		if credential then
+    		Log:interceptor("\n ***CREDENCIAL INVALIDA ***\n")
+  		else
+    		Log:interceptor("\n***NÂO TEM CREDENCIAL ***\n")
+  		end
+  		request.success = false
+  		request.count = 1
+  		request[1] = orb:newexcept{"CORBA::NO_PERMISSION", minor_code_value = 0}
+  	end
+  	
   end
-  request.success = false
-  request.count = 1
-  request[1] = orb:newexcept{"CORBA::NO_PERMISSION", minor_code_value = 0}
+  
 end
 
 ---
@@ -142,4 +161,20 @@ end
 ---
 function getCredential(self)
   return self.picurrent:getValue()
+end
+
+function needUpdate(self, request)
+	--TODO: Colocar aqui somente o que faz sentido pedir para atualizar
+	-- o estado antes
+	if request.operation ~= "updateStatus" 		 and
+  	   request.operation ~= "loginByPassword" 	 and
+  	   request.operation ~= "loginByCertificate" and
+  	   request.operation ~= "getRegistryService" and
+  	   request.operation ~= "renewLease" then
+  	   
+  		return true
+  		
+  	end
+  	
+  	return false
 end

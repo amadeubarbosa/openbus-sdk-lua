@@ -47,7 +47,7 @@ function _fetchSmartComponent(self)
 		
 		for key,values in pairs(self._keys) do
 			ref = smartpatch.getCurrRef(key)
-			stop, service = self:fetchService(ref, values.interface)
+			ret, stop, service = oil.pcall(Utils.fetchService, self._orb, ref, values.interface)
 			if not stop then
 				services = {}
 				break
@@ -75,28 +75,4 @@ function _fetchSmartComponent(self)
   	
 end
 
-function fetchService(self, objReference, objType)
-   
-   local success, service = oil.pcall(self._orb.newproxy, self._orb, objReference, objType)
 
-   log:faulttolerance("[fetchService]"..objReference.."-TYPE:"..objType)
-
-
-   if success then 
-		 --TODO: Quando o bug do oil for consertado, mudar para: if not service:_non_existent() then
-		 --local succ, non_existent = service.__try:_non_existent()
-		 --if succ and not non_existent then
-		if OilUtilities:existent(service) then
-	 	     --OK
-	         log:faulttolerance("[fetchService] Servico encontrado.")
-		     --TODO: Essa linha é devido a um outro bug no OiL: type_id = ""
-		     service.__reference.type_id = objType
-		     -- fim do TODO
-		     
-		     return true, service
-		 end
-    end
-    log:error("[fetchService]: Faceta ".. objType .." não encontrada.")
-    return false, nil
-
-end
