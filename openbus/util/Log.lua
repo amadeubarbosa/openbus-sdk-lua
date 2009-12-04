@@ -20,6 +20,7 @@ viewer = Viewer{
 
 -- Definição dos tags que compõem cada grupo
 groups.basic = {"init", "warn", "error"}
+groups.service = {"access_control", "registry", "session"}
 groups.mechanism = {"interceptor", "lease", "conn", "faulttolerance"}
 groups.core = {"scs", "member"}
 groups.all = {"basic", "service", "mechanism", "core"}
