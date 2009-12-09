@@ -3,18 +3,19 @@
 local oo         = require "loop.base"
 local lfs        = require "lfs"
 local uuid       = require "uuid"
-local FileStream = require "loop.serial.FileStream"
+local Viewer     = require "loop.debug.Viewer"
 
 local os     = require "os"
 local io     = require "io"
 local string = require "string"
 
-local pairs  = pairs
-local error  = error
-local print  = print
-local assert = assert
-local pcall  = pcall
-
+local pairs    = pairs
+local error    = error
+local print    = print
+local assert   = assert
+local pcall    = pcall
+local setfenv  = setfenv
+local loadfile = loadfile
 --
 -- Classe que gerencia dados em disco.  Esses dados são tuplas
 -- <chave,valor> -- abstração de tabela em Lua.  Ao atribuir um novo
@@ -116,17 +117,19 @@ end
 -- retorna nil seguido de uma mensagem de erro.
 --
 function loadAll(self)
-   local f, msg = io.open(self.dbfile)
-   if not f then
+   local reader, msg = loadfile(self.dbfile)
+   if not reader then
+      msg = string.format("Erro ao carregar dados do disco: %s", msg)
       return nil, msg
    end
-   local reader = FileStream{ file = f }
-   local succ, data = pcall(reader.get, reader)
-   f:close()
+   -- Sandbox
+   setfenv(reader, {})
+   local succ, data = pcall(reader)
    if not succ then
+      data = string.format("Erro ao carregar dados do disco: %s", data)
       return nil, data
    end
-   -- Arquivo vazio retorna nil, criar uma lista vazia
+   -- Arquivo vazio, criar uma lista vazia
    return (data or {})
 end
 
@@ -148,24 +151,29 @@ function saveAll(self, data)
    if not f then
       return false, msg
    end
-   local writer = FileStream{
-      file = f,
-      getmetatable = false,
-   }
-   succ, msg = pcall(writer.put, writer, data)
-   f:close()
+   local writer = Viewer{ output = f }
+   -- Simula try/catch
+   succ, msg = pcall(function()
+      assert(f:write("return "))
+      -- writer não retorna nada, não há como capturar um erro
+      writer:writeto(f, data)
+      -- Essa escrita pode ajudar no erro acima, se houver
+      assert(f:write("\n"))
+      assert(f:close())
+   end)
    if not succ then
       os.remove(tmp)
+      msg = string.format("Não foi possível criar a nova base: %s", msg)
       return false, msg
    end
    succ, msg = os.remove(self.dbfile)
    if not succ then
-      msg = string.format("Não foi possivel remover base antiga: %s", msg)
+      msg = string.format("Não foi possível remover base antiga: %s", msg)
       return false, msg
    end
    succ, msg = os.rename(tmp, self.dbfile)
    if not succ then
-      msg = string.format("Não foi possivel renomear a nova base: %s", msg)
+      msg = string.format("Não foi possível renomear a nova base: %s", msg)
       return false, msg
    end
    return true
