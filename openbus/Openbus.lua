@@ -20,7 +20,6 @@ local os = os
 local loadfile = loadfile
 local assert = assert
 local require = require
-local print = print
 
 ---
 -- API de acesso a um barramento OpenBus.
@@ -350,7 +349,10 @@ function Openbus:finish()
   if not self.orb then
     return
   end
-  self.orb:shutdown()
+  local status, err = oil.pcall(self.orb.shutdown, self.orb)
+  if not status then
+    log:warn("Não foi possível executar o shutdown no ORB:\n"..err)
+  end
 end
 
 ---
