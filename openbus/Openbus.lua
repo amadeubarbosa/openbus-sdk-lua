@@ -232,7 +232,7 @@ function Openbus:_completeConnection(credential, lease)
     lease, credential, self.lp, self.leaseExpiredCallback)
   self.leaseRenewer:startRenew()
   if not self.rgs then
-  	self.rgs = self.acs:getRegistryService()
+  	self.rgs = self:getRegistryService()
   end
   return self.rgs
 end
@@ -396,7 +396,7 @@ end
 ---
 function Openbus:getSessionService()
   if not self.rgs then
-  	local registryService = self.acs:getRegistryService()
+  	local registryService = self:getRegistryService()
   	self.rgs = self.orb:narrow(registryService,
                     "IDL:openbusidl/rs/IRegistryService:1.0")
   end
@@ -415,6 +415,30 @@ function Openbus:getSessionService()
     return nil
   end
   return self.ss
+end
+
+---
+-- Fornece o Serviço de Registro.
+---
+function Openbus:getRegistryService()
+  local acsIRecep =  self:getACSIComponent():getFacetByName("IReceptacles")
+  acsIRecep = self.orb:narrow(acsIRecep, "IDL:scs/core/IReceptacles:1.0")
+  if acsIRecep then
+	  local status, conns = oil.pcall(acsIRecep.getConnections, acsIRecep,
+	    "RegistryServiceReceptacle")
+  	if not status then
+	    log:error("Não foi possível obter o Serviço de Registro: " .. conns[1])
+	    return nil
+  	elseif conns[1] then 
+	    local rsIC = conns[1].objref
+	    rsIC = self.orb:narrow(rsIC, "IDL:scs/core/IComponent:1.0")
+        local registryService =  rsIC:getFacetByName("IRegistryService")
+        registryService = self.orb:narrow(registryService, "IDL:openbusidl/rs/IRegistryService:1.0")
+    	return registryService
+  	end
+  end
+  log:error("Não foi possível obter o Serviço de Registro.")
+  return nil
 end
 
 ---
@@ -554,7 +578,7 @@ function Openbus:connectByCredential(credential)
   if self.acs:isValid(credential) then
     self.credentialManager:setValue(credential)
     if not self.rgs then
-    	local registryService = self.acs:getRegistryService()
+    	local registryService = self:getRegistryService()
   			self.rgs = self.orb:narrow(registryService,
                     "IDL:openbusidl/rs/IRegistryService:1.0")
     end
