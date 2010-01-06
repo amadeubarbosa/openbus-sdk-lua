@@ -117,6 +117,32 @@ function fetchAccessControlService(orb, host, port)
   return acs, lp, ic, ft
 end
 
+function getReplicaFacetByReceptacle(orb, component, receptacleName, 
+                                     replicaIface, replicaIDL)
+  local replicaIRecep =  component:getFacetByName("IReceptacles")
+  replicaIRecep = orb:narrow(replicaIRecep, "IDL:scs/core/IReceptacles:1.0")
+  if replicaIRecep then
+	  local status, conns = oil.pcall(replicaIRecep.getConnections, 
+	                                  replicaIRecep,
+	                                  receptacleName)
+  	if not status then
+	    log:error("Nao foi possivel obter o Serviço [".. replicaIface .. "]: " .. conns[1])
+	    return nil
+  	elseif conns[1] then 
+	    local recepIC = conns[1].objref
+	    recepIC = orb:narrow(recepIC, "IDL:scs/core/IComponent:1.0")
+        local ok, recepFacet =  oil.pcall(recepIC.getFacetByName, recepIC, replicaIface)
+        if ok then
+            recepFacet = orb:narrow(recepFacet, replicaIDL)
+    	    return recepFacet
+    	end
+    	log:error("Nao foi possivel obter a faceta [".. replicaIface .. "]: " .. recepFacet)
+  	end
+  end
+  log:error("Nao foi possivel obter o Serviço [".. replicaIface .. "].")
+  return nil
+end
+
 
 function fetchService(orb, objReference, objType)
    

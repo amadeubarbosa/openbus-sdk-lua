@@ -20,6 +20,7 @@ local os = os
 local loadfile = loadfile
 local assert = assert
 local require = require
+local print = print
 
 ---
 -- API de acesso a um barramento OpenBus.
@@ -421,24 +422,18 @@ end
 -- Fornece o Serviço de Registro.
 ---
 function Openbus:getRegistryService()
-  local acsIRecep =  self:getACSIComponent():getFacetByName("IReceptacles")
-  acsIRecep = self.orb:narrow(acsIRecep, "IDL:scs/core/IReceptacles:1.0")
-  if acsIRecep then
-	  local status, conns = oil.pcall(acsIRecep.getConnections, acsIRecep,
-	    "RegistryServiceReceptacle")
-  	if not status then
-	    log:error("Não foi possível obter o Serviço de Registro: " .. conns[1])
+  local acsIC = self:getACSIComponent()
+  local status, rsFacet =  oil.pcall(Utils.getReplicaFacetByReceptacle, 
+     					 		     self.orb, 
+                         	         acsIC, 
+                         	         "RegistryServiceReceptacle", 
+                         	         "IRegistryService", 
+                         	         "IDL:openbusidl/rs/IRegistryService:1.0")
+  if not status then
+	    log:error("Não foi possível obter o Serviço de Registro: " .. rsFacet)
 	    return nil
-  	elseif conns[1] then 
-	    local rsIC = conns[1].objref
-	    rsIC = self.orb:narrow(rsIC, "IDL:scs/core/IComponent:1.0")
-        local registryService =  rsIC:getFacetByName("IRegistryService")
-        registryService = self.orb:narrow(registryService, "IDL:openbusidl/rs/IRegistryService:1.0")
-    	return registryService
-  	end
   end
-  log:error("Não foi possível obter o Serviço de Registro.")
-  return nil
+  return rsFacet
 end
 
 ---
