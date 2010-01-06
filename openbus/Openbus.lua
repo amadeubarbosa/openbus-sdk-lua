@@ -430,7 +430,7 @@ function Openbus:getRegistryService()
                          	         "IRegistryService", 
                          	         "IDL:openbusidl/rs/IRegistryService:1.0")
   if not status then
-	    log:error("Não foi possível obter o Serviço de Registro: " .. rsFacet)
+	    --erro ja foi logado
 	    return nil
   end
   return rsFacet
