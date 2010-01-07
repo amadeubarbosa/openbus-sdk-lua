@@ -42,6 +42,9 @@ function authenticate(self, acs)
   challenge = lce.cipher.decrypt(privateKey, challenge)
   local certificate = lce.x509.readfromderfile(self.acsCertificateFile)
   local answer = lce.cipher.encrypt(certificate:getpublickey(), challenge)
-  local _, credential, lease = acs:loginByCertificate(self.name, answer)
-  return credential, lease
+  local succ, credential, lease = acs:loginByCertificate(self.name, answer)
+  if succ then
+    return credential, lease
+  end
+  return nil, -1
 end

@@ -23,6 +23,9 @@ end
 --@see openbus.authenticators.Authenticator#authenticate
 ---
 function authenticate(self, acs)
-  local _, credential, lease = acs:loginByPassword(self.name, self.password)
-  return credential, lease
+  local succ, credential, lease = acs:loginByPassword(self.name, self.password)
+  if succ then
+    return credential, lease
+  end
+  return nil, -1
 end
