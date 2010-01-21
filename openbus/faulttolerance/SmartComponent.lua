@@ -68,6 +68,7 @@ function _fetchSmartComponent(self)
   
   for key,values in pairs(self._keys) do
   	  smartpatch.addSmart(self._compName, services[key])
+  	  services[key] = services[key].__smart
   end
 
   log:faulttolerance("Componente adaptado para ser um smart proxy.")

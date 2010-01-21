@@ -117,6 +117,24 @@ function fetchAccessControlService(orb, host, port)
   return acs, lp, ic, ft
 end
 
+---
+-- Obtém uma réplica ativa da lista de réplicas que são receptáculos
+-- de dado um componente.  As réplicas são IComponent porém deseja-se
+-- obter uma outra faceta deste componente (ex. IRegistryService)
+-- ** O ideal seria que esse método estivesse dentro de AdaptiveReceptacle,
+-- ou ainda em um receptacleutils dentro do SCS.
+-- Porém, como teria que estender a interface IReceptacle ou modificar o SCS,
+--  e isso entrará na evolução do SCS até mesmo com a própria 
+--  AdaptiveReceptacle, optou-se por colocar esse método aqui na Utils.
+--
+-- @param orb O ORB a ser utilizado para obter a replica.
+-- @param component O componente que contém as réplicas como receptáculos
+-- @param receptacleName O nome do receptáculo
+-- @param replicaIface A interface da faceta da réplica
+-- @param replicaIDL A IDL da interface da faceta da réplica
+--
+-- @return A faceta IAccessControlService, ou nil, caso não seja encontrada.
+--
 function getReplicaFacetByReceptacle(orb, component, receptacleName, 
                                      replicaIface, replicaIDL)
   local replicaIRecep =  component:getFacetByName("IReceptacles")

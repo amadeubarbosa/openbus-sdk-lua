@@ -21,6 +21,8 @@ local loadfile = loadfile
 local assert = assert
 local require = require
 local print = print
+local string = string
+local gsub = gsub
 
 ---
 -- API de acesso a um barramento OpenBus.
@@ -176,10 +178,10 @@ function Openbus:_fetchACS()
   end
   
   if self.isFaultToleranceEnable then
-  	acs = services[Utils.ACCESS_CONTROL_SERVICE_KEY]
-    lp = services[Utils.LEASE_PROVIDER_KEY]
-    ic = services[Utils.ICOMPONENT_KEY]
-    ft = services[Utils.FAULT_TOLERANT_ACS_KEY]
+  	acs = services[string.gsub(Utils.ACCESS_CONTROL_SERVICE_KEY, "/", "")]
+    lp = services[string.gsub(Utils.LEASE_PROVIDER_KEY, "/", "")]
+    ic = services[string.gsub(Utils.ICOMPONENT_KEY, "/", "")]
+    ft = services[string.gsub(Utils.FAULT_TOLERANT_ACS_KEY, "/", "")]
   end
   
   self.acs, self.lp, self.ic, self.ft = acs, lp, ic, ft
@@ -252,14 +254,19 @@ function Openbus:enableFaultTolerance()
     	local DATA_DIR = os.getenv("OPENBUS_DATADIR")
     	local ftconfig = assert(loadfile(DATA_DIR .."/conf/ACSFaultToleranceConfiguration.lua"))()
     	local keys = {}
-    	keys[Utils.ACCESS_CONTROL_SERVICE_KEY] = { interface = Utils.ACCESS_CONTROL_SERVICE_INTERFACE,
-    												  hosts = ftconfig.hosts.ACS, }
-    	keys[Utils.LEASE_PROVIDER_KEY] = { interface = Utils.LEASE_PROVIDER_INTERFACE,
-    										  hosts = ftconfig.hosts.LP, }
-    	keys[Utils.ICOMPONENT_KEY] = { interface = Utils.COMPONENT_INTERFACE,
-    									  hosts = ftconfig.hosts.ACSIC, }
-    	keys[Utils.FAULT_TOLERANT_ACS_KEY] = { interface = Utils.FAULT_TOLERANT_SERVICE_INTERFACE,
-    									  		  hosts = ftconfig.hosts.FTACS, }
+    	local acsKey = string.gsub(Utils.ACCESS_CONTROL_SERVICE_KEY, "/", "")
+    	local lpKey = string.gsub(Utils.LEASE_PROVIDER_KEY, "/", "")
+    	local icKey = string.gsub(Utils.ICOMPONENT_KEY, "/", "")
+    	local ftKey = string.gsub(Utils.FAULT_TOLERANT_ACS_KEY, "/", "")
+
+    	keys[acsKey] = { interface = Utils.ACCESS_CONTROL_SERVICE_INTERFACE,
+    					hosts = ftconfig.hosts.ACS, }
+    	keys[lpKey] = { interface = Utils.LEASE_PROVIDER_INTERFACE,
+    					hosts = ftconfig.hosts.LP, }
+    	keys[icKey] = { interface = Utils.COMPONENT_INTERFACE,
+    					hosts = ftconfig.hosts.ACSIC, }
+    	keys[ftKey] = { interface = Utils.FAULT_TOLERANT_SERVICE_INTERFACE,
+    					hosts = ftconfig.hosts.FTACS, }
 
     	self.smartACS = SmartComponent:__init(self.orb, "ACS", keys)
     	
@@ -531,6 +538,7 @@ function Openbus:connect(authenticator)
   if not self.credentialManager:hasValue() then
     if not self.acs then
       if not self:_fetchACS() then
+
         log:error("OpenBus: Não foi possível acessar o barramento.")
         return false
       end

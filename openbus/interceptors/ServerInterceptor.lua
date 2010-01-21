@@ -55,7 +55,6 @@ function __init(self, config, accessControlService)
   for op in pairs(giop.ObjectOperations) do
     Openbus:setInterceptable("::CORBA::Object", op, false)
   end
-
   return oop.rawnew(self, {
     credentialType = lir:lookup_id(config.credential_type).type,
     contextID = config.contextID,
