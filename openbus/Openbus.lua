@@ -186,10 +186,12 @@ function Openbus:_fetchACS()
   
   self.acs, self.lp, self.ic, self.ft = acs, lp, ic, ft
 
-  local status, err = oil.pcall(self._setInterceptors, self)
-  if not status then
-    log:error("Erro ao cadastrar interceptadores no ORB. Erro: " .. err)
-    return false
+  if not self.serverInterceptor or not self.clientInterceptor then
+  	local status, err = oil.pcall(self._setInterceptors, self)
+  	if not status then
+    	log:error("Erro ao cadastrar interceptadores no ORB. Erro: " .. err)
+    	return false
+  	end
   end
   return true
 end
@@ -372,25 +374,21 @@ end
 ---
 function Openbus:getAccessControlService()
 
-  if self.acs and self.isFaultToleranceEnable then
-  	if not OilUtilities:existent(self.acs)  then
+  if not self.acs and self.isFaultToleranceEnable then
       if not self:_fetchACS() then
         log:error("OpenBus: Não foi possível acessar o servico de controle de acesso.")
         return false
       end
-    end
   end
   return self.acs
 end
 
 function Openbus:getACSIComponent()
-  if self.ic and self.isFaultToleranceEnable then
-  	if not OilUtilities:existent(self.ic)  then
+  if not self.ic and self.isFaultToleranceEnable then
       if not self:_fetchACS() then
         log:error("OpenBus: Não foi possível acessar o servico de controle de acesso.")
         return false
       end
-    end
   end
   return self.ic
 end

@@ -19,7 +19,7 @@ module("openbus.faulttolerance.ServiceStatusManager", oop.class)
 
 
 ---
---Cria um gerenciador que atualiza o estado das replica.
+--Cria um gerenciador que atualiza o estado das facetas de uma replica.
 --
 ---
 function __init(self)
@@ -28,7 +28,7 @@ function __init(self)
      Log:faulttolerance("ServiceStatusManager constructer - return EXISTENT")
      return self
   else
-    Log:faulttolerance("FTManager constructer - return NEW instance")
+    Log:faulttolerance("ServiceStatusManager constructer - return NEW instance")
     return oop.rawnew(self, { _keys = self:setReplicas() })
   end
 end

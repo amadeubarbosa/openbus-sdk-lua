@@ -164,10 +164,8 @@ end
 
 function fetchService(orb, objReference, objType)
    
-   local success, service = oil.pcall(orb.newproxy, orb, objReference, objType)
-
    log:faulttolerance("[fetchService]"..objReference.."-TYPE:"..objType)
-
+   local success, service = oil.pcall(orb.newproxy, orb, objReference, objType)
 
    if success then 
 		 --TODO: Quando o bug do oil for consertado, mudar para: if not service:_non_existent() then
@@ -183,7 +181,8 @@ function fetchService(orb, objReference, objType)
 		     return true, service
 		 end
     end
-    log:error("[fetchService]: Faceta ".. objType .." não encontrada.")
+    
+    log:error("[fetchService]: Servico ".. objReference .." nao encontrado.")
     return false, nil
 
 end

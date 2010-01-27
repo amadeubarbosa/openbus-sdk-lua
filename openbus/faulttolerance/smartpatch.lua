@@ -8,6 +8,7 @@ local giop    = require "oil.corba.giop"
 local Proxies = require "oil.kernel.base.Proxies"
 
 local log     = require "openbus.util.Log"
+local OilUtilities = require "openbus.util.OilUtilities"
 
 module("openbus.faulttolerance.smartpatch", package.seeall)
 
@@ -135,59 +136,32 @@ function smartmethod(invoker, operation)
 				if replicas == nil then error(ex) end
 
 				local prx2
-
+				local timeToTrie = 20
 				repeat
 					local numberOfHosts = # Replicas[objkey]
-
+					local lastIndex = indexCurr[objkey]
 					if indexCurr[objkey] == numberOfHosts then
 	   					indexCurr[objkey] = 1
     				else
        					indexCurr[objkey] = indexCurr[objkey] + 1
 					end
 
-					-- pega o proxy da proxima replica
-					prx2 = orb:newproxy(replicas[indexCurr[objkey]],
-					                    self.__type)
+					--nao pega a mesma replica que deu erro
+					if replicas[indexCurr[objkey]] ~= replicas[lastIndex] then
+						-- pega o proxy da proxima replica
+						prx2 = orb:newproxy(replicas[indexCurr[objkey]],
+						                    self.__type)
 
-					local stop = false                    
+						local stop = false                    
 
-					if not prx2:_non_existent() then
-						stop = true 
--- Atualiza as réplicas do mesmo componente, como lá de fora o
--- proxy nunca é alterado, não faz sentido, 
--- então o código está comentado
---					    local componentId
---						for compId,v in pairs(Components) do 
---						--buscando o identificador do componente da replica
---								for i,rep in ipairs(v) do 
---									if rep.__reference._object == self.__reference._object then
---									    --encontrou o identificador, salva e sai do for
---										componentId = compId
---										break
---					                end
---								end
---						end
---			
---						for i, rep in ipairs(Components[componentId]) do
---						--para cada replica (faceta) deste componente, atualiza a referencia do proxy
---							local numberOfHosts = # Replicas[rep.__reference._object]
---
---							if indexCurr[rep.__reference._object] == numberOfHosts then
---	   							indexCurr[rep.__reference._object] = 1
---    						else
---       							indexCurr[rep.__reference._object] = indexCurr[rep.__reference._object] + 1
---							end
---							rep = orb:newproxy(replicas[indexCurr[rep.__reference._object]],
---													self.__type)
---							if not rep:_non_existent() then				
---								tabop.copy(rep.__smart, rep)
---							else
---								stop = false
---								break
---							end
---						end
-					end					
-				until stop
+						--if not prx2:_non_existent() then
+						if OilUtilities:existent(prx2) then
+	 	     			--OK
+							stop = true 
+						end	
+					end
+					timeToTrie = timeToTrie - 1				
+				until stop or timeToTrie == 0
 
 				--troca a referencia do proxy para a nova replica alvo
 				tabop.copy(prx2.__smart, self)
