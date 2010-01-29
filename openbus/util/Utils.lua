@@ -17,7 +17,7 @@ local OilUtilities = require "openbus.util.OilUtilities"
 
 
 ---
--- API utilit√°ria.
+-- API utilit·ria.
 ---
 module "openbus.util.Utils"
 
@@ -51,7 +51,7 @@ REGISTRY_SERVICE_INTERFACE =
   "IDL:openbusidl/rs/IRegistryService:1.0"
 
 ---
---  As chaves CORBALOC para obten√ß√£o das interfaces do ACS.
+--  As chaves CORBALOC para obtenÁ„o das interfaces do ACS.
 ---
 ICOMPONENT_KEY = "/IC"
 ACCESS_CONTROL_SERVICE_KEY = "/ACS"
@@ -66,7 +66,7 @@ FAULT_TOLERANT_RS_KEY = "/FTRS"
 SESSION_SERVICE_INTERFACE = "IDL:openbusidl/ss/ISessionService:1.0"
 
 ---
---  O nome da faceta do Servi√ßo de Sess√£o.
+--  O nome da faceta do ServiÁo de Sess„o.
 ---
 SESSION_SERVICE_FACET_NAME = "sessionService"
 
@@ -81,59 +81,59 @@ DATA_SERVICE_INTERFACE = "IDL:openbusidl/data_service/IHDataService:1.0"
 COMPONENT_ID_PROPERTY_NAME = "component_id"
 
 ---
--- Obt√©m refer√™ncias para as principais facetas do Servi√ßo de Controle de
+-- ObtÈm referÍncias para as principais facetas do ServiÁo de Controle de
 -- Acesso.
 --
 -- @param orb O ORB a ser utilizado para obter as facetas.
--- @param host String com o host do Servi√ßo de Controle de Acesso
--- @param port N√∫mero ou string com a porta do Servi√ßo de Controle de Acesso
+-- @param host String com o host do ServiÁo de Controle de Acesso
+-- @param port N˙mero ou string com a porta do ServiÁo de Controle de Acesso
 --
--- @return A faceta IAccessControlService, ou nil, caso n√£o seja encontrada.
--- @return A faceta ILeaseProvider, ou nil, caso n√£o seja encontrada.
--- @return A faceta IComponent, ou nil, caso n√£o seja encontrada.
+-- @return A faceta IAccessControlService, ou nil, caso n„o seja encontrada.
+-- @return A faceta ILeaseProvider, ou nil, caso n„o seja encontrada.
+-- @return A faceta IComponent, ou nil, caso n„o seja encontrada.
 --
 function fetchAccessControlService(orb, host, port)
   port = tostring(port)
   local acs = orb:newproxy("corbaloc::".. host .. ":" .. port ..
     ACCESS_CONTROL_SERVICE_KEY, "IDL:openbusidl/acs/IAccessControlService:1.0")
   if acs:_non_existent() then
-    log:error("Utils: Faceta IAccessControlService n√£o encontrada.")
+    log:error("Utils: Faceta IAccessControlService n„o encontrada.")
   end
   local lp = orb:newproxy("corbaloc::".. host .. ":" .. port ..
     LEASE_PROVIDER_KEY, "IDL:openbusidl/acs/ILeaseProvider:1.0")
   if lp:_non_existent() then
-    log:error("Utils: Faceta ILeaseProvider n√£o encontrada.")
+    log:error("Utils: Faceta ILeaseProvider n„o encontrada.")
   end
   local ic = orb:newproxy("corbaloc::".. host .. ":" .. port .. ICOMPONENT_KEY,
     "IDL:scs/core/IComponent:1.0")
   if ic:_non_existent() then
-    log:error("Utils: Faceta IComponent n√£o encontrada.")
+    log:error("Utils: Faceta IComponent n„o encontrada.")
   end
   local ft = orb:newproxy("corbaloc::".. host .. ":" .. port .. FAULT_TOLERANT_ACS_KEY,
     "IDL:openbusidl/ft/IFaultTolerantService:1.0")
   if ft:_non_existent() then
-    log:error("Utils: Faceta IFaultTolerantService n√£o encontrada.")
+    log:error("Utils: Faceta IFaultTolerantService n„o encontrada.")
   end
   return acs, lp, ic, ft
 end
 
 ---
--- Obt√©m uma r√©plica ativa da lista de r√©plicas que s√£o recept√°culos
--- de dado um componente.  As r√©plicas s√£o IComponent por√©m deseja-se
+-- ObtÈm uma rÈplica ativa da lista de rÈplicas que s„o recept·culos
+-- de dado um componente.  As rÈplicas s„o IComponent porÈm deseja-se
 -- obter uma outra faceta deste componente (ex. IRegistryService)
--- ** O ideal seria que esse m√©todo estivesse dentro de AdaptiveReceptacle,
+-- ** O ideal seria que esse mÈtodo estivesse dentro de AdaptiveReceptacle,
 -- ou ainda em um receptacleutils dentro do SCS.
--- Por√©m, como teria que estender a interface IReceptacle ou modificar o SCS,
---  e isso entrar√° na evolu√ß√£o do SCS at√© mesmo com a pr√≥pria 
---  AdaptiveReceptacle, optou-se por colocar esse m√©todo aqui na Utils.
+-- PorÈm, como teria que estender a interface IReceptacle ou modificar o SCS,
+--  e isso entrar· na evoluÁ„o do SCS atÈ mesmo com a prÛpria 
+--  AdaptiveReceptacle, optou-se por colocar esse mÈtodo aqui na Utils.
 --
 -- @param orb O ORB a ser utilizado para obter a replica.
--- @param component O componente que cont√©m as r√©plicas como recept√°culos
--- @param receptacleName O nome do recept√°culo
--- @param replicaIface A interface da faceta da r√©plica
--- @param replicaIDL A IDL da interface da faceta da r√©plica
+-- @param component O componente que contÈm as rÈplicas como recept·culos
+-- @param receptacleName O nome do recept·culo
+-- @param replicaIface A interface da faceta da rÈplica
+-- @param replicaIDL A IDL da interface da faceta da rÈplica
 --
--- @return A faceta IAccessControlService, ou nil, caso n√£o seja encontrada.
+-- @return A faceta IAccessControlService, ou nil, caso n„o seja encontrada.
 --
 function getReplicaFacetByReceptacle(orb, component, receptacleName, 
                                      replicaIface, replicaIDL)
@@ -144,7 +144,7 @@ function getReplicaFacetByReceptacle(orb, component, receptacleName,
 	                                  replicaIRecep,
 	                                  receptacleName)
   	if not status then
-	    log:error("Nao foi possivel obter o Servi√ßo [".. replicaIface .. "]: " .. conns[1])
+	    log:error("Nao foi possivel obter o ServiÁo [".. replicaIface .. "]: " .. conns[1])
 	    return nil
   	elseif conns[1] then 
 	    local recepIC = conns[1].objref
@@ -157,7 +157,7 @@ function getReplicaFacetByReceptacle(orb, component, receptacleName,
     	log:error("Nao foi possivel obter a faceta [".. replicaIface .. "]: " .. recepFacet)
   	end
   end
-  log:error("Nao foi possivel obter o Servi√ßo [".. replicaIface .. "].")
+  log:error("Nao foi possivel obter o ServiÁo [".. replicaIface .. "].")
   return nil
 end
 
@@ -174,7 +174,7 @@ function fetchService(orb, objReference, objType)
 		if OilUtilities:existent(service) then
 	 	     --OK
 	         log:faulttolerance("[fetchService] Servico encontrado.")
-		     --TODO: Essa linha √© devido a um outro bug no OiL: type_id = ""
+		     --TODO: Essa linha È devido a um outro bug no OiL: type_id = ""
 		     service.__reference.type_id = objType
 		     -- fim do TODO
 		     

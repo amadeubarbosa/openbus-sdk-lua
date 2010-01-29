@@ -109,8 +109,8 @@ function smartmethod(invoker, operation)
 					log:faulttolerance("[smartpatch] operacao retornou com erro no results ")
 					replace = true
 				else
-					-- Segundo o Maia, operation s√≥ √© 'nil' quando se deu um 'narrow'
-					-- no smart proxy, ent√£o ao inv√©s de retornar o proxy default
+					-- Segundo o Maia, operation sÛ È 'nil' quando se deu um 'narrow'
+					-- no smart proxy, ent„o ao invÈs de retornar o proxy default
 					-- criado pelo 'narrow' original retornamos o smart proxy dele.
 					if operation == nil then
 						return ex.__smart
