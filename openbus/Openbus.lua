@@ -99,10 +99,6 @@ Openbus = oop.class {
   ---
   credentialManager = nil,
   ---
-  -- O slot da credencial da requisição.
-  ---
-  requestCredentialSlot = -1,
-  ---
   -- Indica se o mecanismo de tolerancia a falhas esta ativo
   ---
   isFaultToleranceEnable = false,
@@ -621,10 +617,8 @@ function Openbus:disconnect()
 end
 
 function Openbus:destroy()
-  self.requestCredentialSlot = -1
   self:finish()
   self.orb = nil
-  self.rootPOA = nil
   self.acs = nil
   self.host = nil
   self.port = -1
