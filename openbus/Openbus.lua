@@ -642,6 +642,8 @@ function Openbus:destroy()
   self.isFaultToleranceEnable = false
   self.smartACS = nil
   self.ifaceMap = {}
+  self.credentialManager:invalidate()
+  self.credentialManager:invalidateThreadValue()
 end
 
 ---
