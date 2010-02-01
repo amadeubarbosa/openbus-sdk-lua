@@ -80,7 +80,7 @@ function receiverequest(self, request)
   local allowed = not (Openbus:isInterceptable(repID, request.operation) and
     Openbus:isInterceptable("::CORBA::Object", request.operation))
 
-  if (repID == "IDL:openbusidl/acs/IAccessControlService:1.0") and
+  if (repID == "IDL:tecgraf/openbus/core/v1_05/access_control_service/IAccessControlService:1.0") and
      (request.operation == "loginByPassword")
   then
     Log:interceptor("Desligando verbose do dispatcher...")

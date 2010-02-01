@@ -36,10 +36,13 @@ function authenticate(self, acs)
   local privateKey, err = lce.key.readprivatefrompemfile(self.privateKeyFile)
   if not privateKey then
     log:error("OpenBus: erro obtendo chave privada para ".. self.name ..
-        " em " .. privateKeyFile .. ": " .. err)
+        " em " .. self.privateKeyFile .. ": " .. err)
     return nil
   end
-  challenge = lce.cipher.decrypt(privateKey, challenge)
+  challenge, err = lce.cipher.decrypt(privateKey, challenge)
+  if not challenge then
+    log:error("Erro ao descriptografar o desafio: "..err)
+  end
   local certificate = lce.x509.readfromderfile(self.acsCertificateFile)
   local answer = lce.cipher.encrypt(certificate:getpublickey(), challenge)
   local succ, credential, lease = acs:loginByCertificate(self.name, answer)

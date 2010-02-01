@@ -25,18 +25,18 @@ module "openbus.util.Utils"
 --  A interface IAccessControlService.
 ---
 ACCESS_CONTROL_SERVICE_INTERFACE =
-  "IDL:openbusidl/acs/IAccessControlService:1.0"
+  "IDL:tecgraf/openbus/core/v1_05/access_control_service/IAccessControlService:1.0"
 
 ---
 --  A interface ILeaseProvider.
 ---
-LEASE_PROVIDER_INTERFACE = "IDL:openbusidl/acs/ILeaseProvider:1.0"
+LEASE_PROVIDER_INTERFACE = "IDL:tecgraf/openbus/core/v1_05/access_control_service/ILeaseProvider:1.0"
 
 ---
 --  A interface IFaultTolerantService.
 ---
 FAULT_TOLERANT_SERVICE_INTERFACE = 
-  "IDL:openbusidl/ft/IFaultTolerantService:1.0"
+  "IDL:tecgraf/openbus/fault_tolerance/v1_05/IFaultTolerantService:1.0"
   
 ---
 --  A interface IComponent.
@@ -48,7 +48,7 @@ COMPONENT_INTERFACE =
 --  A interface IRegistryService.
 ---
 REGISTRY_SERVICE_INTERFACE =
-  "IDL:openbusidl/rs/IRegistryService:1.0"
+  "IDL:tecgraf/openbus/core/v1_05/registry_service/IRegistryService:1.0"
 
 ---
 --  As chaves CORBALOC para obtenção das interfaces do ACS.
@@ -63,7 +63,7 @@ FAULT_TOLERANT_RS_KEY = "/FTRS"
 ---
 --  A interface ISessionService.
 ---
-SESSION_SERVICE_INTERFACE = "IDL:openbusidl/ss/ISessionService:1.0"
+SESSION_SERVICE_INTERFACE = "IDL:tecgraf/openbus/session_service/v1_05/ISessionService:1.0"
 
 ---
 --  O nome da faceta do Serviço de Sessão.
@@ -95,12 +95,12 @@ COMPONENT_ID_PROPERTY_NAME = "component_id"
 function fetchAccessControlService(orb, host, port)
   port = tostring(port)
   local acs = orb:newproxy("corbaloc::".. host .. ":" .. port ..
-    ACCESS_CONTROL_SERVICE_KEY, "IDL:openbusidl/acs/IAccessControlService:1.0")
+    ACCESS_CONTROL_SERVICE_KEY, "IDL:tecgraf/openbus/core/v1_05/access_control_service/IAccessControlService:1.0")
   if acs:_non_existent() then
     log:error("Utils: Faceta IAccessControlService não encontrada.")
   end
   local lp = orb:newproxy("corbaloc::".. host .. ":" .. port ..
-    LEASE_PROVIDER_KEY, "IDL:openbusidl/acs/ILeaseProvider:1.0")
+    LEASE_PROVIDER_KEY, "IDL:tecgraf/openbus/core/v1_05/access_control_service/ILeaseProvider:1.0")
   if lp:_non_existent() then
     log:error("Utils: Faceta ILeaseProvider não encontrada.")
   end
@@ -110,7 +110,7 @@ function fetchAccessControlService(orb, host, port)
     log:error("Utils: Faceta IComponent não encontrada.")
   end
   local ft = orb:newproxy("corbaloc::".. host .. ":" .. port .. FAULT_TOLERANT_ACS_KEY,
-    "IDL:openbusidl/ft/IFaultTolerantService:1.0")
+    "IDL:tecgraf/openbus/fault_tolerance/v1_05/IFaultTolerantService:1.0")
   if ft:_non_existent() then
     log:error("Utils: Faceta IFaultTolerantService não encontrada.")
   end

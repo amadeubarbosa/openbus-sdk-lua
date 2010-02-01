@@ -209,12 +209,10 @@ function Openbus:_loadIDLs()
   self.orb:loadidlfile(idlfile)
   idlfile = IDLPATH_DIR .. "/session_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/ft_service.idl"
+  idlfile = IDLPATH_DIR .. "/fault_tolerance.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/ft_service_monitor.idl"
+  idlfile = IDLPATH_DIR .. "/fault_tolerance.idl"
   self.orb:loadidlfile(idlfile)
---  idlfile = IDLPATH_DIR .. "/data_service.idl"
---  self.orb:loadidlfile(idlfile)
   return true
 end
 
@@ -400,7 +398,7 @@ function Openbus:getSessionService()
   if not self.rgs then
   	local registryService = self:getRegistryService()
   	self.rgs = self.orb:narrow(registryService,
-                    "IDL:openbusidl/rs/IRegistryService:1.0")
+                    "IDL:tecgraf/openbus/core/v1_05/registry_service/IRegistryService:1.0")
   end
   if not self.ss and self.rgs then
     local facets = { Utils.SESSION_SERVICE_FACET_NAME }
@@ -429,7 +427,7 @@ function Openbus:getRegistryService()
                          	         acsIC, 
                          	         "RegistryServiceReceptacle", 
                          	         "IRegistryService", 
-                         	         "IDL:openbusidl/rs/IRegistryService:1.0")
+                         	         "IDL:tecgraf/openbus/core/v1_05/registry_service/IRegistryService:1.0")
   if not status then
 	    --erro ja foi logado
 	    return nil
@@ -577,7 +575,7 @@ function Openbus:connectByCredential(credential)
     if not self.rgs then
     	local registryService = self:getRegistryService()
   			self.rgs = self.orb:narrow(registryService,
-                    "IDL:openbusidl/rs/IRegistryService:1.0")
+                    "IDL:tecgraf/openbus/core/v1_05/registry_service/IRegistryService:1.0")
     end
     return self.rgs
   end
