@@ -106,7 +106,6 @@ function _renewLeaseAction(timer)
   local success, granted, newlease  =
       oil.pcall(provider.renewLease, provider, timer.leaseRenewer.credential)
   if success and granted then
-    timer.retrying = false
     if timer.rate ~= newlease then
       timer.rate = newlease
       timer.leaseRenewer:setLease(newlease)
@@ -116,11 +115,8 @@ function _renewLeaseAction(timer)
       -- Quando ocorre falha no acesso ao provedor, tenta renovar com
       -- uma freqüência maior.
       -- log:warn("Falha na acessibilidade ao provedor do lease.")
-      log:warn("Falha na acessibilidade ao provedor do lease:",granted)
-      timer.rate = (timer.retrying and timer.rate) or (timer.rate /2)
-      timer.retrying = true
+      log:warn("Falha na acessibilidade ao provedor do lease:", granted)
     else -- not granted or granted[1] == "IDL:omg.org/CORBA/NO_PERMISSION:1.0"
-      timer.retrying = false
       log:lease("Lease não renovado, credencial expirou.")
       timer:disable()
       if timer.leaseExpiredCallback then
