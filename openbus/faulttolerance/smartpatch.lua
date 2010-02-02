@@ -1,5 +1,5 @@
 local print = print
-
+local tostring = tostring
 local tabop       = require "loop.table"
 local ObjectCache = require "loop.collection.ObjectCache"
 
@@ -163,12 +163,16 @@ function smartmethod(invoker, operation)
 					timeToTrie = timeToTrie - 1				
 				until stop or timeToTrie == 0
 
-				--troca a referencia do proxy para a nova replica alvo
-				tabop.copy(prx2.__smart, self)
-				log:faulttolerance("[smartpatch] trocou para replica: " .. 
-								replicas[indexCurr[self.__reference._object]])
-				--executa o metodo solicitado e retorna
-				return self[operation.name](self, ...)
+				if prx2 then
+					--troca a referencia do proxy para a nova replica alvo
+					tabop.copy(prx2.__smart, self)
+					log:faulttolerance("[smartpatch] trocou para replica: " .. 
+									replicas[indexCurr[self.__reference._object]])
+					--executa o metodo solicitado e retorna
+					return self[operation.name](self, ...)
+				else
+					log:faulttolerance("[smartpatch] nenhuma replica encontrada apos " .. tostring(timeToTrie) .. " tentativas")
+				end
 		end
 
 		-- se nao der erro, retorna com os resultados

@@ -9,6 +9,7 @@ local os = os
 local string = string
 local table  = table
 local unpack = unpack
+local string = string
 
 local oil = require "oil"
 local oop = require "loop.base"
@@ -185,6 +186,46 @@ function fetchService(orb, objReference, objType)
     log:error("[fetchService]: Servico ".. objReference .." nao encontrado.")
     return false, nil
 
+end
+
+--Verifica se duas entradas de ofertas sao equivalentes
+function equalsOfferEntries(offerEntryA, offerEntryB)
+	if  offerEntryA.credential == offerEntryB.credential and
+		offerEntryA.offer.properties == offerEntryB.offer.properties and
+		offerEntryA.allFacets == offerEntryB.offer.allFacets then
+		return true
+	elseif offerEntryA.credential == offerEntryB.credential and
+		   offerEntryA.offer.properties == offerEntryB.offer.properties and
+		   offerEntryA.allFacets ~= offerEntryB.offer.allFacets then
+		 Log:faultolerance("[warn][equalsOfferEntries] Servico possui uma oferta similar "..
+		 					"em replicas diferentes e sua lista de facetas diferem.")
+		 return false
+	else
+		return false
+	end
+end
+
+
+-- Parser de uma string serializada de descricoes de facetas
+-- onde o divisor de cada descricao eh o caracter '#'
+-- @return Retorna uma tabela da seguinte forma:
+--	  facets[facet.name] = true
+--    facets[facet.interface_name] = true
+--    facets[facet.facet_ref] = true
+function unmarshalHashFacets(strFacets)
+	local facets = {}
+	for facetDesc in string.gmatch(strFacets, "[^#]+") do
+		facets[facetDesc] = true
+	end
+	return facets
+end
+
+function marshalHashFacets(facets)
+    local strFacets = ""
+    for facetDesc, value in ipairs(facets) do
+   	    strFacets = strFacets .. "#" .. facetDesc
+   	end
+   	return strFacets
 end
 
 

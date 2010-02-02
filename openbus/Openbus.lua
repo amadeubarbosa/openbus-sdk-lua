@@ -211,8 +211,6 @@ function Openbus:_loadIDLs()
   self.orb:loadidlfile(idlfile)
   idlfile = IDLPATH_DIR .. "/fault_tolerance.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/fault_tolerance.idl"
-  self.orb:loadidlfile(idlfile)
   return true
 end
 
