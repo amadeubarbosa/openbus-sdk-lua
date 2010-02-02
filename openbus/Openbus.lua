@@ -225,8 +225,7 @@ end
 ---
 function Openbus:_completeConnection(credential, lease)
   self.credentialManager:setValue(credential)
-  self.leaseRenewer = LeaseRenewer(
-    lease, credential, self.lp, self.leaseExpiredCallback)
+  self.leaseRenewer = LeaseRenewer(lease, credential, self.lp, self)
   self.leaseRenewer:startRenew()
   if not self.rgs then
   	self.rgs = self:getRegistryService()
@@ -612,6 +611,10 @@ function Openbus:disconnect()
   end
 end
 
+---
+-- Finaliza o objeto
+--
+--
 function Openbus:destroy()
   self:finish()
   self.orb = nil
@@ -637,16 +640,28 @@ function Openbus:destroy()
 end
 
 ---
+-- Reinicializa o objeto para um estado que possa realizar connect novamente.
+--
+function Openbus:_reset()
+  self.ic = nil
+  self.lp = nil
+  self.ft = nil
+  self.ss = nil
+  self.acs = nil
+  self.rgs = nil
+  self.leaseRenewer = nil
+  self.credentialManager:invalidate()
+  self.credentialManager:invalidateThreadValue()
+end
+
+---
 -- Informa o estado de conexão com o barramento.
 --
 -- @return {@code true} caso a conexão esteja ativa, ou {@code false}, caso
 --         contrário.
 ---
 function Openbus:isConnected()
-  if self.credentialManager:hasValue() then
-    return true
-  end
-  return false
+  return self.credentialManager:hasValue()
 end
 
 ---
@@ -657,9 +672,6 @@ end
 ---
 function Openbus:addLeaseExpiredCallback(lec)
   self.leaseExpiredCallback = lec
-  if self.leaseRenewer then
-    self.leaseRenewer:setLeaseExpiredCallback(lec)
-  end
 end
 
 ---
@@ -668,8 +680,18 @@ end
 ---
 function Openbus:removeLeaseExpiredCallback()
   self.leaseExpiredCallback = nil
-  if self.leaseRenewer then
-    self.leaseRenewer:setLeaseExpiredCallback(nil)
+end
+
+---
+-- Método interno da API que recebe a notificação de que o lease expirou.
+-- Deve deixar a classe em um estado em que a callback do usuário
+-- possa se reconectar.
+---
+function Openbus:expired()
+  -- Deve dar reset antes de chamar o usuário
+  self:_reset()
+  if self.leaseExpiredCallback then
+    self.leaseExpiredCallback:expired()
   end
 end
 
