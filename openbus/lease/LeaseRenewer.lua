@@ -93,25 +93,24 @@ function startRenew(self)
     function timer.action(timer)
       local provider = self:getProvider()
       local success, granted, newlease  =
-        oil.pcall(provider.renewLease, provider, self.credential)
+          oil.pcall(provider.renewLease, provider, self.credential)
       if not success then
-      	if not granted then
-      		self.retrying = false
-			log:lease("Lease não renovado, credencial expirou.")
-			timer:disable()
-			if self.leaseExpiredCallback then
-			  self.leaseExpiredCallback:expired()
-			end
-			return
-      	end
-      
-        -- Quando ocorre falha no acesso ao provedor, tenta renovar com
-        -- uma freqüência maior.
---        log:warn("Falha na acessibilidade ao provedor do lease.")
-        log:warn("Falha na acessibilidade ao provedor do lease:",granted)
-        timer.rate = (self.retrying and timer.rate) or (timer.rate /2)
-        self.retrying = true
-        return
+        if not granted then
+          self.retrying = false
+          log:lease("Lease não renovado, credencial expirou.")
+          timer:disable()
+          if self.leaseExpiredCallback then
+            self.leaseExpiredCallback:expired()
+          end
+          return
+        end
+          -- Quando ocorre falha no acesso ao provedor, tenta renovar com
+          -- uma freqüência maior.
+          -- log:warn("Falha na acessibilidade ao provedor do lease.")
+          log:warn("Falha na acessibilidade ao provedor do lease:",granted)
+          timer.rate = (self.retrying and timer.rate) or (timer.rate /2)
+          self.retrying = true
+          return
       end
       self.retrying = false
       if timer.rate ~= newlease then
