@@ -85,43 +85,49 @@ end
 ---
 function startRenew(self)
   if not self.timer then
-    -- Aloca uma "thread" para a renovação do lease
-    local timer = Timer{
-      scheduler = oil.tasks,
-      rate = self.lease,
-    }
-    function timer.action(timer)
-      local provider = self:getProvider()
-      local success, granted, newlease  =
-          oil.pcall(provider.renewLease, provider, self.credential)
-      if not success then
-        if not granted then
-          self.retrying = false
-          log:lease("Lease não renovado, credencial expirou.")
-          timer:disable()
-          if self.leaseExpiredCallback then
-            self.leaseExpiredCallback:expired()
-          end
-          return
-        end
-          -- Quando ocorre falha no acesso ao provedor, tenta renovar com
-          -- uma freqüência maior.
-          -- log:warn("Falha na acessibilidade ao provedor do lease.")
-          log:warn("Falha na acessibilidade ao provedor do lease:",granted)
-          timer.rate = (self.retrying and timer.rate) or (timer.rate /2)
-          self.retrying = true
-          return
-      end
-      self.retrying = false
-      if timer.rate ~= newlease then
-        timer.rate = newlease
-        self:setLease(newlease)
-      end
-    end
-    self.timer = timer
+    self.timer = self:_createTimer()
   end
   self.timer.rate = self.lease
   self.timer:enable()
+end
+
+function _createTimer(self)
+  -- Aloca uma "thread" para a renovação do lease
+  return Timer{
+    scheduler = oil.tasks,
+    rate = self.lease,
+    action = _renewLeaseAction,
+    leaseRenewer = self,
+  }
+end
+
+function _renewLeaseAction(timer)
+  local provider = timer.leaseRenewer:getProvider()
+  local success, granted, newlease  =
+      oil.pcall(provider.renewLease, provider, timer.leaseRenewer.credential)
+  if success and granted then
+    timer.retrying = false
+    if timer.rate ~= newlease then
+      timer.rate = newlease
+      timer.leaseRenewer:setLease(newlease)
+    end
+  else
+    if not success and granted[1] ~= "IDL:omg.org/CORBA/NO_PERMISSION:1.0" then
+      -- Quando ocorre falha no acesso ao provedor, tenta renovar com
+      -- uma freqüência maior.
+      -- log:warn("Falha na acessibilidade ao provedor do lease.")
+      log:warn("Falha na acessibilidade ao provedor do lease:",granted)
+      timer.rate = (timer.retrying and timer.rate) or (timer.rate /2)
+      timer.retrying = true
+    else -- not granted or granted[1] == "IDL:omg.org/CORBA/NO_PERMISSION:1.0"
+      timer.retrying = false
+      log:lease("Lease não renovado, credencial expirou.")
+      timer:disable()
+      if timer.leaseExpiredCallback then
+        timer.leaseExpiredCallback:expired()
+      end
+    end
+  end
 end
 
 ---
