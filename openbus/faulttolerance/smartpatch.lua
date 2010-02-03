@@ -18,6 +18,9 @@ for _, repid in pairs(giop.SystemExceptionIDs) do
   CriticalExceptions[repid] = true
 end
 
+-- Constantes
+local DEFAULT_ATTEMPTS = 20
+
 local Replicas = {}
 local indexCurr = {}
 local Components = {}
@@ -137,7 +140,7 @@ function smartmethod(invoker, operation)
       if replicas == nil then error(ex) end
 
       local prx2
-      local timeToTrie = 20
+      local attempts = DEFAULT_ATTEMPTS
       repeat
         local numberOfHosts = # Replicas[objkey]
         local lastIndex = indexCurr[objkey]
@@ -160,8 +163,8 @@ function smartmethod(invoker, operation)
             stop = true
           end
         end
-        timeToTrie = timeToTrie - 1
-      until stop or timeToTrie == 0
+        attempts = attempts - 1
+      until stop or attempts == 0
 
       if prx2 then
         --troca a referencia do proxy para a nova replica alvo
@@ -172,7 +175,7 @@ function smartmethod(invoker, operation)
         return self[operation.name](self, ...)
       else
         log:faulttolerance("[smartpatch] nenhuma replica encontrada apos "
-            .. tostring(timeToTrie) .. " tentativas")
+            .. tostring(DEFAULT_ATTEMPTS - attempts) .. " tentativas")
       end
     end
 
