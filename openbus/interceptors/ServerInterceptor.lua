@@ -72,8 +72,6 @@ end
 function receiverequest(self, request)
   Log:interceptor "INTERCEPTAÇÂO SERVIDOR!"
   
-  local OK = false
-
   -- XXX: nao existe forma padrao de recuperar o repID, esta e' uma
   -- intrusao no OiL, ou seja, pode quebrar no futuro.
   local repID = orb.ServantIndexer.indexer:typeof(request.object_key).repID
@@ -89,7 +87,7 @@ function receiverequest(self, request)
 
   if allowed then
     Log:interceptor(format("OPERAÇÂO %s NÂO È CHECADA", request.operation))
-    OK = true
+    return
   else
   	Log:interceptor(format("OPERAÇÂO %s É CHECADA", request.operation))
 
@@ -111,30 +109,19 @@ function receiverequest(self, request)
     	if success and res then
     	  	Log:interceptor(format("CREDENCIAL VALIDADA PARA %s", request.operation))
       		self.picurrent:setValue(credential)
-      		OK = true
+      		return
     	end
   	end
   	
-  	if OK then
-  		-- TODO: Verificar se faz sentido a atualização do estado ser antes
-  		-- ou depois da validação da credencial
-  		if self:needUpdate(request) then
-  			oil.newthread(function() 
-  						 self.serviceStatusManager:updateStatus(request.object_key) 
-  					  end)
-  		end
-  		return
-  	else
-  		-- Credencial inválida ou sem credencial
-  		if credential then
-    		Log:interceptor("\n ***CREDENCIAL INVALIDA ***\n")
-  		else
-    		Log:interceptor("\n***NÂO TEM CREDENCIAL ***\n")
-  		end
-  		request.success = false
-  		request.count = 1
-  		request[1] = orb:newexcept{"CORBA::NO_PERMISSION", minor_code_value = 0}
-  	end
+	-- Credencial inválida ou sem credencial
+	if credential then
+   		Log:interceptor("\n ***CREDENCIAL INVALIDA ***\n")
+	else
+  		Log:interceptor("\n***NÂO TEM CREDENCIAL ***\n")
+	end
+	request.success = false
+	request.count = 1
+	request[1] = orb:newexcept{"CORBA::NO_PERMISSION", minor_code_value = 0}
   	
   end
   
@@ -151,6 +138,12 @@ function sendreply(self, request)
     oil.verbose:flag("dispatcher", true)
   end
   request.service_context = {}
+  
+  if self:needUpdate(request) then
+  		oil.newthread(function() 
+  				 self.serviceStatusManager:updateStatus(request.object_key) 
+  				  end)
+  end
 end
 
 ---
@@ -165,15 +158,18 @@ end
 function needUpdate(self, request)
 	--TODO: Colocar aqui somente o que faz sentido pedir para atualizar
 	-- o estado antes
-	if request.operation ~= "updateStatus" 		 and
-  	   request.operation ~= "loginByPassword" 	 and
-  	   request.operation ~= "loginByCertificate" and
-  	   request.operation ~= "getRegistryService" and
-  	   request.operation ~= "renewLease" then
-  	   
+	-- ***pensar como ficara o unregister do RGS
+	if request.operation == "loginByPassword" 	 or
+  	   request.operation == "loginByCertificate" or
+  	   request.operation == "renewLease" or
+  	   request.operation == "register" or
+  	   request.operation == "addObserver" or
+  	   request.operation == "removeObserver" or
+  	   request.operation == "addCredentialToObserver" or
+  	   request.operation == "removeCredentialFromObserver" or
+  	   request.operation == "update" then  	   
   		return true
   		
   	end
-  	
   	return false
 end

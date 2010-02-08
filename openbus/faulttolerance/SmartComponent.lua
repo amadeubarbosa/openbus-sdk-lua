@@ -62,7 +62,7 @@ function _fetchSmartComponent(self)
   until stop or timeToTry == maxTimeToTry
 
   if services == {} or not stop then
-     Log:faulttolerance("[_fetchSmartComponent] Componente tolerante a falhas nao encontrado.")
+     log:faulttolerance("[_fetchSmartComponent] Componente tolerante a falhas nao encontrado.")
      return false, nil
   end
   

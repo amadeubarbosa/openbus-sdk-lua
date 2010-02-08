@@ -15,7 +15,19 @@ module("openbus.faulttolerance.smartpatch", package.seeall)
 --Excecoes que serao tratadas
 local CriticalExceptions = {}
 for _, repid in pairs(giop.SystemExceptionIDs) do
-  CriticalExceptions[repid] = true
+  if repid == "IDL:omg.org/CORBA/NO_RESPONSE:1.0" or 
+     repid == "IDL:omg.org/CORBA/COMM_FAILURE:1.0" or
+     repid == "IDL:omg.org/CORBA/OBJECT_NOT_EXIST:1.0" or
+     repid == "IDL:omg.org/CORBA/TRANSIENT:1.0" or
+     repid == "IDL:omg.org/CORBA/TIMEOUT:1.0" or
+     repid == "IDL:omg.org/CORBA/NO_RESOURCES:1.0" or
+     repid == "IDL:omg.org/CORBA/FREE_MEM:1.0" or
+     repid == "IDL:omg.org/CORBA/NO_MEMORY:1.0" or
+     repid == "IDL:omg.org/CORBA/INTERNAL:1.0" then
+  	CriticalExceptions[repid] = true
+  else
+    CriticalExceptions[repid] = false
+  end
 end
 
 -- Constantes
@@ -103,26 +115,27 @@ function smartmethod(invoker, operation)
         timeOut = timeOut + timeToWait
       until timeOut == 60 or succ
       
-      local res, ex
+      local res, ex2
       
       if succ then
-        res, ex = reply:results()
+        res, ex2 = reply:results()
         if res == false then
         -- ... pega excecao
-          ex = CriticalExceptions[ex[1]]
-          log:faulttolerance("[smartpatch] operacao retornou com erro no results ")
-          replace = true
+          log:faulttolerance("[smartpatch] operacao retornou com erro no results: " .. ex2[1])
+          if CriticalExceptions[ex2[1]] then
+          	replace = true
+          end
         else
           -- Segundo o Maia, operation só é 'nil' quando se deu um 'narrow'
           -- no smart proxy, então ao invés de retornar o proxy default
           -- criado pelo 'narrow' original retornamos o smart proxy dele.
           if operation == nil then
-            return ex.__smart
+            return ex2.__smart
           end
         end
       else
         res = false
-        ex = "timeout"
+        ex2 = "timeout"
         log:faulttolerance("[smartpatch] operacao retornou com erro por timeout")
         replace = true
       end
@@ -141,9 +154,10 @@ function smartmethod(invoker, operation)
 
       local prx2
       local attempts = DEFAULT_ATTEMPTS
+      local stop = false
+      local lastIndex = indexCurr[objkey]
       repeat
         local numberOfHosts = # Replicas[objkey]
-        local lastIndex = indexCurr[objkey]
         if indexCurr[objkey] == numberOfHosts then
           indexCurr[objkey] = 1
         else
@@ -153,14 +167,18 @@ function smartmethod(invoker, operation)
         --nao pega a mesma replica que deu erro
         if replicas[indexCurr[objkey]] ~= replicas[lastIndex] then
           -- pega o proxy da proxima replica
+          log:faulttolerance("[smartpatch] buscando replica: " .. 
+									replicas[indexCurr[self.__reference._object]])
           prx2 = orb:newproxy(replicas[indexCurr[objkey]], self.__type)
-
-          local stop = false
 
           --if not prx2:_non_existent() then
           if OilUtilities:existent(prx2) then
             --OK
             stop = true
+            log:faulttolerance("[smartpatch] replica encontrada: " .. 
+									replicas[indexCurr[self.__reference._object]])
+		  else
+			prx2 = nil
           end
         end
         attempts = attempts - 1

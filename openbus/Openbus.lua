@@ -269,6 +269,7 @@ function Openbus:enableFaultTolerance()
 	return true
 end
 
+
 ---
 -- Retorna o barramento para o seu estado inicial, ou seja, desfaz as
 -- definições de atributos realizadas. Em seguida, inicializa o Orb.
