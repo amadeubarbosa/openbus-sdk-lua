@@ -141,22 +141,22 @@ function getReplicaFacetByReceptacle(orb, component, receptacleName,
   local replicaIRecep =  component:getFacetByName("IReceptacles")
   replicaIRecep = orb:narrow(replicaIRecep, "IDL:scs/core/IReceptacles:1.0")
   if replicaIRecep then
-	  local status, conns = oil.pcall(replicaIRecep.getConnections, 
-	                                  replicaIRecep,
-	                                  receptacleName)
-  	if not status then
-	    log:error("Nao foi possivel obter o Serviço [".. replicaIface .. "]: " .. conns[1])
-	    return nil
-  	elseif conns[1] then 
-	    local recepIC = conns[1].objref
-	    recepIC = orb:narrow(recepIC, "IDL:scs/core/IComponent:1.0")
+    local status, conns = oil.pcall(replicaIRecep.getConnections, 
+                                    replicaIRecep,
+                                    receptacleName)
+    if not status then
+      log:error("Nao foi possivel obter o Serviço [".. replicaIface .. "]: " .. conns[1])
+      return nil
+    elseif conns[1] then 
+      local recepIC = conns[1].objref
+      recepIC = orb:narrow(recepIC, "IDL:scs/core/IComponent:1.0")
         local ok, recepFacet =  oil.pcall(recepIC.getFacetByName, recepIC, replicaIface)
         if ok then
             recepFacet = orb:narrow(recepFacet, replicaIDL)
-    	    return recepFacet
-    	end
-    	log:error("Nao foi possivel obter a faceta [".. replicaIface .. "]: " .. recepFacet)
-  	end
+          return recepFacet
+      end
+      log:error("Nao foi possivel obter a faceta [".. replicaIface .. "]: " .. recepFacet)
+    end
   end
   log:error("Nao foi possivel obter o Serviço [".. replicaIface .. "].")
   return nil
@@ -169,18 +169,18 @@ function fetchService(orb, objReference, objType)
    local success, service = oil.pcall(orb.newproxy, orb, objReference, objType)
 
    if success then 
-		 --TODO: Quando o bug do oil for consertado, mudar para: if not service:_non_existent() then
-		 --local succ, non_existent = service.__try:_non_existent()
-		 --if succ and not non_existent then
-		if OilUtilities:existent(service) then
-	 	     --OK
-	         log:faulttolerance("[fetchService] Servico encontrado.")
-		     --TODO: Essa linha é devido a um outro bug no OiL: type_id = ""
-		     service.__reference.type_id = objType
-		     -- fim do TODO
-		     
-		     return true, service
-		 end
+     --TODO: Quando o bug do oil for consertado, mudar para: if not service:_non_existent() then
+     --local succ, non_existent = service.__try:_non_existent()
+     --if succ and not non_existent then
+    if OilUtilities:existent(service) then
+         --OK
+           log:faulttolerance("[fetchService] Servico encontrado.")
+         --TODO: Essa linha é devido a um outro bug no OiL: type_id = ""
+         service.__reference.type_id = objType
+         -- fim do TODO
+         
+         return true, service
+     end
     end
     
     log:error("[fetchService]: Servico ".. objReference .." nao encontrado.")
@@ -190,74 +190,74 @@ end
 
 --Verifica se duas entradas de ofertas sao equivalentes
 function equalsOfferEntries(offerEntryA, offerEntryB)
-	if  offerEntryA.credential == offerEntryB.credential and
-		offerEntryA.offer.properties == offerEntryB.offer.properties and
-		offerEntryA.allFacets == offerEntryB.offer.allFacets then
-		return true
-	elseif offerEntryA.credential == offerEntryB.credential and
-		   offerEntryA.offer.properties == offerEntryB.offer.properties and
-		   offerEntryA.allFacets ~= offerEntryB.offer.allFacets then
-		 Log:faultolerance("[warn][equalsOfferEntries] Servico possui uma oferta similar "..
-		 					"em replicas diferentes e sua lista de facetas diferem.")
-		 return false
-	else
-		return false
-	end
+  if  offerEntryA.credential == offerEntryB.credential and
+    offerEntryA.offer.properties == offerEntryB.offer.properties and
+    offerEntryA.allFacets == offerEntryB.offer.allFacets then
+    return true
+  elseif offerEntryA.credential == offerEntryB.credential and
+       offerEntryA.offer.properties == offerEntryB.offer.properties and
+       offerEntryA.allFacets ~= offerEntryB.offer.allFacets then
+     Log:faultolerance("[warn][equalsOfferEntries] Servico possui uma oferta similar "..
+              "em replicas diferentes e sua lista de facetas diferem.")
+     return false
+  else
+    return false
+  end
 end
 
 
 -- Parser de uma string serializada de descricoes de facetas
 -- onde o divisor de cada descricao eh o caracter '#'
 -- @return Retorna uma tabela da seguinte forma:
---	  facets[facet.name] = true
+--    facets[facet.name] = true
 --    facets[facet.interface_name] = true
 --    facets[facet.facet_ref] = true
 function unmarshalHashFacets(strFacets)
-	local facets = {}
-	for facetDesc in string.gmatch(strFacets, "[^#]+") do
-		facets[facetDesc] = true
-	end
-	return facets
+  local facets = {}
+  for facetDesc in string.gmatch(strFacets, "[^#]+") do
+    facets[facetDesc] = true
+  end
+  return facets
 end
 
 function marshalHashFacets(facets)
     local strFacets = ""
     for facetDesc, value in ipairs(facets) do
-   	    strFacets = strFacets .. "#" .. facetDesc
-   	end
-   	return strFacets
+        strFacets = strFacets .. "#" .. facetDesc
+    end
+    return strFacets
 end
 
 
 patt="%-?%-?(%w+)(=?)(.*)"
 -- Parsing arguments and returns a 'table[option]=value'
 function parse_args(arg, usage_msg, allowempty)
-	assert(type(arg)=="table","ERROR: Missing arguments! This program should be loaded from console.")
-	local arguments = {}
-	-- concatenates with the custom usage_msg
-	usage_msg=[[
+  assert(type(arg)=="table","ERROR: Missing arguments! This program should be loaded from console.")
+  local arguments = {}
+  -- concatenates with the custom usage_msg
+  usage_msg=[[
  Usage: ]]..arg[0]..[[ OPTIONS
  Valid OPTIONS:
 ]] ..usage_msg
 
-	if not (arg[1]) and not allowempty then print(usage_msg) ; os.exit(1) end
+  if not (arg[1]) and not allowempty then print(usage_msg) ; os.exit(1) end
 
-	for i,param in ipairs(arg) do
-		local opt,_,value = param:match(patt)
-		if opt == "h" or opt == "help" then
-			print(usage_msg)
-			os.exit(1)
-		end
-		if opt and value then
-			if arguments[opt] then
-				arguments[opt] = arguments[opt].." "..value
-			else
-				arguments[opt] = value
-			end
-		end
-	end
+  for i,param in ipairs(arg) do
+    local opt,_,value = param:match(patt)
+    if opt == "h" or opt == "help" then
+      print(usage_msg)
+      os.exit(1)
+    end
+    if opt and value then
+      if arguments[opt] then
+        arguments[opt] = arguments[opt].." "..value
+      else
+        arguments[opt] = value
+      end
+    end
+  end
 
-	return arguments
+  return arguments
 end
 
 
