@@ -58,6 +58,7 @@ end
 ---
 function updateStatus(self, interceptedKey)
     interceptedKey = "/" .. interceptedKey  
+    Log:faulttolerance("[ServiceStatusManager][updateStatus] Chave interceptada:" .. interceptedKey)
 	local objKey = nil
 	if interceptedKey == Utils.ACCESS_CONTROL_SERVICE_KEY or
 	   interceptedKey == Utils.LEASE_PROVIDER_KEY or
@@ -73,7 +74,7 @@ function updateStatus(self, interceptedKey)
 	if objKey ~= nil then
 		local keyV = self._keys[objKey]
 		for _,ref in pairs(keyV.hosts) do
-			Log:faulttolerance("Buscando para atualizar replica [" .. ref .."-TYPE:".. keyV.interface .."]")
+			Log:faulttolerance("[ServiceStatusManager][updateStatus]Buscando para atualizar replica [" .. ref .."-TYPE:".. keyV.interface .."]")
 			local ret, ok, service = oil.pcall(Utils.fetchService, orb, ref, keyV.interface)
 			if ok then
 				local ret = service:updateStatus("all")

@@ -140,8 +140,15 @@ function sendreply(self, request)
   request.service_context = {}
   
   if self:needUpdate(request) then
-  		oil.newthread(function() 
-  				 self.serviceStatusManager:updateStatus(request.object_key) 
+    local key = request.object_key
+    --VER COM O MAIA (10/02/2010) : Por algum motivo o request.object_key nao esta vindo
+	-- com o key do servico de registro, so funciona para o ACS
+	if request.operation == "register" or
+  	   request.operation == "update"  then  	   
+  		key = "RS"
+  	end
+    oil.newthread(function() 
+  				 self.serviceStatusManager:updateStatus(key) 
   				  end)
   end
 end

@@ -193,6 +193,7 @@ function equalsOfferEntries(offerEntryA, offerEntryB)
   if  offerEntryA.credential == offerEntryB.credential and
     offerEntryA.offer.properties == offerEntryB.offer.properties and
     offerEntryA.allFacets == offerEntryB.offer.allFacets then
+    Log:faultolerance("[equalsOfferEntries] Ofertas iguais.")
     return true
   elseif offerEntryA.credential == offerEntryB.credential and
        offerEntryA.offer.properties == offerEntryB.offer.properties and
