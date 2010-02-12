@@ -56,8 +56,7 @@ end
 --Atualiza o estado de todas as replicas para um dado objectKey
 --
 ---
-function updateStatus(self, interceptedKey)
-    interceptedKey = "/" .. interceptedKey  
+function updateStatus(self, interceptedKey)  
     Log:faulttolerance("[ServiceStatusManager][updateStatus] Chave interceptada:" .. interceptedKey)
 	local objKey = nil
 	if interceptedKey == Utils.ACCESS_CONTROL_SERVICE_KEY or

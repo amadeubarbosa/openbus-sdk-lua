@@ -54,12 +54,12 @@ REGISTRY_SERVICE_INTERFACE =
 ---
 --  As chaves CORBALOC para obtenção das interfaces do ACS.
 ---
-ICOMPONENT_KEY = "/IC"
-ACCESS_CONTROL_SERVICE_KEY = "/ACS"
-LEASE_PROVIDER_KEY = "/LP"
-FAULT_TOLERANT_ACS_KEY = "/FTACS"
-REGISTRY_SERVICE_KEY = "/RS"
-FAULT_TOLERANT_RS_KEY = "/FTRS"
+ICOMPONENT_KEY = "IC"
+ACCESS_CONTROL_SERVICE_KEY = "ACS"
+LEASE_PROVIDER_KEY = "LP"
+FAULT_TOLERANT_ACS_KEY = "FTACS"
+REGISTRY_SERVICE_KEY = "RS"
+FAULT_TOLERANT_RS_KEY = "FTRS"
 
 ---
 --  A interface ISessionService.
@@ -95,22 +95,22 @@ COMPONENT_ID_PROPERTY_NAME = "component_id"
 --
 function fetchAccessControlService(orb, host, port)
   port = tostring(port)
-  local acs = orb:newproxy("corbaloc::".. host .. ":" .. port ..
+  local acs = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
     ACCESS_CONTROL_SERVICE_KEY, "IDL:tecgraf/openbus/core/v1_05/access_control_service/IAccessControlService:1.0")
   if acs:_non_existent() then
     log:error("Utils: Faceta IAccessControlService não encontrada.")
   end
-  local lp = orb:newproxy("corbaloc::".. host .. ":" .. port ..
+  local lp = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
     LEASE_PROVIDER_KEY, "IDL:tecgraf/openbus/core/v1_05/access_control_service/ILeaseProvider:1.0")
   if lp:_non_existent() then
     log:error("Utils: Faceta ILeaseProvider não encontrada.")
   end
-  local ic = orb:newproxy("corbaloc::".. host .. ":" .. port .. ICOMPONENT_KEY,
+  local ic = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" .. ICOMPONENT_KEY,
     "IDL:scs/core/IComponent:1.0")
   if ic:_non_existent() then
     log:error("Utils: Faceta IComponent não encontrada.")
   end
-  local ft = orb:newproxy("corbaloc::".. host .. ":" .. port .. FAULT_TOLERANT_ACS_KEY,
+  local ft = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..  FAULT_TOLERANT_ACS_KEY,
     "IDL:tecgraf/openbus/fault_tolerance/v1_05/IFaultTolerantService:1.0")
   if ft:_non_existent() then
     log:error("Utils: Faceta IFaultTolerantService não encontrada.")
@@ -134,7 +134,7 @@ end
 -- @param replicaIface A interface da faceta da réplica
 -- @param replicaIDL A IDL da interface da faceta da réplica
 --
--- @return A faceta IAccessControlService, ou nil, caso não seja encontrada.
+-- @return A faceta replicaIface, ou nil, caso não seja encontrada.
 --
 function getReplicaFacetByReceptacle(orb, component, receptacleName, 
                                      replicaIface, replicaIDL)

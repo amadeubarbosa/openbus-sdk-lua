@@ -174,10 +174,10 @@ function Openbus:_fetchACS()
   end
   
   if self.isFaultToleranceEnable then
-  	acs = services[string.gsub(Utils.ACCESS_CONTROL_SERVICE_KEY, "/", "")]
-    lp = services[string.gsub(Utils.LEASE_PROVIDER_KEY, "/", "")]
-    ic = services[string.gsub(Utils.ICOMPONENT_KEY, "/", "")]
-    ft = services[string.gsub(Utils.FAULT_TOLERANT_ACS_KEY, "/", "")]
+  	acs = services[Utils.ACCESS_CONTROL_SERVICE_KEY]
+    lp = services[Utils.LEASE_PROVIDER_KEY]
+    ic = services[Utils.ICOMPONENT_KEY]
+    ft = services[Utils.FAULT_TOLERANT_ACS_KEY]
   end
   
   self.acs, self.lp, self.ic, self.ft = acs, lp, ic, ft
