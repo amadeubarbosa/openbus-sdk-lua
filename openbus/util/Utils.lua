@@ -18,7 +18,7 @@ local OilUtilities = require "openbus.util.OilUtilities"
 
 
 ---
--- API utilitária.
+-- API utilitï¿½ria.
 ---
 module "openbus.util.Utils"
 
@@ -52,7 +52,7 @@ REGISTRY_SERVICE_INTERFACE =
   "IDL:tecgraf/openbus/core/v1_05/registry_service/IRegistryService:1.0"
 
 ---
---  As chaves CORBALOC para obtenção das interfaces do ACS.
+--  As chaves CORBALOC para obtenï¿½ï¿½o das interfaces do ACS.
 ---
 ICOMPONENT_KEY = "IC"
 ACCESS_CONTROL_SERVICE_KEY = "ACS"
@@ -67,7 +67,7 @@ FAULT_TOLERANT_RS_KEY = "FTRS"
 SESSION_SERVICE_INTERFACE = "IDL:tecgraf/openbus/session_service/v1_05/ISessionService:1.0"
 
 ---
---  O nome da faceta do Serviço de Sessão.
+--  O nome da faceta do Serviï¿½o de Sessï¿½o.
 ---
 SESSION_SERVICE_FACET_NAME = "sessionService"
 
@@ -82,59 +82,59 @@ DATA_SERVICE_INTERFACE = "IDL:openbusidl/data_service/IHDataService:1.0"
 COMPONENT_ID_PROPERTY_NAME = "component_id"
 
 ---
--- Obtém referências para as principais facetas do Serviço de Controle de
+-- Obtï¿½m referï¿½ncias para as principais facetas do Serviï¿½o de Controle de
 -- Acesso.
 --
 -- @param orb O ORB a ser utilizado para obter as facetas.
--- @param host String com o host do Serviço de Controle de Acesso
--- @param port Número ou string com a porta do Serviço de Controle de Acesso
+-- @param host String com o host do Serviï¿½o de Controle de Acesso
+-- @param port Nï¿½mero ou string com a porta do Serviï¿½o de Controle de Acesso
 --
--- @return A faceta IAccessControlService, ou nil, caso não seja encontrada.
--- @return A faceta ILeaseProvider, ou nil, caso não seja encontrada.
--- @return A faceta IComponent, ou nil, caso não seja encontrada.
+-- @return A faceta IAccessControlService, ou nil, caso nï¿½o seja encontrada.
+-- @return A faceta ILeaseProvider, ou nil, caso nï¿½o seja encontrada.
+-- @return A faceta IComponent, ou nil, caso nï¿½o seja encontrada.
 --
 function fetchAccessControlService(orb, host, port)
   port = tostring(port)
   local acs = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
     ACCESS_CONTROL_SERVICE_KEY, "IDL:tecgraf/openbus/core/v1_05/access_control_service/IAccessControlService:1.0")
   if acs:_non_existent() then
-    log:error("Utils: Faceta IAccessControlService não encontrada.")
+    log:error("Utils: Faceta IAccessControlService nï¿½o encontrada.")
   end
   local lp = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
     LEASE_PROVIDER_KEY, "IDL:tecgraf/openbus/core/v1_05/access_control_service/ILeaseProvider:1.0")
   if lp:_non_existent() then
-    log:error("Utils: Faceta ILeaseProvider não encontrada.")
+    log:error("Utils: Faceta ILeaseProvider nï¿½o encontrada.")
   end
   local ic = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" .. ICOMPONENT_KEY,
     "IDL:scs/core/IComponent:1.0")
   if ic:_non_existent() then
-    log:error("Utils: Faceta IComponent não encontrada.")
+    log:error("Utils: Faceta IComponent nï¿½o encontrada.")
   end
   local ft = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..  FAULT_TOLERANT_ACS_KEY,
     "IDL:tecgraf/openbus/fault_tolerance/v1_05/IFaultTolerantService:1.0")
   if ft:_non_existent() then
-    log:error("Utils: Faceta IFaultTolerantService não encontrada.")
+    log:error("Utils: Faceta IFaultTolerantService nï¿½o encontrada.")
   end
   return acs, lp, ic, ft
 end
 
 ---
--- Obtém uma réplica ativa da lista de réplicas que são receptáculos
--- de dado um componente.  As réplicas são IComponent porém deseja-se
+-- Obtï¿½m uma rï¿½plica ativa da lista de rï¿½plicas que sï¿½o receptï¿½culos
+-- de dado um componente.  As rï¿½plicas sï¿½o IComponent porï¿½m deseja-se
 -- obter uma outra faceta deste componente (ex. IRegistryService)
--- ** O ideal seria que esse método estivesse dentro de AdaptiveReceptacle,
+-- ** O ideal seria que esse mï¿½todo estivesse dentro de AdaptiveReceptacle,
 -- ou ainda em um receptacleutils dentro do SCS.
--- Porém, como teria que estender a interface IReceptacle ou modificar o SCS,
---  e isso entrará na evolução do SCS até mesmo com a própria 
---  AdaptiveReceptacle, optou-se por colocar esse método aqui na Utils.
+-- Porï¿½m, como teria que estender a interface IReceptacle ou modificar o SCS,
+--  e isso entrarï¿½ na evoluï¿½ï¿½o do SCS atï¿½ mesmo com a prï¿½pria 
+--  AdaptiveReceptacle, optou-se por colocar esse mï¿½todo aqui na Utils.
 --
 -- @param orb O ORB a ser utilizado para obter a replica.
--- @param component O componente que contém as réplicas como receptáculos
--- @param receptacleName O nome do receptáculo
--- @param replicaIface A interface da faceta da réplica
--- @param replicaIDL A IDL da interface da faceta da réplica
+-- @param component O componente que contï¿½m as rï¿½plicas como receptï¿½culos
+-- @param receptacleName O nome do receptï¿½culo
+-- @param replicaIface A interface da faceta da rï¿½plica
+-- @param replicaIDL A IDL da interface da faceta da rï¿½plica
 --
--- @return A faceta replicaIface, ou nil, caso não seja encontrada.
+-- @return A faceta replicaIface, ou nil, caso nï¿½o seja encontrada.
 --
 function getReplicaFacetByReceptacle(orb, component, receptacleName, 
                                      replicaIface, replicaIDL)
@@ -145,7 +145,7 @@ function getReplicaFacetByReceptacle(orb, component, receptacleName,
                                     replicaIRecep,
                                     receptacleName)
     if not status then
-      log:error("Nao foi possivel obter o Serviço [".. replicaIface .. "]: " .. conns[1])
+      log:error("Nao foi possivel obter o Serviï¿½o [".. replicaIface .. "]: " .. conns[1])
       return nil
     elseif conns[1] then 
       local recepIC = conns[1].objref
@@ -158,7 +158,7 @@ function getReplicaFacetByReceptacle(orb, component, receptacleName,
       log:error("Nao foi possivel obter a faceta [".. replicaIface .. "]: " .. recepFacet)
     end
   end
-  log:error("Nao foi possivel obter o Serviço [".. replicaIface .. "].")
+  log:error("Nao foi possivel obter o Serviï¿½o [".. replicaIface .. "].")
   return nil
 end
 
@@ -175,7 +175,7 @@ function fetchService(orb, objReference, objType)
     if OilUtilities:existent(service) then
          --OK
            log:faulttolerance("[fetchService] Servico encontrado.")
-         --TODO: Essa linha é devido a um outro bug no OiL: type_id = ""
+         --TODO: Essa linha ï¿½ devido a um outro bug no OiL: type_id = ""
          service.__reference.type_id = objType
          -- fim do TODO
          
@@ -188,22 +188,37 @@ function fetchService(orb, objReference, objType)
 
 end
 
---Verifica se duas entradas de ofertas sao equivalentes
+--Verifica se duas entradas de ofertas com propriedades
+--formadas pelo RSFacet:createPropertyIndex sao equivalentes
 function equalsOfferEntries(offerEntryA, offerEntryB)
-  if  offerEntryA.credential == offerEntryB.credential and
-    offerEntryA.offer.properties == offerEntryB.offer.properties and
-    offerEntryA.allFacets == offerEntryB.offer.allFacets then
-    Log:faultolerance("[equalsOfferEntries] Ofertas iguais.")
-    return true
-  elseif offerEntryA.credential == offerEntryB.credential and
-       offerEntryA.offer.properties == offerEntryB.offer.properties and
-       offerEntryA.allFacets ~= offerEntryB.offer.allFacets then
-     Log:faultolerance("[warn][equalsOfferEntries] Servico possui uma oferta similar "..
-              "em replicas diferentes e sua lista de facetas diferem.")
-     return false
-  else
-    return false
-  end
+   --verifica se A tem todas as propriedades de B
+   local equalProp = equalsProperties(offerEntryA.properties, offerEntryB.properties)
+   if equalProp then
+     --verifica se B tem todas as propriedades de A
+     equalProp = equalsProperties(offerEntryB.properties, offerEntryA.properties)
+     if equalProp then 
+        --verifica se a credencial eh a mesma
+        if offerEntryA.credential.identifier == offerEntryB.credential.identifier then
+	      log:faultolerance("[equalsOfferEntries] Ofertas iguais.")
+          return true
+        end
+      end
+   end
+   return false
+end
+
+function equalsProperties(propertiesA, propertiesB)
+   for _, property in ipairs(propertiesA) do
+   --para cada propriedade da oferta a ser comparada
+     if property.name ~= "component_id" and 
+        property.name ~= "registered_by" then 
+        if not propertiesB[property.name][property.val] then
+        --se alguma nao existir, sao diferentes
+           return false
+        end
+     end
+   end
+   return true
 end
 
 
