@@ -17,9 +17,7 @@ function existent(self, proxy)
 	local parent = oil.tasks.current
 
 	local thread = coroutine.create(function()
-			--TODO: Quando o bug do oil for consertado, mudar para: if not proxy:_non_existent() then
 			   succ, not_exists = oil.pcall(proxy._non_existent, proxy)
-			   --not_exists = proxy:_non_existent()
 			   oil.tasks:resume(parent)
 	end)
 
@@ -27,11 +25,16 @@ function existent(self, proxy)
 	oil.tasks:suspend(threadTime)
 	oil.tasks:remove(thread)
 
-	if not_exists ~= nil then
-		if succ and not not_exists then
+    if not succ and not_exists == nil then
+    --nesse caso, succ veio com o resultado de non_exists e not_exists eh nil
+    --investigar quando exatamente o pcall retorna com o valor direto, 
+    --isto eh, sem o paramentro para dizer se foi bem sucedido	    
+        return true
+	elseif not_exists ~= nil then
+		if succ and not not_exists then		
 		--if not not_exists then
 			return true
-		else
+		else		
 			return false
 		end
 	else
