@@ -26,9 +26,15 @@ function existent(self, proxy)
 	oil.tasks:remove(thread)
 
     if not succ and not_exists == nil then
+    -- TODO: isso eh um bacalhau
+    -- entra nesse if quando chamado em AdaptiveReceptacle, linha 112
+    -- "local serviceRec = orb:narrow(conn.objref, "IDL:scs/core/IComponent:1.0")
+    --  if not OilUtilities:existent(serviceRec) then"
     --nesse caso, succ veio com o resultado de non_exists e not_exists eh nil
-    --investigar quando exatamente o pcall retorna com o valor direto, 
-    --isto eh, sem o paramentro para dizer se foi bem sucedido	    
+    --porem o Maia falou que isso eh impossivel
+    --para ele o pcall retornou com erro e nao retornou a mensagem de erro
+    --por outro lado o servico estava vivo e respondeu corretamente
+     
         return true
 	elseif not_exists ~= nil then
 		if succ and not not_exists then		

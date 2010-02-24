@@ -141,8 +141,6 @@ function sendreply(self, request)
   
   if self:needUpdate(request) then
     local key = request.object_key
-    --VER COM O MAIA (10/02/2010) : Por algum motivo o request.object_key nao esta vindo
-	-- com o key do servico de registro, so funciona para o ACS
 	if request.operation == "register" or
   	   request.operation == "update"  then  	   
   		key = "RS"

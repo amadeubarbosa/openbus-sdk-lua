@@ -150,9 +150,9 @@ function getReplicaFacetByReceptacle(orb, component, receptacleName,
     elseif conns[1] then 
       local recepIC = conns[1].objref
       recepIC = orb:narrow(recepIC, "IDL:scs/core/IComponent:1.0")
-        local ok, recepFacet =  oil.pcall(recepIC.getFacetByName, recepIC, replicaIface)
-        if ok then
-            recepFacet = orb:narrow(recepFacet, replicaIDL)
+      local ok, recepFacet =  oil.pcall(recepIC.getFacetByName, recepIC, replicaIface)
+      if ok then
+          recepFacet = orb:narrow(recepFacet, replicaIDL)
           return recepFacet
       end
       log:error("Nao foi possivel obter a faceta [".. replicaIface .. "]: " .. recepFacet)

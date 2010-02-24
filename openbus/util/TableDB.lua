@@ -27,7 +27,7 @@ module("openbus.util.TableDB", oo.class)
 -- Constrói um objeto do banco de dados.
 --
 -- @param dbfile Arquivo para armazenar as informações. Esse arquivo é
--- cricado caso não exista.
+-- criado caso não exista.
 --
 function __init(self, dbfile)
    local mode = lfs.attributes(dbfile, "mode")
