@@ -10,6 +10,7 @@ local string = string
 local table  = table
 local unpack = unpack
 local string = string
+local error = error
 
 local oil = require "oil"
 local oop = require "loop.base"
@@ -97,23 +98,27 @@ function fetchAccessControlService(orb, host, port)
   port = tostring(port)
   local acs = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
     ACCESS_CONTROL_SERVICE_KEY, "IDL:tecgraf/openbus/core/v1_05/access_control_service/IAccessControlService:1.0")
-  if acs:_non_existent() then
+  if not OilUtilities:existent(acs) then
     log:error("Utils: Faceta IAccessControlService não encontrada.")
+    error()
   end
   local lp = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
     LEASE_PROVIDER_KEY, "IDL:tecgraf/openbus/core/v1_05/access_control_service/ILeaseProvider:1.0")
-  if lp:_non_existent() then
+  if not OilUtilities:existent(lp) then
     log:error("Utils: Faceta ILeaseProvider não encontrada.")
+    error()
   end
   local ic = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" .. ICOMPONENT_KEY,
     "IDL:scs/core/IComponent:1.0")
-  if ic:_non_existent() then
+  if not OilUtilities:existent(ic) then
     log:error("Utils: Faceta IComponent não encontrada.")
+    error()
   end
   local ft = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..  FAULT_TOLERANT_ACS_KEY,
     "IDL:tecgraf/openbus/fault_tolerance/v1_05/IFaultTolerantService:1.0")
-  if ft:_non_existent() then
+  if not OilUtilities:existent(ft) then
     log:error("Utils: Faceta IFaultTolerantService não encontrada.")
+    error()
   end
   return acs, lp, ic, ft
 end

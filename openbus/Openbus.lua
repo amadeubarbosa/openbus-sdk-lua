@@ -163,8 +163,7 @@ function Openbus:_fetchACS()
   end
   
   if not status then
-		log:error("Erro ao obter as facetas do Serviço de Controle de Acesso." ..
-		  "Erro: " .. acs)
+		log:error("Erro ao obter as facetas do Serviço de Controle de Acesso.")
 		return false
   end
   if (self.isFaultToleranceEnable and not services) or 
@@ -528,7 +527,6 @@ function Openbus:connect(authenticator)
   if not self.credentialManager:hasValue() then
     if not self.acs then
       if not self:_fetchACS() then
-
         log:error("OpenBus: Não foi possível acessar o barramento.")
         return false
       end
@@ -601,10 +599,12 @@ function Openbus:disconnect()
       end
       self.leaseRenewer = nil
     end
-    status, err = oil.pcall(self.acs.logout, self.acs,
-      self.credentialManager:getValue())
-    if not status then
-      log:error("OpenBus: Não foi possível realizar o logout. Erro " .. err)
+    if self.acs then
+       status, err = oil.pcall(self.acs.logout, self.acs,
+            self.credentialManager:getValue())
+       if not status then
+          log:error("OpenBus: Não foi possível realizar o logout. Erro " .. err)
+       end
     end
     return true
   else
