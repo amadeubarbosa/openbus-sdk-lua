@@ -399,8 +399,8 @@ function Openbus:getSessionService()
   end
   if not self.ss and self.rgs then
     local facets = { Utils.SESSION_SERVICE_FACET_NAME }
-    local offers = self.rgs.find(facets)
-    if not offers or #offers > 0 then
+    local offers = self.rgs:find(facets)
+    if #offers > 0 then
       local component = self.orb:narrow(offers[1].member)
       local facet = component:getFacet(Utils.SESSION_SERVICE_INTERFACE)
       if not facet then
