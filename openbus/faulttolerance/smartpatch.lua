@@ -1,5 +1,8 @@
+local os = os
 local print = print
 local tostring = tostring
+local loadfile = loadfile
+local assert = assert
 local tabop       = require "loop.table"
 local ObjectCache = require "loop.collection.ObjectCache"
 
@@ -9,6 +12,8 @@ local Proxies = require "oil.kernel.base.Proxies"
 
 local log          = require "openbus.util.Log"
 local OilUtilities = require "openbus.util.OilUtilities"
+
+local DATA_DIR = os.getenv("OPENBUS_DATADIR")
 
 module("openbus.faulttolerance.smartpatch", package.seeall)
 
@@ -30,25 +35,11 @@ for _, repid in pairs(giop.SystemExceptionIDs) do
   end
 end
 
--- Constantes
-local DEFAULT_ATTEMPTS = 20
-
 local Replicas = {}
 local indexCurr = {}
 local Components = {}
 
 local orb
-
-function addSmart(componentId, replica)
-  replica = replica.__smart
-  if Components[componentId] == nil then
-    k = 1
-    Components[componentId] = {}
-  else
-    k = # Components[componentId] + 1
-  end
-  Components[componentId][k] = replica
-end
 
 --Lista de replicas para cada objectkey
 function setreplicas(objkey, refs)
@@ -105,15 +96,20 @@ function smartmethod(invoker, operation)
     log:faulttolerance("[smartpatch] smartmethod ["..
         (operation and operation.name or "unknown") .."]")
     local replace = false
+    local timeOutConfig
     if reply then
+      --recarregar timeouts de erro (para tempo ser dinâmico em tempo de execução)
+      timeOutConfig = assert(loadfile(DATA_DIR .."/conf/FTTimeOutConfiguration.lua"))()
+      --Tempo total em caso de falha = sleep * MAX_TIMES
       local timeOut = 0
-      local timeToWait = 0.5
+      local timeToWait = timeOutConfig.reply.sleep
       local succ = false
       repeat
+      --tempo para esperar uma resposta
         succ = reply:ready()
         oil.sleep(timeToWait)
-        timeOut = timeOut + timeToWait
-      until timeOut == 60 or succ
+        timeOut = timeOut + 1
+      until timeOut == timeOutConfig.reply.MAX_TIMES or succ
       
       local res, ex2
       
@@ -144,6 +140,13 @@ function smartmethod(invoker, operation)
 
     if replace then
       --se der erro...
+      if not timeOut then
+         --recarregar timeouts de erro (para tempo ser dinâmico em tempo de execução)
+         local timeOutConfig = assert(loadfile(DATA_DIR .."/conf/FTTimeOutConfiguration.lua"))()
+      end
+      --Tempo total em caso de falha = sleep * MAX_TIMES
+      local DEFAULT_ATTEMPTS = timeOutConfig.fetch.MAX_TIMES
+      
       local objkey = self.__reference._object
       log:faulttolerance("[smartpatch] tratando requisicao para key: ".. objkey)
       --pega a lista de replicas com o objectkey do servidor "interceptado"
@@ -179,6 +182,7 @@ function smartmethod(invoker, operation)
 									replicas[indexCurr[self.__reference._object]])
 		  else
 			prx2 = nil
+			os.execute("sleep ".. tostring(timeOutConfig.fetch.sleep))
           end
         end
         attempts = attempts - 1

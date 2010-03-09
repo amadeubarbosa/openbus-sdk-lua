@@ -1,19 +1,27 @@
 local print = print
 local coroutine = coroutine
+local loadfile = loadfile
+local assert = assert
 local Log = require "openbus.util.Log"
 local oop = require "loop.simple"
 
-
 local oil = require "oil"
+
+local DATA_DIR = os.getenv("OPENBUS_DATADIR")
 
 module ("openbus.util.OilUtilities", oop.class)
 
 function existent(self, proxy)
     Log:faulttolerance("[existent]OilUtilities")
 	local not_exists = nil
-	--Tempo total em caso de falha = 0.3 * 10 = 3 segundos
+
+	--recarregar timeouts de erro (para tempo ser dinâmico em tempo de execução)
+    local timeOut = assert(loadfile(DATA_DIR .."/conf/FTTimeOutConfiguration.lua"))()
+
+	--Tempo total em caso de falha = sleep * MAX_TIMES
+	local MAX_TIMES = timeOut.non_existent.MAX_TIMES
 	local timeToTrie = 1
-	local threadTime = 0.3
+	local threadTime = timeOut.non_existent.sleep
 	local executedOK = nil
 	local parent = oil.tasks.current
 
@@ -30,13 +38,13 @@ function existent(self, proxy)
 	  
 	  timeToTrie = timeToTrie + 1
 	  
-	  if timeToTrie > 10 then
+	  if timeToTrie > MAX_TIMES then
 	     break
 	  end
     end
     
     if executedOK == nil and not_exists == nil then
-        return false   
+        return false, "call timeout"   
     elseif not_exists ~= nil then
        if executedOK and not not_exists then		
           return true
