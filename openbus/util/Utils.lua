@@ -1,16 +1,17 @@
 -- $Id: $
 
-local type = type
-local ipairs = ipairs
-local print = print
+local type     = type
+local print    = print
+local pairs    = pairs
+local ipairs   = ipairs
 local tostring = tostring
-local assert = assert
-local os = os
+local assert   = assert
+local unpack   = unpack
+local error    = error
+
+local os     = os
 local string = string
 local table  = table
-local unpack = unpack
-local string = string
-local error = error
 
 local oil = require "oil"
 local oop = require "loop.base"
@@ -193,39 +194,48 @@ function fetchService(orb, objReference, objType)
 
 end
 
---Verifica se duas entradas de ofertas com propriedades
---formadas pelo RSFacet:createPropertyIndex sao equivalentes
+---
+-- Verifica se duas entradas de ofertas com propriedades
+-- formadas pelo RSFacet:createPropertyIndex são equivalentes.
+--
+-- @param offerEntryA Oferta a ser comparada
+-- @param offerEntryB Oferta a ser comparada
+--
+-- @return true se as ofertas pertencem ao mesmo membro com as mesmas propriedades.
+--  false em caso contrário.
+--
 function equalsOfferEntries(offerEntryA, offerEntryB)
-   --verifica se A tem todas as propriedades de B
-   local equalProp = equalsProperties(offerEntryA.properties, offerEntryB.properties)
-   if equalProp then
-     --verifica se B tem todas as propriedades de A
-     equalProp = equalsProperties(offerEntryB.properties, offerEntryA.properties)
-     if equalProp then 
-        --verifica se a credencial eh a mesma
-        if offerEntryA.credential.identifier == offerEntryB.credential.identifier then
-	      log:faultolerance("[equalsOfferEntries] Ofertas iguais.")
-          return true
-        end
-      end
-   end
-   return false
+  -- (A contido em B) ^ (B contido A) -> (A == B)
+  return offerEntryA.credential.identifier == offerEntryB.credential.identifier and
+    containsProperties(offerEntryA.properties, offerEntryB.properties)          and
+    containsProperties(offerEntryB.properties, offerEntryA.properties)
 end
 
-function equalsProperties(propertiesA, propertiesB)
-   for _, property in ipairs(propertiesA) do
-   --para cada propriedade da oferta a ser comparada
-     if property.name ~= "component_id" and 
-        property.name ~= "registered_by" then 
-        if not propertiesB[property.name][property.val] then
-        --se alguma nao existir, sao diferentes
+---
+-- Verifica se o primeiro conjunto de propriedades contém o segundo.
+--
+-- Essas propriedades são o resultado da função RSFacet:createPropertyIndex().
+-- Ela ignora as propriedades 'component_id' e 'registered_by' que são geradas
+-- automaticamente, comparando somente os dados fornecidos pelo membro.
+--
+-- @param propertiesA Propriedades de registro
+-- @param propertiesB Propriedades de registro
+--
+-- @return true se propertiesA contém propertiesB. false, caso contrário.
+--
+function containsProperties(propertiesA, propertiesB)
+   for name, values in pairs(propertiesB) do
+     -- Propriedades registradas automaticamente pelo Serviço de Registro: ignorar
+     if name ~= "component_id" and name ~= "registered_by" then 
+       for value in pairs(values) do
+         if not (propertiesA[name] and propertiesA[name][value]) then
            return false
-        end
+         end
+       end
      end
    end
    return true
 end
-
 
 -- Parser de uma string serializada de descricoes de facetas
 -- onde o divisor de cada descricao eh o caracter '#'
