@@ -670,7 +670,7 @@ end
 -- @param lec O observador.
 --
 ---
-function Openbus:addLeaseExpiredCallback(lec)
+function Openbus:setLeaseExpiredCallback(lec)
   self.leaseExpiredCallback = lec
 end
 
