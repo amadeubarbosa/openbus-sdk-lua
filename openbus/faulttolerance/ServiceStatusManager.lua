@@ -72,8 +72,8 @@ function updateStatus(self, interceptedKey)
     for _,ref in pairs(keyV.hosts) do
       Log:faulttolerance("[ServiceStatusManager][updateStatus]Buscando para atualizar replica [" .. ref .."-TYPE:".. keyV.interface .."]")
       local ret, ok, service = oil.pcall(Utils.fetchService, orb, ref, keyV.interface)
-      if ok then
-        local ret = service:updateStatus("all")
+      if ret and ok then
+        service:updateStatus("all")
       end
     end
   end
