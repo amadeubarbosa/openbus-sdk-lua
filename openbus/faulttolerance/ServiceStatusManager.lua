@@ -1,4 +1,3 @@
-
 local assert = assert
 local print = print
 local loadfile = loadfile
@@ -25,8 +24,8 @@ module("openbus.faulttolerance.ServiceStatusManager", oop.class)
 function __init(self)
 
   if self._keys ~= nil then
-     Log:faulttolerance("ServiceStatusManager constructer - return EXISTENT")
-     return self
+    Log:faulttolerance("ServiceStatusManager constructer - return EXISTENT")
+    return self
   else
     Log:faulttolerance("ServiceStatusManager constructer - return NEW instance")
     return oop.rawnew(self, { _keys = self:setReplicas() })
@@ -38,18 +37,17 @@ end
 --
 ---
 function setReplicas(self)
-    	local DATA_DIR = os.getenv("OPENBUS_DATADIR")
-    	local ftconfig = assert(loadfile(DATA_DIR .."/conf/ACSFaultToleranceConfiguration.lua"))()
+  local DATA_DIR = os.getenv("OPENBUS_DATADIR")
+  local ftconfig = assert(loadfile(DATA_DIR .."/conf/ACSFaultToleranceConfiguration.lua"))()
 
-		self._keys = {}
-    	self._keys[Utils.FAULT_TOLERANT_ACS_KEY] = { interface = Utils.FAULT_TOLERANT_SERVICE_INTERFACE,
-    									  		  hosts = ftconfig.hosts.FTACS, }
-    									  		  
-   		ftconfig = assert(loadfile(DATA_DIR .."/conf/RSFaultToleranceConfiguration.lua"))()
+  self._keys = {}
+  self._keys[Utils.FAULT_TOLERANT_ACS_KEY] = { interface = Utils.FAULT_TOLERANT_SERVICE_INTERFACE,
+      hosts = ftconfig.hosts.FTACS, }
 
-    	self._keys[Utils.FAULT_TOLERANT_RS_KEY] = { interface = Utils.FAULT_TOLERANT_SERVICE_INTERFACE,
-    									  		  hosts = ftconfig.hosts.FTRS, }
-    									  		  
+  ftconfig = assert(loadfile(DATA_DIR .."/conf/RSFaultToleranceConfiguration.lua"))()
+
+  self._keys[Utils.FAULT_TOLERANT_RS_KEY] = { interface = Utils.FAULT_TOLERANT_SERVICE_INTERFACE,
+      hosts = ftconfig.hosts.FTRS, }
 end
 
 ---
@@ -57,34 +55,26 @@ end
 --
 ---
 function updateStatus(self, interceptedKey)  
-    Log:faulttolerance("[ServiceStatusManager][updateStatus] Chave interceptada:" .. interceptedKey)
-	local objKey = nil
-	if interceptedKey == Utils.ACCESS_CONTROL_SERVICE_KEY or
-	   interceptedKey == Utils.LEASE_PROVIDER_KEY or
-	   interceptedKey == Utils.FAULT_TOLERANT_ACS_KEY then
-	   objKey = Utils.FAULT_TOLERANT_ACS_KEY
-	else
-		if interceptedKey == Utils.REGISTRY_SERVICE_KEY or
-		   interceptedKey == Utils.FAULT_TOLERANT_RS_KEY then
-		   objKey = Utils.FAULT_TOLERANT_RS_KEY
-		end 
-	end	 
+  Log:faulttolerance("[ServiceStatusManager][updateStatus] Chave interceptada:" .. interceptedKey)
+  local objKey = nil
+  if interceptedKey == Utils.ACCESS_CONTROL_SERVICE_KEY or
+     interceptedKey == Utils.LEASE_PROVIDER_KEY or
+     interceptedKey == Utils.FAULT_TOLERANT_ACS_KEY then
+    objKey = Utils.FAULT_TOLERANT_ACS_KEY
+  elseif interceptedKey == Utils.REGISTRY_SERVICE_KEY or
+         interceptedKey == Utils.FAULT_TOLERANT_RS_KEY then
+    objKey = Utils.FAULT_TOLERANT_RS_KEY
+    end 
+  end  
 
-	if objKey ~= nil then
-		local keyV = self._keys[objKey]
-		for _,ref in pairs(keyV.hosts) do
-			Log:faulttolerance("[ServiceStatusManager][updateStatus]Buscando para atualizar replica [" .. ref .."-TYPE:".. keyV.interface .."]")
-			local ret, ok, service = oil.pcall(Utils.fetchService, orb, ref, keyV.interface)
-			if ok then
-				local ret = service:updateStatus("all")
-			end
-		end
-	end
+  if objKey ~= nil then
+    local keyV = self._keys[objKey]
+    for _,ref in pairs(keyV.hosts) do
+      Log:faulttolerance("[ServiceStatusManager][updateStatus]Buscando para atualizar replica [" .. ref .."-TYPE:".. keyV.interface .."]")
+      local ret, ok, service = oil.pcall(Utils.fetchService, orb, ref, keyV.interface)
+      if ok then
+        local ret = service:updateStatus("all")
+      end
+    end
+  end
 end
-
-
-
-
-
-
-
