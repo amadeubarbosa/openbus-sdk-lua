@@ -53,15 +53,23 @@ COMPONENT_INTERFACE =
 REGISTRY_SERVICE_INTERFACE =
   "IDL:tecgraf/openbus/core/v1_05/registry_service/IRegistryService:1.0"
 
+  ---
+  --  A chave para obtenção do barramento.
+  ---
+OPENBUS_KEY = "openbus_v1_05"
+
 ---
 --  As chaves CORBALOC para obtenção das interfaces do ACS.
 ---
-ICOMPONENT_KEY = "IC"
-ACCESS_CONTROL_SERVICE_KEY = "ACS"
-LEASE_PROVIDER_KEY = "LP"
-FAULT_TOLERANT_ACS_KEY = "FTACS"
-REGISTRY_SERVICE_KEY = "RS"
-FAULT_TOLERANT_RS_KEY = "FTRS"
+ACCESS_CONTROL_SERVICE_KEY = "ACS_v1_05"
+LEASE_PROVIDER_KEY = "LP_v1_05"
+FAULT_TOLERANT_ACS_KEY = "FTACS_v1_05"
+
+---
+--  As chaves CORBALOC para obtenção das interfaces do RS.
+---
+REGISTRY_SERVICE_KEY = "RS_v1_05"
+FAULT_TOLERANT_RS_KEY = "FTRS_v1_05"
 
 ---
 --  A interface ISessionService.
@@ -109,8 +117,8 @@ function fetchAccessControlService(orb, host, port)
     log:error("Utils: Faceta ILeaseProvider não encontrada.")
     error()
   end
-  local ic = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" .. ICOMPONENT_KEY,
-    "IDL:scs/core/IComponent:1.0")
+  local ic = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
+      OPENBUS_KEY, "IDL:scs/core/IComponent:1.0")
   if not OilUtilities:existent(ic) then
     log:error("Utils: Faceta IComponent não encontrada.")
     error()
