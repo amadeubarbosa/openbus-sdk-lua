@@ -64,8 +64,7 @@ function updateStatus(self, interceptedKey)
   elseif interceptedKey == Utils.REGISTRY_SERVICE_KEY or
          interceptedKey == Utils.FAULT_TOLERANT_RS_KEY then
     objKey = Utils.FAULT_TOLERANT_RS_KEY
-    end 
-  end  
+  end 
 
   if objKey ~= nil then
     local keyV = self._keys[objKey]
