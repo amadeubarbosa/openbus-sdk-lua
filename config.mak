@@ -2,8 +2,8 @@ PROJNAME=openbuslua
 LIBNAME=${PROJNAME}
 
 # tecmake directories where it puts objects and libraries
-#OBJROOT= obj
-#TARGETROOT= lib
+OBJROOT= obj
+TARGETROOT= lib
 
 LUABIN= ${LUA51}/bin/${TEC_UNAME}/lua5.1
 LUAPATH = '${OPENBUS_HOME}/libpath/lua/5.1/?.lua;./?.lua;../../?.lua;'
@@ -11,7 +11,7 @@ LUAPATH = '${OPENBUS_HOME}/libpath/lua/5.1/?.lua;./?.lua;../../?.lua;'
 OPENBUSLIB= ${OPENBUS_HOME}/libpath/${TEC_UNAME} 
 OPENBUSINC= ${OPENBUS_HOME}/incpath
 
-PRECMP_DIR= ../obj/${TEC_UNAME}
+PRECMP_DIR= obj/${TEC_UNAME}
 PRECMP_LUA= ${OPENBUS_HOME}/libpath/lua/5.1/precompiler.lua
 PRECMP_FLAGS= -p OPENBUS_API -o openbus -l ${LUAPATH} -d ${PRECMP_DIR} -n
 
