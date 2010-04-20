@@ -57,6 +57,7 @@ function __init(self, config, accessControlService)
   end
   return oop.rawnew(self, {
     credentialType = lir:lookup_id(config.credential_type).type,
+    credentialType_v1_05 = lir:lookup_id(config.credential_type_v1_05).type,
     contextID = config.contextID,
     picurrent = PICurrent(),
     accessControlService = accessControlService,
@@ -78,7 +79,8 @@ function receiverequest(self, request)
   local allowed = not (Openbus:isInterceptable(repID, request.operation) and
     Openbus:isInterceptable("::CORBA::Object", request.operation))
 
-  if (repID == "IDL:tecgraf/openbus/core/v1_05/access_control_service/IAccessControlService:1.0") and
+  if ( (repID == "IDL:tecgraf/openbus/core/v1_05/access_control_service/IAccessControlService:1.0") or
+       (repID == "IDL:openbusidl/acs/IAccessControlService:1.0") ) and
      (request.operation == "loginByPassword")
   then
     Log:interceptor("Desligando verbose do dispatcher...")
@@ -89,42 +91,45 @@ function receiverequest(self, request)
     Log:interceptor(format("OPERAÇÂO %s NÂO È CHECADA", request.operation))
     return
   else
-  	Log:interceptor(format("OPERAÇÂO %s É CHECADA", request.operation))
-
-  	local credential
-  	for _, context in ipairs(request.service_context) do
-    	if context.context_id == self.contextID then
-	      Log:interceptor "TEM CREDENCIAL!"
-    	  local decoder = orb:newdecoder(context.context_data)
-	      credential = decoder:get(self.credentialType)
-    	  Log:interceptor(format("CREDENCIAL: %s, %s", credential.identifier,
-        	 credential.owner))
-      	  break
-    	end
-  	end
-
-  	if credential then
-    	local success, res = oil.pcall(self.accessControlService.isValid,
-        	                           self.accessControlService, credential)
-    	if success and res then
-    	  	Log:interceptor(format("CREDENCIAL VALIDADA PARA %s", request.operation))
-      		self.picurrent:setValue(credential)
-      		return
-    	end
-  	end
+    Log:interceptor(format("OPERAÇÂO %s É CHECADA", request.operation))
+    local credential, credential_v1_05
+    for _, context in ipairs(request.service_context) do
+      if context.context_id == self.contextID then
+        Log:interceptor "TEM CREDENCIAL!"
+        local decoder = orb:newdecoder(context.context_data)
+        local status, cred = oil.pcall(decoder.get, decoder, self.credentialType)
+        if status then
+          credential = cred
+          Log:interceptor(format("CREDENCIAL V1.04: %s, %s", credential.identifier,
+            credential.owner))
+        end
+        status, cred = oil.pcall(decoder.get, decoder, self.credentialType_v1_05)
+        if status then
+          credential_v1_05 = cred
+          Log:interceptor(format("CREDENCIAL V1.05: %s, %s", credential_v1_05.identifier,
+            credential_v1_05.owner))
+        end
+       	break
+      end
+    end
+    if credential_v1_05 and self:validateCredential(credential_v1_05, request) then
+      return
+    else
+      if credential and self:validateCredential(credential, request) then
+        return
+      end
+    end
   	
-	-- Credencial inválida ou sem credencial
-	if credential then
-   		Log:interceptor("\n ***CREDENCIAL INVALIDA ***\n")
-	else
-  		Log:interceptor("\n***NÂO TEM CREDENCIAL ***\n")
-	end
-	request.success = false
-	request.count = 1
-	request[1] = orb:newexcept{"CORBA::NO_PERMISSION", minor_code_value = 0}
-  	
+    -- Credencial inválida ou sem credencial
+    if credential_v1_05 or credential then
+      Log:interceptor("\n ***CREDENCIAL INVALIDA ***\n")
+    else
+      Log:interceptor("\n***NÂO TEM CREDENCIAL ***\n")
+    end
+    request.success = false
+    request.count = 1
+    request[1] = orb:newexcept{"CORBA::NO_PERMISSION", minor_code_value = 0}
   end
-  
 end
 
 ---
@@ -178,3 +183,15 @@ function needUpdate(self, request)
   	end
   	return false
 end
+
+function validateCredential (self, credential, request)
+  local success, res = oil.pcall(self.accessControlService.isValid,
+                                 self.accessControlService, credential)
+  if success and res then
+    Log:interceptor(format("CREDENCIAL VALIDADA PARA %s", request.operation))
+    self.picurrent:setValue(credential)
+    return true
+  end
+  return false
+end
+

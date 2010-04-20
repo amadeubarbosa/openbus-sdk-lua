@@ -31,9 +31,21 @@ ACCESS_CONTROL_SERVICE_INTERFACE =
   "IDL:tecgraf/openbus/core/v1_05/access_control_service/IAccessControlService:1.0"
 
 ---
+--  A interface IAccessControlService ate a versao 1.04.
+---
+ACCESS_CONTROL_SERVICE_INTERFACE_V1_04 =
+  "IDL:openbusidl/acs/IAccessControlService:1.0"
+
+---
 --  A interface ILeaseProvider.
 ---
 LEASE_PROVIDER_INTERFACE = "IDL:tecgraf/openbus/core/v1_05/access_control_service/ILeaseProvider:1.0"
+
+---
+--  A interface ILeaseProvider ate a versao 1.04.
+---
+LEASE_PROVIDER_INTERFACE_V1_04 =
+  "IDL:openbusidl/acs/ILeaseProvider:1.0"
 
 ---
 --  A interface IFaultTolerantService.
@@ -53,28 +65,72 @@ COMPONENT_INTERFACE =
 REGISTRY_SERVICE_INTERFACE =
   "IDL:tecgraf/openbus/core/v1_05/registry_service/IRegistryService:1.0"
 
-  ---
-  --  A chave para obtenção do barramento.
-  ---
+---
+--  A interface IRegistryService ate a versao 1.04.
+---
+REGISTRY_SERVICE_INTERFACE_V1_04 =
+  "IDL:openbusidl/rs/IRegistryService:1.0"
+
+---
+--  A chave para obtenção do barramento.
+---
 OPENBUS_KEY = "openbus_v1_05"
 
 ---
 --  As chaves CORBALOC para obtenção das interfaces do ACS.
 ---
 ACCESS_CONTROL_SERVICE_KEY = "ACS_v1_05"
+ACCESS_CONTROL_SERVICE_KEY_V1_04 = "ACS"
 LEASE_PROVIDER_KEY = "LP_v1_05"
+LEASE_PROVIDER_KEY_V1_04 = "LP"
 FAULT_TOLERANT_ACS_KEY = "FTACS_v1_05"
 
 ---
 --  As chaves CORBALOC para obtenção das interfaces do RS.
 ---
 REGISTRY_SERVICE_KEY = "RS_v1_05"
+REGISTRY_SERVICE_KEY_V1_04 = "RS"
 FAULT_TOLERANT_RS_KEY = "FTRS_v1_05"
 
 ---
 --  A interface ISessionService.
 ---
 SESSION_SERVICE_INTERFACE = "IDL:tecgraf/openbus/session_service/v1_05/ISessionService:1.0"
+
+---
+--  A interface ISessionService ate a versao 1.04.
+---
+SESSION_SERVICE_INTERFACE_V1_04 = "IDL:openbusidl/ss/ISessionService:1.0"
+
+---
+--  A interface SessionEventSink.
+---
+SESSION_ES_INTERFACE = "IDL:tecgraf/openbus/session_service/v1_05/SessionEventSink:1.0"
+
+---
+--  A interface SessioneventSink ate a versao 1.04.
+---
+SESSION_ES_INTERFACE_V1_04 = "IDL:openbusidl/ss/SessionEventSink:1.0"
+
+---
+--  A interface ISession.
+---
+SESSION_INTERFACE = "IDL:tecgraf/openbus/session_service/v1_05/ISession:1.0"
+
+---
+--  A interface ISession ate a versao 1.04.
+---
+SESSION_INTERFACE_V1_04 = "IDL:openbusidl/ss/ISession:1.0"
+
+---
+--  A interface ICredentialObserver.
+---
+CREDENTIAL_OBSERVER_INTERFACE = "IDL:tecgraf/openbus/core/v1_05/access_control_service/ICredentialObserver:1.0"
+
+---
+--  A interface ICredentialObserver ate a versao 1.04.
+---
+CREDENTIAL_OBSERVER_INTERFACE_V1_04 = "IDL:openbusidl/acs/ICredentialObserver:1.0"
 
 ---
 --  O nome da faceta do Serviço de Sessão.
