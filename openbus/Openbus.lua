@@ -202,13 +202,13 @@ function Openbus:_loadIDLs()
   end
   local idlfile = IDLPATH_DIR .. "/scs.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/access_control_service.idl"
+  idlfile = IDLPATH_DIR .. "/v1_05/access_control_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/registry_service.idl"
+  idlfile = IDLPATH_DIR .. "/v1_05/registry_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/session_service.idl"
+  idlfile = IDLPATH_DIR .. "/v1_05/session_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/fault_tolerance.idl"
+  idlfile = IDLPATH_DIR .. "/v1_05/fault_tolerance.idl"
   self.orb:loadidlfile(idlfile)
 -- Carrega IDLs para clientes do barramento v1.04
   idlfile = IDLPATH_DIR .. "/v1_04/access_control_service.idl"
