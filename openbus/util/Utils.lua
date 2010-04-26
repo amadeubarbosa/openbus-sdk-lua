@@ -151,6 +151,18 @@ CREDENTIAL_OBSERVER_INTERFACE = "IDL:tecgraf/openbus/core/v" .. OB_VERSION ..
 CREDENTIAL_OBSERVER_INTERFACE_V1_04 = "IDL:openbusidl/acs/ICredentialObserver:1.0"
 
 ---
+--  A interface IManagement do Servico de Controle de Acesso.
+---
+MANAGEMENT_ACS_INTERFACE =  "IDL:tecgraf/openbus/core/v" .. OB_VERSION .. 
+  "/access_control_service/IManagement:1.0"
+
+---
+--  A interface IManagement do Servico de Registro.
+---
+MANAGEMENT_RS_INTERFACE =  "IDL:tecgraf/openbus/core/v" .. OB_VERSION .. 
+  "/registry_service/IManagement:1.0"
+
+---
 --  O nome da faceta do Serviço de Sessão.
 ---
 SESSION_SERVICE_FACET_NAME = "ISessionService"
