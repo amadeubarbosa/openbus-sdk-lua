@@ -25,10 +25,21 @@ local OilUtilities = require "openbus.util.OilUtilities"
 module "openbus.util.Utils"
 
 ---
+-- Versao atual do OpenBus
+---
+OB_VERSION = "1_05"
+
+---
+-- Versao anterior do OpenBus
+---
+OB_PREV = "1_04"
+
+---
 --  A interface IAccessControlService.
 ---
 ACCESS_CONTROL_SERVICE_INTERFACE =
-  "IDL:tecgraf/openbus/core/v1_05/access_control_service/IAccessControlService:1.0"
+  "IDL:tecgraf/openbus/core/v" .. OB_VERSION ..
+    "/access_control_service/IAccessControlService:1.0"
 
 ---
 --  A interface IAccessControlService ate a versao 1.04.
@@ -39,7 +50,8 @@ ACCESS_CONTROL_SERVICE_INTERFACE_V1_04 =
 ---
 --  A interface ILeaseProvider.
 ---
-LEASE_PROVIDER_INTERFACE = "IDL:tecgraf/openbus/core/v1_05/access_control_service/ILeaseProvider:1.0"
+LEASE_PROVIDER_INTERFACE = "IDL:tecgraf/openbus/core/v" .. OB_VERSION .. 
+  "/access_control_service/ILeaseProvider:1.0"
 
 ---
 --  A interface ILeaseProvider ate a versao 1.04.
@@ -51,7 +63,8 @@ LEASE_PROVIDER_INTERFACE_V1_04 =
 --  A interface IFaultTolerantService.
 ---
 FAULT_TOLERANT_SERVICE_INTERFACE = 
-  "IDL:tecgraf/openbus/fault_tolerance/v1_05/IFaultTolerantService:1.0"
+  "IDL:tecgraf/openbus/fault_tolerance/v" .. OB_VERSION .. 
+    "/IFaultTolerantService:1.0"
   
 ---
 --  A interface IComponent.
@@ -63,7 +76,8 @@ COMPONENT_INTERFACE =
 --  A interface IRegistryService.
 ---
 REGISTRY_SERVICE_INTERFACE =
-  "IDL:tecgraf/openbus/core/v1_05/registry_service/IRegistryService:1.0"
+  "IDL:tecgraf/openbus/core/v" .. OB_VERSION .. 
+    "/registry_service/IRegistryService:1.0"
 
 ---
 --  A interface IRegistryService ate a versao 1.04.
@@ -74,28 +88,29 @@ REGISTRY_SERVICE_INTERFACE_V1_04 =
 ---
 --  A chave para obtenção do barramento.
 ---
-OPENBUS_KEY = "openbus_v1_05"
+OPENBUS_KEY = "openbus_v" .. OB_VERSION
 
 ---
 --  As chaves CORBALOC para obtenção das interfaces do ACS.
 ---
-ACCESS_CONTROL_SERVICE_KEY = "ACS_v1_05"
+ACCESS_CONTROL_SERVICE_KEY = "ACS_v" .. OB_VERSION
 ACCESS_CONTROL_SERVICE_KEY_V1_04 = "ACS"
-LEASE_PROVIDER_KEY = "LP_v1_05"
+LEASE_PROVIDER_KEY = "LP_v" .. OB_VERSION
 LEASE_PROVIDER_KEY_V1_04 = "LP"
-FAULT_TOLERANT_ACS_KEY = "FTACS_v1_05"
+FAULT_TOLERANT_ACS_KEY = "FTACS_v" .. OB_VERSION
 
 ---
 --  As chaves CORBALOC para obtenção das interfaces do RS.
 ---
-REGISTRY_SERVICE_KEY = "RS_v1_05"
+REGISTRY_SERVICE_KEY = "RS_v" .. OB_VERSION
 REGISTRY_SERVICE_KEY_V1_04 = "RS"
-FAULT_TOLERANT_RS_KEY = "FTRS_v1_05"
+FAULT_TOLERANT_RS_KEY = "FTRS_v" .. OB_VERSION
 
 ---
 --  A interface ISessionService.
 ---
-SESSION_SERVICE_INTERFACE = "IDL:tecgraf/openbus/session_service/v1_05/ISessionService:1.0"
+SESSION_SERVICE_INTERFACE = "IDL:tecgraf/openbus/session_service/v" .. OB_VERSION ..
+  "/ISessionService:1.0"
 
 ---
 --  A interface ISessionService ate a versao 1.04.
@@ -105,7 +120,8 @@ SESSION_SERVICE_INTERFACE_V1_04 = "IDL:openbusidl/ss/ISessionService:1.0"
 ---
 --  A interface SessionEventSink.
 ---
-SESSION_ES_INTERFACE = "IDL:tecgraf/openbus/session_service/v1_05/SessionEventSink:1.0"
+SESSION_ES_INTERFACE = "IDL:tecgraf/openbus/session_service/v" .. OB_VERSION .. 
+  "/SessionEventSink:1.0"
 
 ---
 --  A interface SessioneventSink ate a versao 1.04.
@@ -115,7 +131,8 @@ SESSION_ES_INTERFACE_V1_04 = "IDL:openbusidl/ss/SessionEventSink:1.0"
 ---
 --  A interface ISession.
 ---
-SESSION_INTERFACE = "IDL:tecgraf/openbus/session_service/v1_05/ISession:1.0"
+SESSION_INTERFACE = "IDL:tecgraf/openbus/session_service/v" .. OB_VERSION .. 
+  "/ISession:1.0"
 
 ---
 --  A interface ISession ate a versao 1.04.
@@ -125,7 +142,8 @@ SESSION_INTERFACE_V1_04 = "IDL:openbusidl/ss/ISession:1.0"
 ---
 --  A interface ICredentialObserver.
 ---
-CREDENTIAL_OBSERVER_INTERFACE = "IDL:tecgraf/openbus/core/v1_05/access_control_service/ICredentialObserver:1.0"
+CREDENTIAL_OBSERVER_INTERFACE = "IDL:tecgraf/openbus/core/v" .. OB_VERSION .. 
+  "/access_control_service/ICredentialObserver:1.0"
 
 ---
 --  A interface ICredentialObserver ate a versao 1.04.
