@@ -1,4 +1,4 @@
-PROJNAME=openbuslua
+PROJNAME=luaopenbus
 LIBNAME=${PROJNAME}
 
 # tecmake directories where it puts objects and libraries

@@ -7,12 +7,12 @@ descriptors = {
       Darwin = { mf = { "config LUA51="..PRODAPP.."/lua5.1","config LUA51="..PRODAPP.."/lua5.1 BUILD_DYLIB=YES" }, },
     },
     install_files = {
-      ["lib/${TEC_UNAME}/libopenbuslua.so"] = "lib/${TEC_UNAME}",
-      ["lib/${TEC_UNAME}/libopenbuslua.dylib"] = "lib/${TEC_UNAME}",
+      ["lib/${TEC_UNAME}/libluaopenbus.so"] = "libpath/${TEC_UNAME}",
+      ["lib/${TEC_UNAME}/libluaopenbus.dylib"] = "libpath/${TEC_UNAME}",
     },
     dev_files = {
-      ["lib/${TEC_UNAME}/libopenbuslua.*"] = "lib/${TEC_UNAME}",
-      ["obj/${TEC_UNAME}/openbuspreloaded.h"] = "lua/",
+      ["lib/${TEC_UNAME}/libluaopenbus.*"] = "libpath/${TEC_UNAME}",
+      ["obj/${TEC_UNAME}/openbuspreloaded.h"] = "incpath/openbus/lua/",
     },
   },
   { name = "openbus-demo-hello-lua",
@@ -26,7 +26,7 @@ descriptors = {
       ["server.lua"] = "demo/hello",
       ["run"] = "demo/hello",
       ["Hello.properties"] = "demo/hello",
-      ["../idl"] = "demo/hello",
+      ["idl"] = "demo/hello",
     },
   },
   { name = "openbus-demo-delegate-lua",
@@ -40,6 +40,7 @@ descriptors = {
       ["server.lua"] = "demo/delegate",
       ["run"] = "demo/delegate",
       ["Delegate.properties"] = "demo/delegate",
+      ["idl"] = "demo/delegate",
     },
   },
 }
