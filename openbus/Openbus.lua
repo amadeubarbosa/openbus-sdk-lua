@@ -200,7 +200,7 @@ function Openbus:_loadIDLs()
     log:error("Openbus: A variável IDLPATH_DIR não foi definida.")
     return false
   end
-  local idlfile = IDLPATH_DIR .. "/scs.idl"
+  local idlfile = IDLPATH_DIR .. "/v1_05/scs.idl"
   self.orb:loadidlfile(idlfile)
   idlfile = IDLPATH_DIR .. "/v1_05/access_control_service.idl"
   self.orb:loadidlfile(idlfile)
