@@ -429,7 +429,7 @@ function Openbus:getRegistryService()
      					 		     self.orb, 
                          	         acsIC, 
                          	         "RegistryServiceReceptacle", 
-                         	         "IRegistryService", 
+                         	         "IRegistryService_v" .. Utils.OB_VERSION, 
                          	         "IDL:tecgraf/openbus/core/v1_05/registry_service/IRegistryService:1.0")
   if not status then
 	    --erro ja foi logado

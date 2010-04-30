@@ -98,6 +98,7 @@ ACCESS_CONTROL_SERVICE_KEY_V1_04 = "ACS"
 LEASE_PROVIDER_KEY = "LP_v" .. OB_VERSION
 LEASE_PROVIDER_KEY_V1_04 = "LP"
 FAULT_TOLERANT_ACS_KEY = "FTACS_v" .. OB_VERSION
+MANAGEMENT_KEY = "MGM_v" .. OB_VERSION
 
 ---
 --  As chaves CORBALOC para obtenção das interfaces do RS.
@@ -165,7 +166,7 @@ MANAGEMENT_RS_INTERFACE =  "IDL:tecgraf/openbus/core/v" .. OB_VERSION ..
 ---
 --  O nome da faceta do Serviço de Sessão.
 ---
-SESSION_SERVICE_FACET_NAME = "ISessionService"
+SESSION_SERVICE_FACET_NAME = "ISessionService_v" .. OB_VERSION
 
 ---
 --  A interface IHDataService.
@@ -194,7 +195,7 @@ function fetchAccessControlService(orb, host, port)
   local acs = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
     ACCESS_CONTROL_SERVICE_KEY, "IDL:tecgraf/openbus/core/v1_05/access_control_service/IAccessControlService:1.0")
   if not OilUtilities:existent(acs) then
-    log:error("Utils: Faceta IAccessControlService não encontrada.")
+    log:error("Utils: Faceta IAccessControlService_v" .. OB_VERSION .. " não encontrada.")
     error()
   end
   local lp = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..

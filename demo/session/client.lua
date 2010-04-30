@@ -7,6 +7,7 @@ local oo      = require "loop.base"
 local oil     = require "oil"
 local utils   = require ("scs.core.utils").Utils()
 local openbus = require "openbus.Openbus"
+local OBUtils = require "openbus.util.Utils"
 
 --oil.verbose:level(3)
 
@@ -89,8 +90,9 @@ function main ()
     os.exit(1)
   end
   -- Assume que há só uma sessão cadastrada no registro
-  -- local offers = registryService:find({"ISession"})
-  local offers = registryService:findByCriteria({"ISession"}, { {name = "sessionName", value = {"HelloSession"}} })
+  -- local offers = registryService:find({"ISession_v" .. OBUtils.OB_VERSION})
+  local offers = registryService:findByCriteria({"ISession_v" .. OBUtils.OB_VERSION}, 
+                                                { {name = "sessionName", value = {"HelloSession"}} })
   for _, offer in ipairs(offers) do
     local succ = offer.member.__try:_component()
     if succ then
