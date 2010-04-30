@@ -27,6 +27,7 @@ descriptors = {
       ["run"] = "demo/hello",
       ["Hello.properties"] = "demo/hello",
       ["idl"] = "demo/hello",
+      ["management"] = "demo/hello",
     },
   },
   { name = "openbus-demo-delegate-lua",
@@ -41,6 +42,7 @@ descriptors = {
       ["run"] = "demo/delegate",
       ["Delegate.properties"] = "demo/delegate",
       ["idl"] = "demo/delegate",
+      ["management"] = "demo/delegate",
     },
   },
 }
