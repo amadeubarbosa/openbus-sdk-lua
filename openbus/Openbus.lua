@@ -200,22 +200,24 @@ function Openbus:_loadIDLs()
     log:error("Openbus: A variável IDLPATH_DIR não foi definida.")
     return false
   end
-  local idlfile = IDLPATH_DIR .. "/v1_05/scs.idl"
+  local version = Utils.OB_VERSION
+  local prev = Utils.OB_PREV
+  local idlfile = IDLPATH_DIR .. "/v"..version.."/scs.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/v1_05/access_control_service.idl"
+  idlfile = IDLPATH_DIR .. "/v"..version.."/access_control_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/v1_05/registry_service.idl"
+  idlfile = IDLPATH_DIR .. "/v"..version.."/registry_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/v1_05/session_service.idl"
+  idlfile = IDLPATH_DIR .. "/v"..version.."/session_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/v1_05/fault_tolerance.idl"
+  idlfile = IDLPATH_DIR .. "/v"..version.."/fault_tolerance.idl"
   self.orb:loadidlfile(idlfile)
 -- Carrega IDLs para clientes do barramento v1.04
-  idlfile = IDLPATH_DIR .. "/v1_04/access_control_service.idl"
+  idlfile = IDLPATH_DIR .. "/v"..prev.."/access_control_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/v1_04/registry_service.idl"
+  idlfile = IDLPATH_DIR .. "/v"..prev.."/registry_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/v1_04/session_service.idl"
+  idlfile = IDLPATH_DIR .. "/v"..prev.."/session_service.idl"
   self.orb:loadidlfile(idlfile)
    return true
 end
@@ -402,7 +404,7 @@ function Openbus:getSessionService()
   if not self.rgs then
   	local registryService = self:getRegistryService()
   	self.rgs = self.orb:narrow(registryService,
-                    "IDL:tecgraf/openbus/core/v1_05/registry_service/IRegistryService:1.0")
+                    Utils.REGISTRY_SERVICE_INTERFACE)
   end
   if not self.ss and self.rgs then
     local facets = { Utils.SESSION_SERVICE_FACET_NAME }
@@ -430,7 +432,7 @@ function Openbus:getRegistryService()
                          	         acsIC, 
                          	         "RegistryServiceReceptacle", 
                          	         "IRegistryService_v" .. Utils.OB_VERSION, 
-                         	         "IDL:tecgraf/openbus/core/v1_05/registry_service/IRegistryService:1.0")
+                         	         Utils.REGISTRY_SERVICE_INTERFACE)
   if not status then
 	    --erro ja foi logado
 	    return nil
@@ -577,7 +579,7 @@ function Openbus:connectByCredential(credential)
     if not self.rgs then
     	local registryService = self:getRegistryService()
   			self.rgs = self.orb:narrow(registryService,
-                    "IDL:tecgraf/openbus/core/v1_05/registry_service/IRegistryService:1.0")
+                    Utils.REGISTRY_SERVICE_INTERFACE)
     end
     return self.rgs
   end

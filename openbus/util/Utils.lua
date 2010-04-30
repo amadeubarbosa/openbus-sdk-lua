@@ -67,11 +67,18 @@ FAULT_TOLERANT_SERVICE_INTERFACE =
     "/IFaultTolerantService:1.0"
   
 ---
+--  A interface IFTServiceMonitor.
+---
+FT_SERVICE_MONITOR_INTERFACE = 
+  "IDL:tecgraf/openbus/fault_tolerance/v" .. OB_VERSION .. 
+    "/IFTServiceMonitor:1.0"
+
+---
 --  A interface IComponent.
 ---
 COMPONENT_INTERFACE = 
   "IDL:scs/core/IComponent:1.0"
-  
+
 ---
 --  A interface IRegistryService.
 ---
@@ -106,6 +113,7 @@ MANAGEMENT_KEY = "MGM_v" .. OB_VERSION
 REGISTRY_SERVICE_KEY = "RS_v" .. OB_VERSION
 REGISTRY_SERVICE_KEY_V1_04 = "RS"
 FAULT_TOLERANT_RS_KEY = "FTRS_v" .. OB_VERSION
+FT_RS_MONITOR_KEY = "FTRSMonitor_v" .. OB_VERSION
 
 ---
 --  A interface ISessionService.
@@ -193,13 +201,13 @@ COMPONENT_ID_PROPERTY_NAME = "component_id"
 function fetchAccessControlService(orb, host, port)
   port = tostring(port)
   local acs = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
-    ACCESS_CONTROL_SERVICE_KEY, "IDL:tecgraf/openbus/core/v1_05/access_control_service/IAccessControlService:1.0")
+    ACCESS_CONTROL_SERVICE_KEY, ACCESS_CONTROL_SERVICE_INTERFACE)
   if not OilUtilities:existent(acs) then
     log:error("Utils: Faceta IAccessControlService_v" .. OB_VERSION .. " não encontrada.")
     error()
   end
   local lp = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
-    LEASE_PROVIDER_KEY, "IDL:tecgraf/openbus/core/v1_05/access_control_service/ILeaseProvider:1.0")
+    LEASE_PROVIDER_KEY, LEASE_PROVIDER_INTERFACE)
   if not OilUtilities:existent(lp) then
     log:error("Utils: Faceta ILeaseProvider não encontrada.")
     error()
@@ -211,7 +219,7 @@ function fetchAccessControlService(orb, host, port)
     error()
   end
   local ft = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..  FAULT_TOLERANT_ACS_KEY,
-    "IDL:tecgraf/openbus/fault_tolerance/v1_05/IFaultTolerantService:1.0")
+    FT_SERVICE_INTERFACE)
   if not OilUtilities:existent(ft) then
     log:error("Utils: Faceta IFaultTolerantService não encontrada.")
     error()

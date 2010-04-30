@@ -13,6 +13,7 @@ local Openbus   = require "openbus.Openbus"
 local Log       = require "openbus.util.Log"
 local PICurrent = require "openbus.interceptors.PICurrent"
 local ServiceStatusManager = require "openbus.faulttolerance.ServiceStatusManager"
+local Utils     = require "openbus.util.Utils"
 
 local oop  = require "loop.base"
 local giop = require "oil.corba.giop"
@@ -79,8 +80,8 @@ function receiverequest(self, request)
   local allowed = not (Openbus:isInterceptable(repID, request.operation) and
     Openbus:isInterceptable("::CORBA::Object", request.operation))
 
-  if ( (repID == "IDL:tecgraf/openbus/core/v1_05/access_control_service/IAccessControlService:1.0") or
-       (repID == "IDL:openbusidl/acs/IAccessControlService:1.0") ) and
+  if ( (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE or
+       (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE_V1_04) ) and
      (request.operation == "loginByPassword")
   then
     Log:interceptor("Desligando verbose do dispatcher...")
