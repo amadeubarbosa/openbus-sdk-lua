@@ -80,7 +80,7 @@ function receiverequest(self, request)
   local allowed = not (Openbus:isInterceptable(repID, request.operation) and
     Openbus:isInterceptable("::CORBA::Object", request.operation))
 
-  if ( (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE or
+  if ( (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE) or
        (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE_V1_04) ) and
      (request.operation == "loginByPassword")
   then
