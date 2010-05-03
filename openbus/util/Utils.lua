@@ -219,7 +219,7 @@ function fetchAccessControlService(orb, host, port)
     error()
   end
   local ft = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..  FAULT_TOLERANT_ACS_KEY,
-    FT_SERVICE_INTERFACE)
+    FAULT_TOLERANT_SERVICE_INTERFACE)
   if not OilUtilities:existent(ft) then
     log:error("Utils: Faceta IFaultTolerantService não encontrada.")
     error()
