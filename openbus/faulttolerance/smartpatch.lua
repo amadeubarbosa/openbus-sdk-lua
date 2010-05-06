@@ -181,7 +181,7 @@ function smartmethod(invoker, operation)
                 replicas[indexCurr[self.__reference._object]])
           else
             prx2 = nil
-            os.execute("sleep ".. tostring(timeOutConfig.fetch.sleep))
+            oil.sleep(timeOutConfig.fetch.sleep)
           end
         end
         attempts = attempts - 1

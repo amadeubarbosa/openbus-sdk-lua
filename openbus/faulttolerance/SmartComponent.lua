@@ -57,7 +57,7 @@ function _fetchSmartComponent(self)
       ret, stop, service = oil.pcall(Utils.fetchService, self._orb, ref, values.interface)
       if not ret or not stop then
         services = {}
-        os.execute("sleep ".. tostring(timeOut.fetch.sleep))
+        oil.sleep(timeOut.fetch.sleep)
         break
       else
         services[key] = service
