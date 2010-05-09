@@ -97,6 +97,7 @@ function main ()
     local succ = offer.member.__try:_component()
     if succ then
       local component = orb:narrow(offer.member, compFacet)
+      component:startup()
       local session = orb:narrow(component:getFacet(sessionFacet), sessionFacet)
       sessionId = session:addMember(context.IComponent)
       return
