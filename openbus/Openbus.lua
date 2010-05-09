@@ -110,6 +110,10 @@ Openbus = oop.class {
   -- Política padrão é de interceptar todos.
   ---
   ifaceMap = nil,
+  ---
+  -- Politica de validacao de credenciais.
+  ---
+  credentialValidationPolicy = nil,
 }
 
 ---
@@ -138,7 +142,7 @@ function Openbus:_setInterceptors()
       "/conf/advanced/InterceptorsConfiguration.lua"))()
   end
   self.serverInterceptor = ServerInterceptor(self.serverInterceptorConfig or
-    config, self.acs)
+    config, self.acs, self.credentialValidationPolicy)
   self.orb:setserverinterceptor(self.serverInterceptor)
   self.clientInterceptor = ClientInterceptor(self.clientInterceptorConfig or
     config, self.credentialManager)
@@ -289,11 +293,12 @@ end
 --        servidor.
 -- @param clientInterceptorConfig Configuração opcional do interceptador
 --        cliente.
+-- @param policy Politica de validacao de credencial
 --
 -- @return {@code false} caso ocorra algum erro, {@code true} caso contrário.
 ---
 function Openbus:init(host, port, props, serverInterceptorConfig,
-	clientInterceptorConfig)
+	clientInterceptorConfig, policy)
   if not host then
     log:error("OpenBus: O campo 'host' não pode ser nil")
     return false
@@ -308,6 +313,7 @@ function Openbus:init(host, port, props, serverInterceptorConfig,
   self.port = port
   self.serverInterceptorConfig = serverInterceptorConfig
   self.clientInterceptorConfig = clientInterceptorConfig
+  self.credentialValidationPolicy = policy
   -- configuração do OiL
   if not props then
     props = {}
@@ -358,6 +364,10 @@ end
 function Openbus:finish()
   if not self.orb then
     return
+  end
+  -- desabilita o timer em caso de política de cache. O interceptador é o próprio objeto de timer.
+  if self.credentialValidationPolicy == Utils.CredentialValidationPolicy[2] then
+    self.serverInterceptor.myTimer:disable()
   end
   local status, err = oil.pcall(self.orb.shutdown, self.orb)
   if not status then
@@ -484,6 +494,15 @@ function Openbus:getInterceptedCredential()
     return nil
   end
   return self.serverInterceptor:getCredential()
+end
+
+---
+-- Fornece a politica de validacao de credencial em uso.
+--
+-- @return A politica de validacao de credencial.
+---
+function Openbus:getCredentialValidationPolicy()
+  return self.credentialValidationPolicy
 end
 
 ---
@@ -646,6 +665,7 @@ function Openbus:destroy()
   self.ifaceMap = {}
   self.credentialManager:invalidate()
   self.credentialManager:invalidateThreadValue()
+  self.credentialValidationPolicy = nil
 end
 
 ---
@@ -661,6 +681,7 @@ function Openbus:_reset()
   self.leaseRenewer = nil
   self.credentialManager:invalidate()
   self.credentialManager:invalidateThreadValue()
+  self.credentialValidationPolicy = nil
 end
 
 ---

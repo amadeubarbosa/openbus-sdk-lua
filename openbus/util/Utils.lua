@@ -187,6 +187,17 @@ DATA_SERVICE_INTERFACE = "IDL:openbusidl/data_service/IHDataService:1.0"
 COMPONENT_ID_PROPERTY_NAME = "component_id"
 
 ---
+-- Define as políticas para a validação de credenciais interceptadas em um servidor. 
+---
+CredentialValidationPolicy = {
+  -- Indica que as credenciais interceptadas serão sempre validadas.
+  "ALWAYS", 
+  -- Indica que as credenciais interceptadas serão validadas e armazenadas em uma cache.
+  "CACHED", 
+  -- Indica que as credenciais interceptadas não serão validadas.
+  "NONE"}
+
+---
 -- Obtém referências para as principais facetas do Serviço de Controle de
 -- Acesso.
 --
