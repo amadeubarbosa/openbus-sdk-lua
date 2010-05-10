@@ -152,7 +152,7 @@ function smartmethod(invoker, operation)
       local replicas = Replicas[objkey]
 
       -- se nao tiver a lista de replicas retorna com erro
-      if replicas == nil then error(ex) end
+      if replicas == nil or #replicas < 2 then error(ex) end
 
       local prx2
       local attempts = DEFAULT_ATTEMPTS
