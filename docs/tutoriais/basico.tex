@@ -85,17 +85,17 @@ A API é composta pelo módulo openbus.Openbus e pela interface IRegistryService a
 local openbus = require "openbus.Openbus"
 
 -- host e porta apenas para fins de exemplo
-openbus:resetAndInitialize("localhost", 2089)
+openbus:init("localhost", 2089)
 \end{labeledcode}
 
-Um ORB é criado implicitamente na chamada \emph{resetAndInitialize}.
+Um ORB é criado implicitamente na chamada \emph{init}.
 
 Os outros métodos da API Openbus serão explicados em mais detalhes a seguir:
 
 \begin{itemize}
   \item \code{ORB Openbus::getORB()}: Retorna o ORB utilizado.
   \item \code{void run()}: \emph{Loop} que processa requisições remotas. Execução de \emph{orb.run()}.
-  \item \code{void finish()}: Finaliza a execução do ORB.
+  \item \code{void destroy()}: Finaliza a execução do barramento.
   \item \code{IAccessControlService getAccessControlService()}: Retorna o \emph{stub} do Serviço de Controle de Acesso.
   \item \code{IRegistryService getRegistryService()}: Retorna o \emph{stub} do Serviço de Registro.
   \item \code{ISessionService getSessionService()}: Retorna o \emph{stub} do serviço de sessão.
@@ -103,7 +103,7 @@ Os outros métodos da API Openbus serão explicados em mais detalhes a seguir:
   \item \code{Credential getInterceptedCredential()}: Retorna a credencial interceptada pelo interceptador servidor. Esta operação somente deve ser chamada durante o tratamento de alguma requisição à aplicação do usuário.
   \item \code{void setThreadCredential(Credential credential)}: Define uma credencial a ser utilizada no lugar da credencial corrente. Útil para fornecer uma credencial com o campo delegate preenchido.
   \item \code{void setLeaseExpiredCallback(LeaseExpiredCallback lec)}: Registra uma callback para a notificação de que o lease da credencial	de identificação do usuário expirou. LeaseExpiredCallback deve ser um objeto que contenha um método de nome \emph{expired()}.
-  \item \code{boolean removeLeaseExpiredCallback(LeaseExpiredCallback lec)}: Remove uma callback previamente registrada para a notificação de lease expirado.
+  \item \code{void removeLeaseExpiredCallback(LeaseExpiredCallback lec)}: Remove uma callback previamente registrada para a notificação de lease expirado.
   \item \code{boolean isConnected()}: Informa o estado de conexão com o barramento.
   \item \code{IRegistryService connect(String user, String password}: Realiza uma tentativa de conexão com o barramento. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
     \subitem \code{InvalidCredentialException}: Caso a credencial seja rejeitada ao tentar obter o Serviço de Registro.
@@ -157,7 +157,7 @@ Um exemplo do código necessário para a conexão com o barramento pode ser visto n
 local openbus = require "openbus.Openbus"
 
 -- host e porta apenas para fins de exemplo
-openbus:resetAndInitialize("localhost", 2089)
+openbus:init("localhost", 2089)
 
 function main ()
   -- Permite que o ORB comece a aguardar requisições
@@ -195,7 +195,7 @@ A arquitetura do Openbus é baseada no modelo de componentes SCS. Os serviços são
 \begin{labeledcode}[lua]{component}{Instanciação de um Componente SCS}
 -- Inicialização do barramento
 local openbus = require "openbus.Openbus"
-openbus:resetAndInitialize("localhost", 2089)
+openbus:init("localhost", 2089)
 
 -- A API SCS deve ser carregada após a inicialização do barramento
 local scs = require "scs.core.base"
@@ -255,7 +255,7 @@ local offers = registryService:find({"IHello"})
 local offer = offers[1];
 \end{labeledcode}
 
-Como visto anteriormente, a oferta de serviço contém uma referência para um componente SCS ou, mais especificamente, para sua faceta IComponent. Como esse componente pode apresentar diversas facetas, o usuário deve obter a faceta que deseja utilizar. No exemplo há somente uma faceta além das facetas básicas do modelo SCS, que é a IHello. A faceta recebida na oferta, IComponent, oferece métodos (\emph{getFacet} e \emph{getFacetByName}) para que o usuário possa obter um objeto CORBA que represente a faceta desejada. De posse do objeto CORBA, o usuário deve efetuar um \emph{narrow} para mapeá-lo para a interface desejada e daí em diante o programador estará apto a utilizar essa faceta / serviço. Um exemplo pode ser visto no Código~\ref{lst:clientfacet}.
+Como visto anteriormente, a oferta de serviço contém uma referência para um componente SCS ou, mais especificamente, para sua faceta IComponent. Como esse componente pode apresentar diversas facetas, o usuário deve obter a faceta que deseja utilizar. No exemplo há somente uma faceta além das facetas básicas do modelo SCS, a IHello. A faceta recebida na oferta, IComponent, oferece métodos (\emph{getFacet} e \emph{getFacetByName}) para que o usuário possa obter um objeto CORBA que represente a faceta desejada. De posse do objeto CORBA, o usuário deve efetuar um \emph{narrow} para mapeá-lo para a interface desejada e daí em diante o programador estará apto a utilizar essa faceta / serviço. Um exemplo pode ser visto no Código~\ref{lst:clientfacet}.
 
 \begin{labeledcode}[lua]{clientfacet}{Acesso à Faceta Desejada}
 -- obtenção da faceta IHello
