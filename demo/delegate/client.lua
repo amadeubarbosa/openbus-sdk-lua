@@ -57,7 +57,6 @@ function main ()
   -- Assume que HelloComponent é o único serviço cadastrado.
   local helloComponent = orb:narrow(offers[1].member,
     "IDL:scs/core/IComponent:1.0")
-  helloComponent:startup()
   local helloFacet = helloComponent:getFacet("IDL:demoidl/demoDelegate/IHello:1.0")
   helloFacet = orb:narrow(helloFacet, "IDL:demoidl/demoDelegate/IHello:1.0")
 
