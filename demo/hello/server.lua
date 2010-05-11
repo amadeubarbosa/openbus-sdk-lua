@@ -14,7 +14,11 @@ scsutils:readProperties(props, "Hello.properties")
 local host = props["host.name"].value
 local port = props["host.port"].value
 openbus:init(host, tonumber(port))
---openbus:enableFaultTolerance()
+
+if arg[1] == "ft" then
+  openbus:enableFaultTolerance()
+end
+
 local orb = openbus:getORB()
 
 local scs = require "scs.core.base"
@@ -81,9 +85,9 @@ function main ()
   if not suc then
       io.stderr:write("HelloServer: Erro ao registrar ofertas.\n")
       if id[1] == "IDL:tecgraf/openbus/core/v1_05/registry_service/UnathorizedFacets:1.0" then
-	for _, facet in ipairs(id.facets) do
+        for _, facet in ipairs(id.facets) do
           io.stderr:write(string.format("Registro da faceta '%s' não autorizado\n", facet))
-	end
+        end
       else
         io.stderr:write(string.format("Erro: %s.\n", id[1]))
       end

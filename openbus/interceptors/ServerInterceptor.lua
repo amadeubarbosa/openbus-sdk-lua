@@ -5,8 +5,10 @@ local pairs  = pairs
 local ipairs = ipairs
 local format = string.format
 local coroutine = coroutine
+local os = os
 local table = table
 
+local socket = require "socket"
 local oil = require "oil"
 local orb = oil.orb
 
@@ -19,6 +21,7 @@ local Utils     = require "openbus.util.Utils"
 local oop   = require "loop.base"
 local giop  = require "oil.corba.giop"
 local Timer = require "loop.thread.Timer"
+
 
 ---
 --Interceptador de requisições de serviço, responsável por verificar se o
@@ -73,6 +76,7 @@ function __init(self, config, accessControlService, policy)
     contextID = config.contextID,
     picurrent = PICurrent(),
     accessControlService = accessControlService,
+    tests = config.tests or {},
     policy = policy,
     serviceStatusManager = ServiceStatusManager:__init(),
   }) 
@@ -100,8 +104,15 @@ end
 --@param request Dados sobre o request.
 ---
 function receiverequest(self, request)
+  request.requeststart = socket.gettime()
+  if self.tests[request.object_key] ~= nil then
+       self.tests[request.object_key]:receiverequest("; inicio; 0;"..
+                         request.object_key .. "; " ..
+                         request.operation .. "-" .. request.requeststart)
+  end
+
   Log:interceptor "INTERCEPTAÇÂO SERVIDOR!"
-  
+
   -- XXX: nao existe forma padrao de recuperar o repID, esta e' uma
   -- intrusao no OiL, ou seja, pode quebrar no futuro.
   local repID = orb.ServantIndexer.indexer:typeof(request.object_key).repID
@@ -118,6 +129,11 @@ function receiverequest(self, request)
 
   if allowed then
     Log:interceptor(format("OPERAÇÂO %s NÂO È CHECADA", request.operation))
+
+    if self.tests[request.object_key] ~= nil then
+       self.tests[request.object_key]:receiverequest("; fim    ; "  .. socket.gettime() - request.requeststart .. "; "..
+                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+    end
     return
   else
     Log:interceptor(format("OPERAÇÂO %s É CHECADA", request.operation))
@@ -148,6 +164,11 @@ function receiverequest(self, request)
       -- politica sem validacao
       Log:interceptor("Utilizando política sem validação de credencial. A credencial não será checada.")
       self.picurrent:setValue(credentialFound)
+      if self.tests[request.object_key] ~= nil then
+               self.tests[request.object_key]:receiverequest("; fim    ; "
+                           .. socket.gettime() - request.requeststart .. "; "..
+                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+      end
       return
     end
     if self.policy == Utils.CredentialValidationPolicy[2] then
@@ -162,6 +183,11 @@ function receiverequest(self, request)
           table.insert(self.credentials, credentialFound)
           self.picurrent:setValue(credentialFound)
           self:unlock()
+          if self.tests[request.object_key] ~= nil then
+               self.tests[request.object_key]:receiverequest("; fim    ; "
+                           .. socket.gettime() - request.requeststart .. "; "..
+                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+          end
           return
         end
       end
@@ -176,11 +202,21 @@ function receiverequest(self, request)
         end
         table.insert(self.credentials, credentialFound)
         self:unlock()
+        if self.tests[request.object_key] ~= nil then
+               self.tests[request.object_key]:receiverequest("; fim    ; "
+                           .. socket.gettime() - request.requeststart .. "; "..
+                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+        end
         return
       end
     else
       -- politica sempre
       if self:isValid(credential_v1_05, credential, request) then
+        if self.tests[request.object_key] ~= nil then
+               self.tests[request.object_key]:receiverequest("; fim    ; "
+                           .. socket.gettime() - request.requeststart .. "; "..
+                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+        end
         return
       end
     end
@@ -194,6 +230,11 @@ function receiverequest(self, request)
     request.success = false
     request.count = 1
     request[1] = orb:newexcept{"CORBA::NO_PERMISSION", minor_code_value = 0}
+    if self.tests[request.object_key] ~= nil then
+       self.tests[request.object_key]:receiverequest("; fim    ; "
+                        .. socket.gettime() - request.requeststart .. "; "..
+                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+    end
   end
 end
 
@@ -203,21 +244,33 @@ end
 --@param request Dados sobre o request.
 ---
 function sendreply(self, request)
+  if self.tests[request.object_key] ~= nil then
+       self.tests[request.object_key]:sendreply("; inicio; " ..
+                           socket.gettime() - request.requeststart .. "; "..
+                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+  end
+
   if (request.operation == "loginByPassword") then
     Log:interceptor("Ligando verbose do dispatcher...")
     oil.verbose:flag("dispatcher", true)
   end
   request.service_context = {}
-  
+
   if self:needUpdate(request) then
     local key = request.object_key
-	if request.operation == "register" or
-  	   request.operation == "update"  then  	   
-  		key = "RS"
-  	end
-    oil.newthread(function() 
-  				 self.serviceStatusManager:updateStatus(key) 
-  				  end)
+    if request.operation == "register" or
+       request.operation == "update"  then
+        key = Utils.REGISTRY_SERVICE_KEY
+    end
+    oil.newthread(function()
+                 self.serviceStatusManager:updateStatus(key)
+                  end)
+  end
+
+  if self.tests[request.object_key] ~= nil then
+       self.tests[request.object_key]:sendreply("; fim; "  ..
+                           socket.gettime() - request.requeststart .. "; "..
+                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
   end
 end
 
@@ -231,22 +284,22 @@ function getCredential(self)
 end
 
 function needUpdate(self, request)
-	--TODO: Colocar aqui somente o que faz sentido pedir para atualizar
-	-- o estado antes
-	-- ***pensar como ficara o unregister do RGS
-	if request.operation == "loginByPassword" 	 or
-  	   request.operation == "loginByCertificate" or
-  	   request.operation == "renewLease" or
-  	   request.operation == "register" or
-  	   request.operation == "addObserver" or
-  	   request.operation == "removeObserver" or
-  	   request.operation == "addCredentialToObserver" or
-  	   request.operation == "removeCredentialFromObserver" or
-  	   request.operation == "update" then  	   
-  		return true
-  		
-  	end
-  	return false
+    --TODO: Colocar aqui somente o que faz sentido pedir para atualizar
+    -- o estado
+    --DEIXAR CONFIGURAVEL EXTERNAMENTE
+    --VERIFICAR CONFLITOS COM NOMES DE OPERACAO DO MANAGEMENT
+    if request.operation == "loginByPassword"    or
+       request.operation == "loginByCertificate" or
+       request.operation == "renewLease" or
+       request.operation == "register" or
+       request.operation == "addObserver" or
+       request.operation == "removeObserver" or
+       request.operation == "addCredentialToObserver" or
+       request.operation == "removeCredentialFromObserver" or
+       request.operation == "update" then
+        return true
+    end
+    return false
 end
 
 function validateCredential (self, credential, request)
@@ -354,5 +407,3 @@ function areCredentialsEqual(self, c1, c2)
   end
   return true
 end
-
-

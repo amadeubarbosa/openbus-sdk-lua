@@ -50,7 +50,7 @@ ACCESS_CONTROL_SERVICE_INTERFACE_V1_04 =
 ---
 --  A interface ILeaseProvider.
 ---
-LEASE_PROVIDER_INTERFACE = "IDL:tecgraf/openbus/core/v" .. OB_VERSION .. 
+LEASE_PROVIDER_INTERFACE = "IDL:tecgraf/openbus/core/v" .. OB_VERSION ..
   "/access_control_service/ILeaseProvider:1.0"
 
 ---
@@ -62,28 +62,28 @@ LEASE_PROVIDER_INTERFACE_V1_04 =
 ---
 --  A interface IFaultTolerantService.
 ---
-FAULT_TOLERANT_SERVICE_INTERFACE = 
-  "IDL:tecgraf/openbus/fault_tolerance/v" .. OB_VERSION .. 
+FAULT_TOLERANT_SERVICE_INTERFACE =
+  "IDL:tecgraf/openbus/fault_tolerance/v" .. OB_VERSION ..
     "/IFaultTolerantService:1.0"
-  
+
 ---
 --  A interface IFTServiceMonitor.
 ---
-FT_SERVICE_MONITOR_INTERFACE = 
-  "IDL:tecgraf/openbus/fault_tolerance/v" .. OB_VERSION .. 
+FT_SERVICE_MONITOR_INTERFACE =
+  "IDL:tecgraf/openbus/fault_tolerance/v" .. OB_VERSION ..
     "/IFTServiceMonitor:1.0"
 
 ---
 --  A interface IComponent.
 ---
-COMPONENT_INTERFACE = 
+COMPONENT_INTERFACE =
   "IDL:scs/core/IComponent:1.0"
 
 ---
 --  A interface IRegistryService.
 ---
 REGISTRY_SERVICE_INTERFACE =
-  "IDL:tecgraf/openbus/core/v" .. OB_VERSION .. 
+  "IDL:tecgraf/openbus/core/v" .. OB_VERSION ..
     "/registry_service/IRegistryService:1.0"
 
 ---
@@ -129,7 +129,7 @@ SESSION_SERVICE_INTERFACE_V1_04 = "IDL:openbusidl/ss/ISessionService:1.0"
 ---
 --  A interface SessionEventSink.
 ---
-SESSION_ES_INTERFACE = "IDL:tecgraf/openbus/session_service/v" .. OB_VERSION .. 
+SESSION_ES_INTERFACE = "IDL:tecgraf/openbus/session_service/v" .. OB_VERSION ..
   "/SessionEventSink:1.0"
 
 ---
@@ -140,7 +140,7 @@ SESSION_ES_INTERFACE_V1_04 = "IDL:openbusidl/ss/SessionEventSink:1.0"
 ---
 --  A interface ISession.
 ---
-SESSION_INTERFACE = "IDL:tecgraf/openbus/session_service/v" .. OB_VERSION .. 
+SESSION_INTERFACE = "IDL:tecgraf/openbus/session_service/v" .. OB_VERSION ..
   "/ISession:1.0"
 
 ---
@@ -151,7 +151,7 @@ SESSION_INTERFACE_V1_04 = "IDL:openbusidl/ss/ISession:1.0"
 ---
 --  A interface ICredentialObserver.
 ---
-CREDENTIAL_OBSERVER_INTERFACE = "IDL:tecgraf/openbus/core/v" .. OB_VERSION .. 
+CREDENTIAL_OBSERVER_INTERFACE = "IDL:tecgraf/openbus/core/v" .. OB_VERSION ..
   "/access_control_service/ICredentialObserver:1.0"
 
 ---
@@ -162,13 +162,13 @@ CREDENTIAL_OBSERVER_INTERFACE_V1_04 = "IDL:openbusidl/acs/ICredentialObserver:1.
 ---
 --  A interface IManagement do Servico de Controle de Acesso.
 ---
-MANAGEMENT_ACS_INTERFACE =  "IDL:tecgraf/openbus/core/v" .. OB_VERSION .. 
+MANAGEMENT_ACS_INTERFACE =  "IDL:tecgraf/openbus/core/v" .. OB_VERSION ..
   "/access_control_service/IManagement:1.0"
 
 ---
 --  A interface IManagement do Servico de Registro.
 ---
-MANAGEMENT_RS_INTERFACE =  "IDL:tecgraf/openbus/core/v" .. OB_VERSION .. 
+MANAGEMENT_RS_INTERFACE =  "IDL:tecgraf/openbus/core/v" .. OB_VERSION ..
   "/registry_service/IManagement:1.0"
 
 ---
@@ -245,7 +245,7 @@ end
 -- ** O ideal seria que esse método estivesse dentro de AdaptiveReceptacle,
 -- ou ainda em um receptacleutils dentro do SCS.
 -- Porém, como teria que estender a interface IReceptacle ou modificar o SCS,
---  e isso entrará na evolução do SCS até mesmo com a própria 
+--  e isso entrará na evolução do SCS até mesmo com a própria
 --  AdaptiveReceptacle, optou-se por colocar esse método aqui na Utils.
 --
 -- @param orb O ORB a ser utilizado para obter a replica.
@@ -256,18 +256,18 @@ end
 --
 -- @return A faceta replicaIface, ou nil, caso não seja encontrada.
 --
-function getReplicaFacetByReceptacle(orb, component, receptacleName, 
+function getReplicaFacetByReceptacle(orb, component, receptacleName,
                                      replicaIface, replicaIDL)
   local replicaIRecep =  component:getFacetByName("IReceptacles")
   replicaIRecep = orb:narrow(replicaIRecep, "IDL:scs/core/IReceptacles:1.0")
   if replicaIRecep then
-    local status, conns = oil.pcall(replicaIRecep.getConnections, 
+    local status, conns = oil.pcall(replicaIRecep.getConnections,
                                     replicaIRecep,
                                     receptacleName)
     if not status then
       log:error("Nao foi possivel obter o Serviço [".. replicaIface .. "]: " .. conns[1])
       return nil
-    elseif conns[1] then 
+    elseif conns[1] then
       local recepIC = conns[1].objref
       recepIC = orb:narrow(recepIC, "IDL:scs/core/IComponent:1.0")
       local ok, recepFacet =  oil.pcall(recepIC.getFacetByName, recepIC, replicaIface)
@@ -284,11 +284,11 @@ end
 
 
 function fetchService(orb, objReference, objType)
-   
+
    log:faulttolerance("[fetchService]"..objReference.."-TYPE:"..objType)
    local success, service = oil.pcall(orb.newproxy, orb, objReference, objType)
 
-   if success then 
+   if success then
      --TODO: Quando o bug do oil for consertado, mudar para: if not service:_non_existent() then
      --local succ, non_existent = service.__try:_non_existent()
      --if succ and not non_existent then
@@ -298,11 +298,11 @@ function fetchService(orb, objReference, objType)
          --TODO: Essa linha é devido a um outro bug no OiL: type_id = ""
          service.__reference.type_id = objType
          -- fim do TODO
-         
+
          return true, service
      end
     end
-    
+
     log:error("[fetchService]: Servico ".. objReference .." nao encontrado.")
     return false, nil
 
@@ -340,10 +340,30 @@ end
 function containsProperties(propertiesA, propertiesB)
    for name, values in pairs(propertiesB) do
      -- Propriedades registradas automaticamente pelo Serviço de Registro: ignorar
-     if name ~= "component_id" and name ~= "registered_by" then 
-       for value in pairs(values) do
-         if not (propertiesA[name] and propertiesA[name][value]) then
-           return false
+     if name ~= "component_id" and name ~= "registered_by" then
+       if type ( values ) == "table" then
+         local count = 0
+         for value in pairs(values) do
+           count = count + 1
+           if not (propertiesA[name] and propertiesA[name][value]) then
+             return false
+           end
+         end
+         if count == 0 then
+         --tabela vazia
+             if not propertiesA[name] then
+                --propriedade nem existe em A
+                return false
+             else
+                local countA = 0
+                for valueA in pairs(propertiesA[name]) do
+                   countA = countA + 1
+                end
+                if countA > 0 then
+                --existe e tabela nao vazia, logo, nao esta contido
+                   return false
+                end
+             end
          end
        end
      end

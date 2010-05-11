@@ -18,7 +18,7 @@ openbus:init(host, tonumber(port))
 
 
 if arg[1] == "ft" then
-  openbus:enableFaultTolerance() 
+  openbus:enableFaultTolerance()
 end
 
 --
@@ -37,13 +37,13 @@ function main ()
     io.stderr:write("HelloClient: Erro ao conectar ao barramento.\n")
     os.exit(1)
   end
-  
+
   local flag = true
-  
+
   while flag do
-  --se o mecanismo de tolerancia a falhas estiver habilitado, 
+  --se o mecanismo de tolerancia a falhas estiver habilitado,
   --executa eternamente
-    
+
       local offers = openbus:getRegistryService():find({"IHello"})
 
       -- Assume que HelloComponent é o único serviço cadastrado.
@@ -51,13 +51,13 @@ function main ()
                           "IDL:scs/core/IComponent:1.0")
       local helloFacet = helloComponent:getFacet("IDL:demoidl/hello/IHello:1.0")
       helloFacet = orb:narrow(helloFacet, "IDL:demoidl/hello/IHello:1.0")
-  
-  	  helloFacet:sayHello()
-  	  
-  	  flag = openbus.isFaultToleranceEnable
-  	  if flag then
-  		oil.sleep(5)
-  	  end
+
+      helloFacet:sayHello()
+
+      flag = openbus.isFaultToleranceEnable
+      if flag then
+         oil.sleep(5)
+      end
   end
 
   openbus:disconnect()

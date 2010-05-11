@@ -15,6 +15,8 @@ local LoginPasswordAuthenticator =
 local CertificateAuthenticator =
     require "openbus.authenticators.CertificateAuthenticator"
 
+--log:level(5)
+
 local pairs = pairs
 local os = os
 local loadfile = loadfile
@@ -61,7 +63,7 @@ Openbus = oop.class {
   ---
   -- Interface IFaultTolerantService do Serviço de Controle de Acesso.
   ---
-  ft = nil,  
+  ft = nil,
   ---
   -- O renovador do <i>lease</i>.
   ---
@@ -158,39 +160,39 @@ end
 ---
 function Openbus:_fetchACS()
 
-  local status, acs, lp, ft, ic 
-  
+  local status, acs, lp, ft, ic
+
   if self.isFaultToleranceEnable then
-  	status, services = self.smartACS:_fetchSmartComponent()
+    status, services = self.smartACS:_fetchSmartComponent()
   else
     status, acs, lp, ic, ft = oil.pcall(Utils.fetchAccessControlService, self.orb, self.host, self.port)
   end
-  
+
   if not status then
-		log:error("Erro ao obter as facetas do Serviço de Controle de Acesso.")
-		return false
+     log:error("Erro ao obter as facetas do Serviço de Controle de Acesso.")
+     return false
   end
-  if (self.isFaultToleranceEnable and not services) or 
-  	 (not self.isFaultToleranceEnable and not acs) then
-		-- o erro já foi pego e logado
-		return false
+  if (self.isFaultToleranceEnable and not services) or
+     (not self.isFaultToleranceEnable and not acs) then
+        -- o erro já foi pego e logado
+        return false
   end
-  
+
   if self.isFaultToleranceEnable then
-  	acs = services[Utils.ACCESS_CONTROL_SERVICE_KEY]
+    acs = services[Utils.ACCESS_CONTROL_SERVICE_KEY]
     lp = services[Utils.LEASE_PROVIDER_KEY]
     ic = services[Utils.OPENBUS_KEY]
     ft = services[Utils.FAULT_TOLERANT_ACS_KEY]
   end
-  
+
   self.acs, self.lp, self.ic, self.ft = acs, lp, ic, ft
 
   if not self.serverInterceptor or not self.clientInterceptor then
-  	local status, err = oil.pcall(self._setInterceptors, self)
-  	if not status then
-    	log:error("Erro ao cadastrar interceptadores no ORB. Erro: " .. err)
-    	return false
-  	end
+    local status, err = oil.pcall(self._setInterceptors, self)
+    if not status then
+        log:error("Erro ao cadastrar interceptadores no ORB. Erro: " .. err)
+        return false
+    end
   end
   return true
 end
@@ -240,7 +242,7 @@ function Openbus:_completeConnection(credential, lease)
   self.leaseRenewer = LeaseRenewer(lease, credential, self.lp, self)
   self.leaseRenewer:startRenew()
   if not self.rgs then
-  	self.rgs = self:getRegistryService()
+    self.rgs = self:getRegistryService()
   end
   return self.rgs
 end
@@ -253,32 +255,32 @@ function Openbus:enableFaultTolerance()
     if not self.orb then
        log:error("OpenBus: O orb precisa ser inicializado.")
        return false
-    end 
-    
-    if not self.isFaultToleranceEnable then
-    	local DATA_DIR = os.getenv("OPENBUS_DATADIR")
-    	local ftconfig = assert(loadfile(DATA_DIR .."/conf/ACSFaultToleranceConfiguration.lua"))()
-    	local keys = {}
-
-    	keys[Utils.ACCESS_CONTROL_SERVICE_KEY] =
-    	    { interface = Utils.ACCESS_CONTROL_SERVICE_INTERFACE,
-    	    hosts = ftconfig.hosts.ACS, }
-    	keys[Utils.LEASE_PROVIDER_KEY] =
-    	    { interface = Utils.LEASE_PROVIDER_INTERFACE,
-    	    hosts = ftconfig.hosts.LP, }
-    	keys[Utils.OPENBUS_KEY] =
-    	    { interface = Utils.COMPONENT_INTERFACE,
-    	    hosts = ftconfig.hosts.ACSIC, }
-    	keys[Utils.FAULT_TOLERANT_ACS_KEY] =
-    	    { interface = Utils.FAULT_TOLERANT_SERVICE_INTERFACE,
-    			hosts = ftconfig.hosts.FTACS, }
-
-    	self.smartACS = SmartComponent:__init(self.orb, "ACS", keys)
-    	
     end
 
-	self.isFaultToleranceEnable = true
-	return true
+    if not self.isFaultToleranceEnable then
+        local DATA_DIR = os.getenv("OPENBUS_DATADIR")
+        local ftconfig = assert(loadfile(DATA_DIR .."/conf/ACSFaultToleranceConfiguration.lua"))()
+        local keys = {}
+
+        keys[Utils.ACCESS_CONTROL_SERVICE_KEY] =
+            { interface = Utils.ACCESS_CONTROL_SERVICE_INTERFACE,
+            hosts = ftconfig.hosts.ACS, }
+        keys[Utils.LEASE_PROVIDER_KEY] =
+            { interface = Utils.LEASE_PROVIDER_INTERFACE,
+            hosts = ftconfig.hosts.LP, }
+        keys[Utils.OPENBUS_KEY] =
+            { interface = Utils.COMPONENT_INTERFACE,
+            hosts = ftconfig.hosts.ACSIC, }
+        keys[Utils.FAULT_TOLERANT_ACS_KEY] =
+            { interface = Utils.FAULT_TOLERANT_SERVICE_INTERFACE,
+                hosts = ftconfig.hosts.FTACS, }
+
+        self.smartACS = SmartComponent:__init(self.orb, "ACS", keys)
+
+    end
+
+    self.isFaultToleranceEnable = true
+    return true
 end
 
 
@@ -412,8 +414,8 @@ end
 ---
 function Openbus:getSessionService()
   if not self.rgs then
-  	local registryService = self:getRegistryService()
-  	self.rgs = self.orb:narrow(registryService,
+    local registryService = self:getRegistryService()
+    self.rgs = self.orb:narrow(registryService,
                     Utils.REGISTRY_SERVICE_INTERFACE)
   end
   if not self.ss and self.rgs then
@@ -437,15 +439,15 @@ end
 ---
 function Openbus:getRegistryService()
   local acsIC = self:getACSIComponent()
-  local status, rsFacet =  oil.pcall(Utils.getReplicaFacetByReceptacle, 
-     					 		     self.orb, 
-                         	         acsIC, 
-                         	         "RegistryServiceReceptacle", 
-                         	         "IRegistryService_v" .. Utils.OB_VERSION, 
-                         	         Utils.REGISTRY_SERVICE_INTERFACE)
+  local status, rsFacet =  oil.pcall(Utils.getReplicaFacetByReceptacle,
+                                     self.orb,
+                                     acsIC,
+                                     "RegistryServiceReceptacle",
+                                     "IRegistryService_v" .. Utils.OB_VERSION,
+                                     Utils.REGISTRY_SERVICE_INTERFACE)
   if not status then
-	    --erro ja foi logado
-	    return nil
+        --erro ja foi logado
+        return nil
   end
   return rsFacet
 end
@@ -596,8 +598,8 @@ function Openbus:connectByCredential(credential)
   if self.acs:isValid(credential) then
     self.credentialManager:setValue(credential)
     if not self.rgs then
-    	local registryService = self:getRegistryService()
-  			self.rgs = self.orb:narrow(registryService,
+        local registryService = self:getRegistryService()
+            self.rgs = self.orb:narrow(registryService,
                     Utils.REGISTRY_SERVICE_INTERFACE)
     end
     return self.rgs
@@ -618,8 +620,8 @@ function Openbus:disconnect()
       local status, err = oil.pcall(self.leaseRenewer.stopRenew,
         self.leaseRenewer)
       if not status then
-	    self.credentialManager:invalidate()
-	    self.credentialManager:invalidateThreadValue()
+        self.credentialManager:invalidate()
+        self.credentialManager:invalidateThreadValue()
         log:error(
           "OpenBus: Não foi possível parar a renovação de lease. Erro: " .. err)
         return false
