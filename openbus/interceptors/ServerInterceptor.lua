@@ -64,6 +64,17 @@ function __init(self, config, accessControlService, policy)
     -- Se nenhuma interface especificada, checa todas as operações
     Log:interceptor("checar todas as operações de qualquer interface")
   end
+  local updateOperations = {}
+  if config.ft_update_policy then
+     for _, iconfig in ipairs(config.ft_update_policy) do
+        for _, op in ipairs(iconfig.update_ops or {}) do
+          if not updateOperations[iconfig.interface] then
+            updateOperations[iconfig.interface] = {}
+          end
+          updateOperations[iconfig.interface][op] = true
+        end
+    end
+  end
 
   -- Adiciona as operações de CORBA como não verificadas.
   -- A classe Object de CORBA não tem repID, criar um identificar interno.
@@ -78,8 +89,9 @@ function __init(self, config, accessControlService, policy)
     accessControlService = accessControlService,
     tests = config.tests or {},
     policy = policy,
+    updateOperations = updateOperations,
     serviceStatusManager = ServiceStatusManager:__init(),
-  }) 
+  })
   -- Cria o timer caso a politica seja cached
   if policy == Utils.CredentialValidationPolicy[2] then
     obj.credentials = {}
@@ -154,7 +166,7 @@ function receiverequest(self, request)
           Log:interceptor(format("CREDENCIAL V1.05: %s, %s", credential_v1_05.identifier,
             credential_v1_05.owner))
         end
-       	break
+        break
       end
     end
     local credentialFound = credential_v1_05 or credential
@@ -258,10 +270,7 @@ function sendreply(self, request)
 
   if self:needUpdate(request) then
     local key = request.object_key
-    if request.operation == "register" or
-       request.operation == "update"  then
-        key = Utils.REGISTRY_SERVICE_KEY
-    end
+    Log:interceptor("Atualizando estado para operacao: [".. request.operation .."].")
     oil.newthread(function()
                  self.serviceStatusManager:updateStatus(key)
                   end)
@@ -284,22 +293,13 @@ function getCredential(self)
 end
 
 function needUpdate(self, request)
-    --TODO: Colocar aqui somente o que faz sentido pedir para atualizar
-    -- o estado
-    --DEIXAR CONFIGURAVEL EXTERNAMENTE
-    --VERIFICAR CONFLITOS COM NOMES DE OPERACAO DO MANAGEMENT
-    if request.operation == "loginByPassword"    or
-       request.operation == "loginByCertificate" or
-       request.operation == "renewLease" or
-       request.operation == "register" or
-       request.operation == "addObserver" or
-       request.operation == "removeObserver" or
-       request.operation == "addCredentialToObserver" or
-       request.operation == "removeCredentialFromObserver" or
-       request.operation == "update" then
+   local repID = orb.ServantIndexer.indexer:typeof(request.object_key).repID
+   if self.updateOperations[repID] then
+      if self.updateOperations[repID][request.operation] then
         return true
-    end
-    return false
+      end
+   end
+   return false
 end
 
 function validateCredential (self, credential, request)
