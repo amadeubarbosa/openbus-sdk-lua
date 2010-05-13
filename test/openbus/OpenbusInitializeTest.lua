@@ -22,16 +22,16 @@ Log:level(5)
 Suite = {
   Test1 = {
     testInitNullProps = function(self)
-      Check.assertTrue(Openbus.init, Openbus, host, port, nil, iConfig, iConfig)
+      Check.assertTrue(Openbus:init(host, port, nil, iConfig, iConfig))
       Openbus:destroy()
     end,
 
     testInitNullHost = function(self)
-      Check.assertFalse(Openbus.init, Openbus, nil, port, props, iConfig, iConfig)
+      Check.assertFalse(Openbus:init(nil, port, props, iConfig, iConfig))
     end,
 
     testInitInvalidPort = function(self)
-      Check.assertFalse(Openbus.init, Openbus, host, -1, props, iConfig, iConfig)
+      Check.assertFalse(Openbus:init(host, -1, props, iConfig, iConfig))
     end,
   },
 }
