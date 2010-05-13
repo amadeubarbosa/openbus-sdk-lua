@@ -22,7 +22,6 @@ local os = os
 local loadfile = loadfile
 local assert = assert
 local require = require
-local print = print
 local string = string
 local gsub = gsub
 
@@ -620,11 +619,8 @@ function Openbus:disconnect()
       local status, err = oil.pcall(self.leaseRenewer.stopRenew,
         self.leaseRenewer)
       if not status then
-        self.credentialManager:invalidate()
-        self.credentialManager:invalidateThreadValue()
         log:error(
           "OpenBus: Não foi possível parar a renovação de lease. Erro: " .. err)
-        return false
       end
       self.leaseRenewer = nil
     end
@@ -635,6 +631,8 @@ function Openbus:disconnect()
           log:error("OpenBus: Não foi possível realizar o logout. Erro " .. err)
        end
     end
+    self.credentialManager:invalidate()
+    self.credentialManager:invalidateThreadValue()
     return true
   else
     return false
