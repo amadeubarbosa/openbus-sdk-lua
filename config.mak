@@ -13,10 +13,10 @@ OPENBUSINC= ${OPENBUS_HOME}/incpath
 
 PRECMP_DIR= obj/${TEC_UNAME}
 PRECMP_LUA= ${OPENBUS_HOME}/libpath/lua/5.1/precompiler.lua
-PRECMP_FLAGS= -p OPENBUS_API -o openbus -l ${LUAPATH} -d ${PRECMP_DIR} -n
+PRECMP_FLAGS= -p OPENBUS_API -o openbusprecompiled -l ${LUAPATH} -d ${PRECMP_DIR} -n
 
 PRELOAD_LUA= ${OPENBUS_HOME}/libpath/lua/5.1/preloader.lua
-PRELOAD_FLAGS= -p OPENBUS_API -o openbuspreloaded -d ${PRECMP_DIR}
+PRELOAD_FLAGS= -p OPENBUS_API -o openbus -d ${PRECMP_DIR}
 
 OPENBUS_MODULES=$(addprefix openbus.,\
 	Openbus \
@@ -41,16 +41,16 @@ OPENBUS_LUA= \
   $(addsuffix .lua, \
     $(subst .,/, $(OPENBUS_MODULES)))
 
-${PRECMP_DIR}/openbus.c: ${OPENBUS_LUA}
+${PRECMP_DIR}/openbusprecompiled.c: ${OPENBUS_LUA}
 	$(LUABIN) $(LUA_FLAGS) $(PRECMP_LUA)   $(PRECMP_FLAGS) $(OPENBUS_MODULES) 
 
-${PRECMP_DIR}/openbuspreloaded.c: ${PRECMP_DIR}/openbus.c
+${PRECMP_DIR}/openbus.c: ${PRECMP_DIR}/openbus.c
 	$(LUABIN) $(LUA_FLAGS) $(PRELOAD_LUA)  $(PRELOAD_FLAGS) -i ${PRECMP_DIR} openbus.h
 
 #Descomente a linha abaixo caso deseje ativar o VERBOSE
 #DEFINES=VERBOSE
 
-SRC= ${PRECMP_DIR}/openbus.c ${PRECMP_DIR}/openbuspreloaded.c
+SRC= ${PRECMP_DIR}/openbusprecompiled.c ${PRECMP_DIR}/openbus.c
 
 INCLUDES= . ${PRECMP_DIR}
 LDIR += ${OPENBUSLIB}
