@@ -24,6 +24,7 @@ local assert = assert
 local require = require
 local string = string
 local gsub = gsub
+local setfenv = setfenv
 
 ---
 -- API de acesso a um barramento OpenBus.
@@ -250,36 +251,42 @@ end
 -- Habilita o mecanismo de tolerancia a falhas
 --
 function Openbus:enableFaultTolerance()
-    log:faulttolerance("Mecanismo de tolerancia a falhas sendo habilitado...")
-    if not self.orb then
-       log:error("OpenBus: O orb precisa ser inicializado.")
-       return false
+  log:faulttolerance("Mecanismo de tolerancia a falhas sendo habilitado...")
+  if not self.orb then
+    log:error("OpenBus: O orb precisa ser inicializado.")
+    return false
+  end
+
+  if not self.isFaultToleranceEnable then
+    local DATA_DIR = os.getenv("OPENBUS_DATADIR")
+    local loadConfig, err = loadfile(DATA_DIR .."/conf/ACSFaultToleranceConfiguration.lua")
+    if not loadConfig then
+      Log:error("O arquivo 'ACSFaultToleranceConfiguration' não pode ser " ..
+          "carregado ou não existe.",err)
+      os.exit(1)
     end
+    setfenv(loadConfig,_M)
+    loadConfig()
 
-    if not self.isFaultToleranceEnable then
-        local DATA_DIR = os.getenv("OPENBUS_DATADIR")
-        local ftconfig = assert(loadfile(DATA_DIR .."/conf/ACSFaultToleranceConfiguration.lua"))()
-        local keys = {}
+    local keys = {}
+    keys[Utils.ACCESS_CONTROL_SERVICE_KEY] = {
+        interface = Utils.ACCESS_CONTROL_SERVICE_INTERFACE,
+        hosts = ftconfig.hosts.ACS, }
+    keys[Utils.LEASE_PROVIDER_KEY] =
+        { interface = Utils.LEASE_PROVIDER_INTERFACE,
+        hosts = ftconfig.hosts.LP, }
+    keys[Utils.OPENBUS_KEY] =
+        { interface = Utils.COMPONENT_INTERFACE,
+        hosts = ftconfig.hosts.ACSIC, }
+    keys[Utils.FAULT_TOLERANT_ACS_KEY] =
+        { interface = Utils.FAULT_TOLERANT_SERVICE_INTERFACE,
+            hosts = ftconfig.hosts.FTACS, }
 
-        keys[Utils.ACCESS_CONTROL_SERVICE_KEY] =
-            { interface = Utils.ACCESS_CONTROL_SERVICE_INTERFACE,
-            hosts = ftconfig.hosts.ACS, }
-        keys[Utils.LEASE_PROVIDER_KEY] =
-            { interface = Utils.LEASE_PROVIDER_INTERFACE,
-            hosts = ftconfig.hosts.LP, }
-        keys[Utils.OPENBUS_KEY] =
-            { interface = Utils.COMPONENT_INTERFACE,
-            hosts = ftconfig.hosts.ACSIC, }
-        keys[Utils.FAULT_TOLERANT_ACS_KEY] =
-            { interface = Utils.FAULT_TOLERANT_SERVICE_INTERFACE,
-                hosts = ftconfig.hosts.FTACS, }
+    self.smartACS = SmartComponent:__init(self.orb, "ACS", keys)
+  end
 
-        self.smartACS = SmartComponent:__init(self.orb, "ACS", keys)
-
-    end
-
-    self.isFaultToleranceEnable = true
-    return true
+  self.isFaultToleranceEnable = true
+  return true
 end
 
 
@@ -299,7 +306,7 @@ end
 -- @return {@code false} caso ocorra algum erro, {@code true} caso contrário.
 ---
 function Openbus:init(host, port, props, serverInterceptorConfig,
-	clientInterceptorConfig, policy)
+  clientInterceptorConfig, policy)
   if not host then
     log:error("OpenBus: O campo 'host' não pode ser nil")
     return false

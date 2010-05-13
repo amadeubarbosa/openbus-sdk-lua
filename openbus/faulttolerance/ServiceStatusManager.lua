@@ -3,6 +3,7 @@ local print = print
 local loadfile = loadfile
 local pairs = pairs
 local os = os
+local setfenv = setfenv
 
 local Log = require "openbus.util.Log"
 local oop = require "loop.simple"
@@ -38,13 +39,27 @@ end
 ---
 function setReplicas(self)
   local DATA_DIR = os.getenv("OPENBUS_DATADIR")
-  local ftconfig = assert(loadfile(DATA_DIR .."/conf/ACSFaultToleranceConfiguration.lua"))()
+  local loadConfig, err = loadfile(DATA_DIR .."/conf/ACSFaultToleranceConfiguration.lua")
+  if not loadConfig then
+    Log:error("O arquivo 'ACSFaultToleranceConfiguration' não pode ser " ..
+        "carregado ou não existe.",err)
+    os.exit(1)
+  end
+  setfenv(loadConfig,_M)
+  loadConfig()
 
   self._keys = {}
   self._keys[Utils.FAULT_TOLERANT_ACS_KEY] = { interface = Utils.FAULT_TOLERANT_SERVICE_INTERFACE,
       hosts = ftconfig.hosts.FTACS, }
 
-  ftconfig = assert(loadfile(DATA_DIR .."/conf/RSFaultToleranceConfiguration.lua"))()
+  local loadConfig, err = loadfile(DATA_DIR .."/conf/RSFaultToleranceConfiguration.lua")
+  if not loadConfig then
+    Log:error("O arquivo 'RSFaultToleranceConfiguration' não pode ser " ..
+        "carregado ou não existe.",err)
+    os.exit(1)
+  end
+  setfenv(loadConfig,_M)
+  loadConfig()
 
   self._keys[Utils.FAULT_TOLERANT_RS_KEY] = { interface = Utils.FAULT_TOLERANT_SERVICE_INTERFACE,
       hosts = ftconfig.hosts.FTRS, }
@@ -54,7 +69,7 @@ end
 --Atualiza o estado de todas as replicas para um dado objectKey
 --
 ---
-function updateStatus(self, interceptedKey)  
+function updateStatus(self, interceptedKey)
   Log:faulttolerance("[ServiceStatusManager][updateStatus] Chave interceptada:" .. interceptedKey)
   local objKey = nil
   if interceptedKey == Utils.ACCESS_CONTROL_SERVICE_KEY or
@@ -64,7 +79,7 @@ function updateStatus(self, interceptedKey)
   elseif interceptedKey == Utils.REGISTRY_SERVICE_KEY or
          interceptedKey == Utils.FAULT_TOLERANT_RS_KEY then
     objKey = Utils.FAULT_TOLERANT_RS_KEY
-  end 
+  end
 
   if objKey ~= nil then
     local keyV = self._keys[objKey]
