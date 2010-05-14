@@ -1,0 +1,272 @@
+\documentclass[12pt]{article}
+
+%% Estilos e Plug-Ins
+\usepackage{a4}
+\usepackage{times}
+\usepackage[latin1]{inputenc}
+\usepackage[brazil]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{epsfig}
+\usepackage{mwlabinputs}
+\usepackage{hyperref}
+
+\setlength{\parskip}{6mm}
+\textheight=8.2in
+
+\newcommand{\code}[1]{\texttt{#1}}
+
+%% Redefines the label 'Listing' to ..                                            
+\def\lstlistingname{Código}                                                       
+\lstset{inputencoding=latin1}                                                     
+\codestyle{colorful}                                                              
+%% Removes hyperlinks borders                                                     
+\hypersetup{                                                                      
+  pdfborder = {0 0 0},                                                            
+}                                                                                 
+
+
+% ===================
+% Inicio do documento
+% ===================
+
+\begin{document} 
+
+\title{OpenBus-Lua - Tutorial - API}
+\author{C. Augusto, R. Cosme, R. Cerqueira \\
+        Tecgraf \\
+        Pontifícia Universidade Católica do Rio de Janeiro 
+        (PUC-Rio)\\
+        openbus-dev@tecgraf.puc-rio.br}
+
+\date{}
+\maketitle
+
+
+\pagenumbering{arabic}
+
+\section{Introdução}
+
+Este documento é destinado aos usuários desenvolvedores de aplicações Lua que desejem utilizar o OpenBus. O processo de \emph{deployment} do barramento não é coberto aqui neste tutorial. Considera-se como pré-requisito para um bom entendimento deste documento o conhecimento básico dos seguintes assuntos:
+
+\begin{itemize}
+	\item Linguagem de programação Lua.
+	\item CORBA.
+	\item Modelo de Componentes SCS.
+	\item Conceitos básicos do Openbus.
+\end{itemize}
+
+\section{Preparação do Ambiente}
+
+O OpenBus utiliza o mecanismo de interceptação de CORBA no processo de controle de acesso aos serviços. Após a chamada de requisição de \emph{login} no barramento, todas as chamadas seguintes devem estar com a credencial de acesso anexada. Sendo assim, faz-se necessário a habilitação dos interceptadores frente ao ORB que será utilizado. No OpenBus-Lua o ORB utilizado será o OiL, e o barramento se encarregará da instalação dos interceptadores em sua inicialização, sendo necessário apenas que o usuário forneça as configurações dos interceptadores.
+	
+\subsection{Teste}
+
+Antes de se começar a programação, é aconselhável que o usuário coloque em funcionamento a demo Hello que acompanha o pacote. O correto funcionamento da demo elimina uma série de possíveis problemas que o desenvolvedor possa enfrentar durante o seu projeto, como por exemplo: problemas de comunicação com o barramento, serviços básicos não disponíveis e ausência de bibliotecas externas.
+
+Naturalmente a execução da demo necessita de um barramento em operação. A demo pode ser executada seguindo os seguintes passos:
+\begin{itemize}
+  \item Entrar no diretório \$OPENBUS\_HOME/demo/hello/lua.
+  \item Editar os arquivos server.lua e client.lua em \$OPENBUS\_HOME/demo/hello/lua/ e configurar a localização do barramento.
+  \item Executar a demo: ./run
+\end{itemize}
+
+Após a execução do cliente, no terminal a seguinte mensagem deve ser exibida pelo processo servidor, entre outras: "HELLO!"
+
+\section{Desenvolvimento}
+
+\subsection{API}\label{api}
+
+A API é composta pelo módulo openbus.Openbus e pela interface IRegistryService advinda da IDL do Serviço de Registro. O módulo Openbus atualmente é implementado como o padrão \emph{singleton}, pois suporta apenas um barramento. Para obter-se a instância do barramento e (re)inicializá-la, deve-se utilizar o Código~\ref{lst:barramento}.
+
+\begin{labeledcode}[lua]{barramento}{Obtenção da Instância do Barramento}
+-- obtenção da instância do barramento
+local openbus = require "openbus.Openbus"
+
+-- host e porta apenas para fins de exemplo
+openbus:init("localhost", 2089)
+\end{labeledcode}
+
+Um ORB é criado implicitamente na chamada \emph{init}.
+
+Os outros métodos da API Openbus serão explicados em mais detalhes a seguir:
+
+\begin{itemize}
+  \item \code{ORB Openbus::getORB()}: Retorna o ORB utilizado.
+  \item \code{void run()}: \emph{Loop} que processa requisições remotas. Execução de \emph{orb.run()}.
+  \item \code{void destroy()}: Finaliza a execução do barramento.
+  \item \code{IAccessControlService getAccessControlService()}: Retorna o \emph{stub} do Serviço de Controle de Acesso.
+  \item \code{IRegistryService getRegistryService()}: Retorna o \emph{stub} do Serviço de Registro.
+  \item \code{ISessionService getSessionService()}: Retorna o \emph{stub} do serviço de sessão.
+  \item \code{Credential getCredential()}: Retorna a credencial de identificação do usuário frente ao barramento.
+  \item \code{Credential getInterceptedCredential()}: Retorna a credencial interceptada pelo interceptador servidor. Esta operação somente deve ser chamada durante o tratamento de alguma requisição à aplicação do usuário.
+  \item \code{void setThreadCredential(Credential credential)}: Define uma credencial a ser utilizada no lugar da credencial corrente. Útil para fornecer uma credencial com o campo delegate preenchido.
+  \item \code{void setLeaseExpiredCallback(LeaseExpiredCallback lec)}: Registra uma callback para a notificação de que o lease da credencial	de identificação do usuário expirou. LeaseExpiredCallback deve ser um objeto que contenha um método de nome \emph{expired()}.
+  \item \code{void removeLeaseExpiredCallback(LeaseExpiredCallback lec)}: Remove uma callback previamente registrada para a notificação de lease expirado.
+  \item \code{boolean isConnected()}: Informa o estado de conexão com o barramento.
+  \item \code{IRegistryService connect(String user, String password}: Realiza uma tentativa de conexão com o barramento. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
+    \subitem \code{InvalidCredentialException}: Caso a credencial seja rejeitada ao tentar obter o Serviço de Registro.
+  \item \code{IRegistryService connect(String name, String privateKeyFile, String acsCertificateFile)}: Realiza uma tentativa de conexão com o barramento, utilizando o mecanismo de certificação para o processo de autenticação. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
+    \subitem \code{InvalidCredentialException}: Caso a credencial seja rejeitada ao tentar obter o Serviço de Registro.
+  \item \code{IRegistryService connect(Credential credential)}: Realiza uma tentativa de conexão ao barramento, a partir de uma credencial já existente. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
+    \subitem \code{ACSUnavailableException}: Caso o Serviço de Controle de Acesso não consiga ser contactado.
+  \item \code{boolean disconnect()}: Desfaz a conexão atual.
+\end{itemize}
+	
+Os outros métodos do \emph{stub} do Serviço de Registro serão explicados em mais detalhes a seguir:
+
+\begin{itemize}
+  \item \code{void Register(ServiceOffer serviceOffer, String registryId)}: Registra um serviço no barramento. O serviço é descrito através de uma oferta de serviço. Caso o serviço seja registrado com sucesso, a identificação do mesmo é armazenada no parâmetro de saída registryId.
+  \item \code{void unregister(String registryId)}: Remove uma oferta de serviço do barramento.
+  \item \code{ServiceOfferList find(FacetList facets)}: Busca uma ou mais ofertas de serviço no barramento que implementem todas as facetas discriminadas em \emph{facets}.
+  \item \code{ServiceOfferList findByCriteria(FacetList facets,	PropertyList properties)}: Busca uma ou mais ofertas de serviço no barramento que implementem todas as facetas discriminadas em \emph{facets} e que atendam aos critérios descritos no parâmetro \emph{criteria}, que é uma lista de propriedades descrita através de strings no formato chave = {valor1, valor2, ..., valorN}.
+\end{itemize}
+
+\subsection{Primeiros Passos}
+
+Basicamente há dois tipos de aplicações Openbus. Uma que oferta serviços e outra que consome serviços, sendo possível e natural uma aplicação híbrida que tanto oferte quanto consuma. Para ambos os tipos, existe uma certa dinâmica de programação já definida, e é justamente a explicitação dessa dinâmica que será o objetivo deste tópico.
+
+Como facilitador, os processos serão demonstrados com base na demo Hello. De propósito, este é um demo muito simplório, que é composto de um módulo cliente e de outro servidor. O servidor oferta um serviço do tipo Hello num determinado barramento, enquanto que o cliente procura por este serviço no barramento e o utiliza.
+
+\subsubsection{Conexão com o Barramento}
+
+O primeiro passo é firmar uma conexão autenticada com o barramento, o que é necessário tanto para o cliente como para o servidor. Para se concluir a conexão é preciso:
+
+\begin{itemize}
+  \item Adquirir a instância que representa o barramento.
+  \item Inicializar o barramento.
+  \item Efetuar uma autenticação no barramento através de um dos métodos de conexão da API.
+\end{itemize}
+
+Existem três modos de autenticação frente ao barramento:
+
+\begin{itemize}
+  \item Par usuário e senha.
+  \item Certificado digital.
+  \item Utilização de uma credencial já existente e válida.
+\end{itemize}
+
+O primeiro é destinado normalmente aos clientes que estão acessando o barramento à procura de um serviço. O segundo é mais adequado ao processo servidor que registrará um determinado serviço no barramento. Já o terceiro é útil para aplicações que dependam de terceiros para realizar uma autenticação, ou seja, não tenham acesso a um par usuário/senha nem a um certificado, mas sim a um terceiro elemento que proveja uma credencial válida.
+
+No caso da autenticação via certificado, o responsável pelo serviço deve encaminhar ao administrador do barramento o certificado do serviço, ou seja, um arquivo especial que contenha a chave pública do serviço, dentre outras informações pertinentes. O administrador deve fornecer o certificado do serviço de controle de acesso.
+
+Um exemplo do código necessário para a conexão com o barramento pode ser visto no Código~\ref{lst:conexao}.
+
+\begin{labeledcode}[lua]{conexao}{Conexão com o Barramento}
+local openbus = require "openbus.Openbus"
+
+-- host e porta apenas para fins de exemplo
+openbus:init("localhost", 2089)
+
+function main ()
+  -- Permite que o ORB comece a aguardar requisições
+  openbus:run()
+
+  -- Conexão com o barramento
+  local registryService = openbus:connect("HelloService", 
+    "HelloService.key", "AccessControlService.crt")
+end
+\end{labeledcode}
+
+\subsubsection{Serviço de Registro}
+
+Um serviço pode ser colocado no barramento através de uma oferta de serviço (\emph{ServiceOffer}), que é uma estrutura que representa o serviço através de uma lista de propriedades (\emph{properties}) e de uma referência a um componente (\emph{member}) SCS. As definições em IDL dessas estruturas podem ser vistas no Código~\ref{lst:offer}.
+
+\begin{labeledcode}[idl]{offer}{Definições de Ofertas de Serviço}
+typedef sequence<string> PropertyValue;
+struct Property {
+    string name;
+    PropertyValue value;
+};
+
+typedef sequence<Property> PropertyList;
+
+struct ServiceOffer {
+    PropertyList properties;
+    scs::core::IComponent member;
+};
+\end{labeledcode}
+
+Através da lista de propriedades, é possível caracterizar o serviço. 
+	
+A arquitetura do Openbus é baseada no modelo de componentes SCS. Os serviços são de fato representados por componentes, que podem apresentar distintas facetas (interfaces). Sendo assim, o primeiro passo para o registro de um serviço é criar um componente que represente esse serviço. Maiores informações sobre a criação de componentes SCS podem ser obtidas nos tutoriais desse projeto, mas um exemplo pode ser conferido no Código~\ref{lst:component}. Nesse exemplo, \emph{HelloImpl} é o nome da classe que implementa a faceta \emph{IHello}.
+
+\begin{labeledcode}[lua]{component}{Instanciação de um Componente SCS}
+-- Inicialização do barramento
+local openbus = require "openbus.Openbus"
+openbus:init("localhost", 2089)
+
+-- A API SCS deve ser carregada após a inicialização do barramento
+local scs = require "scs.core.base"
+
+-- especificação das descrições de facetas e receptáculos do componente
+local facetDescriptions = {}
+facetDescriptions.IHello = {
+  name = "IHello",
+  interface_name = "IDL:demoidl/hello/IHello:1.0",
+  class = Hello
+}
+
+-- especificação do ComponentId
+local componentId = {
+  name = "HelloComponent",
+  major_version = 1,
+  minor_version = 0,
+  patch_version = 0,
+  platform_spec = ""
+}
+
+-- instanciação do componente
+local instance = scs.newComponent(facetDescriptions, {}, componentId)
+\end{labeledcode}
+
+O serviço a ser registrado no barramento deve ser descrito através de uma oferta de serviço, que é representada pela estrutura \emph{ServiceOffer}. Pendura-se nessa estrutura o serviço em si, que é representado através de um componente SCS e, opcionalmente, uma lista de propriedades referentes ao serviço. As propriedades devem ser descritas numa estrutura que representa uma lista de propriedades. Um exemplo pode ser conferido no Código~\ref{lst:registering}.
+
+\begin{labeledcode}[lua]{registering}{Registro de uma Oferta de Serviço}
+-- definição da oferta
+local offer = { properties = {}, member = instance.IComponent }
+
+-- registro do serviço
+local status, registrationId = registryService:register(offer)
+\end{labeledcode}
+
+Até este ponto, o servidor basicamente se autenticou ao barramento e registrou o serviço. O último passo necessário para finalizar o código do servidor é habilitar o processo servidor a escutar as requisições CORBA que serão direcionadas para o serviço ofertado, o que pode ser feito com o uso do método da API \emph{run()} descrito anteriormente na Seção \ref{api}.
+
+\subsubsection{Processo Cliente}
+
+Como o servidor, o cliente necessita de se autenticar ao barramento. Portanto, os mesmos passos aplicados ao servidor para a autenticação devem ser repetidos, com exceção de que o cliente geralmente se autentica através do mecanismo de usuário e senha, como no Código~\ref{lst:clientauth}.
+
+\begin{labeledcode}[lua]{clientauth}{Autenticação da Aplicação Cliente}
+// userLogin e userPassword são variáveis String contendo o 
+// nome de usuário e senha.
+local registryService = openbus:connect(userLogin, userPassword)
+\end{labeledcode}
+
+Após a conexão bem sucedida com o barramento, o próximo passo é obter o serviço desejado. Isso pode ser feito através de uma chamada ao método \emph{find()} do Serviço de Registro, que retorna uma lista de ofertas de serviço que implementam a faceta que o usuário deseja. Um exemplo pode ser conferido no Código~\ref{lst:clientsearch}.
+
+\begin{labeledcode}[lua]{clientsearch}{Busca por Ofertas de Serviço}
+-- busca no barramento serviços que implementem uma faceta de nome IHello.
+-- uma lista de *ofertas de serviço* é retornada para o usuário.
+local offers = registryService:find({"IHello"})
+
+-- nessa demo há somente uma oferta de serviço publicada, então simplesmente
+-- acessamos a primeira da lista.
+local offer = offers[1];
+\end{labeledcode}
+
+Como visto anteriormente, a oferta de serviço contém uma referência para um componente SCS ou, mais especificamente, para sua faceta IComponent. Como esse componente pode apresentar diversas facetas, o usuário deve obter a faceta que deseja utilizar. No exemplo há somente uma faceta além das facetas básicas do modelo SCS, a IHello. A faceta recebida na oferta, IComponent, oferece métodos (\emph{getFacet} e \emph{getFacetByName}) para que o usuário possa obter um objeto CORBA que represente a faceta desejada. De posse do objeto CORBA, o usuário deve efetuar um \emph{narrow} para mapeá-lo para a interface desejada e daí em diante o programador estará apto a utilizar essa faceta / serviço. Um exemplo pode ser visto no Código~\ref{lst:clientfacet}.
+
+\begin{labeledcode}[lua]{clientfacet}{Acesso à Faceta Desejada}
+-- obtenção da faceta IHello
+local component = offer.member;
+local helloFacet = component:getFacet("IDL:demoidl/hello/IHello:1.0")
+helloFacet = orb:narrow(helloFacet, "IDL:demoidl/hello/IHello:1.0")
+
+-- utilização da faceta / serviço IHello
+helloFacet:sayHello()
+\end{labeledcode}
+
+Os códigos completos podem ser conferidos nas demos do projeto.
+
+\end{document}
