@@ -35,6 +35,7 @@ OPENBUS_MODULES=$(addprefix openbus.,\
 	util.Log \
 	util.OilUtilities \
 	util.TableDB \
+	util.TestLog \
 	util.Utils )
 
 OPENBUS_LUA= \
