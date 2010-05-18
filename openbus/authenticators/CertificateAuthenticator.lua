@@ -31,7 +31,7 @@ function authenticate(self, acs)
   if not challenge or #challenge == 0 then
     log:error("OpenBus: o desafio para " .. self.name ..
         " não foi obtido junto ao Servico de Controle de Acesso.")
-	return nil
+  return nil
   end
   local privateKey, err = lce.key.readprivatefrompemfile(self.privateKeyFile)
   if not privateKey then
@@ -43,7 +43,11 @@ function authenticate(self, acs)
   if not challenge then
     log:error("Erro ao descriptografar o desafio: "..err)
   end
-  local certificate = lce.x509.readfromderfile(self.acsCertificateFile)
+  local certificate, err = lce.x509.readfromderfile(self.acsCertificateFile)
+  if not certificate then
+    log:error("Erro ao ler certificado do ACS: " .. self.acsCertificateFile ..
+               " - erro: " .. err )
+  end
   local answer = lce.cipher.encrypt(certificate:getpublickey(), challenge)
   local succ, credential, lease = acs:loginByCertificate(self.name, answer)
   if succ then
