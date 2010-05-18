@@ -132,7 +132,8 @@ function smartmethod(invoker, operation)
       else
         res = false
         ex2 = "timeout"
-        log:faulttolerance("[smartpatch] operacao retornou com erro por timeout")
+        log:faulttolerance("[smartpatch] operacao ["..
+             (operation and operation.name or "unknown") .."] retornou com erro por timeout")
         replace = true
       end
     end
