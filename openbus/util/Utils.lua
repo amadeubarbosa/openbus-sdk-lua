@@ -187,13 +187,13 @@ DATA_SERVICE_INTERFACE = "IDL:openbusidl/data_service/IHDataService:1.0"
 COMPONENT_ID_PROPERTY_NAME = "component_id"
 
 ---
--- Define as políticas para a validação de credenciais interceptadas em um servidor. 
+-- Define as políticas para a validação de credenciais interceptadas em um servidor.
 ---
 CredentialValidationPolicy = {
   -- Indica que as credenciais interceptadas serão sempre validadas.
-  "ALWAYS", 
+  "ALWAYS",
   -- Indica que as credenciais interceptadas serão validadas e armazenadas em uma cache.
-  "CACHED", 
+  "CACHED",
   -- Indica que as credenciais interceptadas não serão validadas.
   "NONE"}
 
@@ -273,7 +273,9 @@ function getReplicaFacetByReceptacle(orb, component, receptacleName,
       local ok, recepFacet =  oil.pcall(recepIC.getFacetByName, recepIC, replicaIface)
       if ok then
           recepFacet = orb:narrow(recepFacet, replicaIDL)
-          return recepFacet
+          if recepFacet then
+            return recepFacet
+          end
       end
       log:error("Nao foi possivel obter a faceta [".. replicaIface .. "]: " .. recepFacet)
     end
