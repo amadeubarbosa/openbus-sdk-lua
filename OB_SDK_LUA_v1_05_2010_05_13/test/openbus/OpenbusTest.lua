@@ -19,8 +19,12 @@ local props = {}
 local user = "tester"
 local password = "tester"
 
-oil.verbose:level(5)
-Log:level(5)
+local entityName = "TesteBarramento"
+local privateKey = "resources/Teste.ke"
+local acsCertificate = "resources/AccessControlService.crt"
+
+oil.verbose:level(0)
+Log:level(0)
 
 Suite = {
   Test1 = {
@@ -31,7 +35,13 @@ Suite = {
     afterTestCase = function(self)
       Openbus:destroy()
     end,
-    
+
+    afterEachTest = function(self)
+      if Openbus:isConnected() then
+        Openbus:disconnect()
+      end
+    end,
+
     testConnectByPassword = function(self)
       Check.assertTrue(Openbus:connectByLoginPassword(user, password))
       Check.assertTrue(Openbus:disconnect())
@@ -46,17 +56,29 @@ Suite = {
     end,
 
     testConnectByCertificate = function(self)
+      Check.assertTrue(Openbus:connectByCertificate(entityName, privateKey, acsCertificate))
+      Check.assertTrue(Openbus:disconnect())
     end,
-
+    
     testConnectByCertificateNullKey = function(self)
-      Check.assertFalse(Openbus:connectByCertificate("name", nil, nil))
+      Check.assertFalse(Openbus:connectByCertificate(entityName, nil, acsCertificate))
     end,
-
+    
     testConnectByCertificateNullACSCertificate = function(self)
-      Check.assertFalse(Openbus:connectByCertificate("name", nil, nil))
+      Check.assertFalse(Openbus:connectByCertificate(entityName, privateKey, nil))
     end,
-
+    
     testConnectByCredential = function(self)
+      Check.assertNil(Openbus:getCredential())
+      Check.assertTrue(Openbus:connectByLoginPassword(user, password))
+      local registry = Openbus:getRegistryService()
+      Check.assertNotNil(registry)
+      local credential = Openbus:getCredential();
+      Check.assertNotNil(credential)
+      Check.assertFalse(Openbus:connect(credential))
+      registry = Openbus:getRegistryService()
+      Check.assertNotNil(registry);
+      Check.assertTrue(Openbus:disconnect())      
     end,
 
     testConnectByCredentialNullCredential = function(self)
@@ -89,37 +111,76 @@ Suite = {
     testGetRegistryService = function(self)
       Check.assertFalse(Openbus:getRegistryService())
       Check.assertTrue(Openbus:connectByLoginPassword(user, password))
-      -- Check.assertNotNil(Openbus:getRegistryService())
+      Check.assertNotNil(Openbus:getRegistryService())
       Check.assertTrue(Openbus:disconnect())
     end,
 
     testCredentialExpired = function(self)
-      local wasExpired = false
       local lec = {
         wasExpired = false,
-
         expired = function(self)
           self.wasExpired = true
         end,
-
-        getWasExpired = function(self)
+        isExpired = function(self)
           return self.wasExpired
+        end,
+      }
+    
+      Check.assertTrue(Openbus:connectByLoginPassword(user, password))
+      Openbus:setLeaseExpiredCallback(lec)
+      local acs = Openbus:getAccessControlService()
+      Check.assertNotNil(acs)
+      acs:logout(Openbus:getCredential())
+      while (not (lec:isExpired())) do
+        oil.sleep(30)
+      end
+      Check.assertFalse(Openbus:disconnect())      
+    end,
+
+    testAddLeaseExpiredCbBeforeConnect = function(self)
+      local lec = {
+        wasReconnected = false,
+        expired = function(self)
+          Check.assertTrue(Openbus:connectByLoginPassword(user, password))
+          self.wasReconnected = true
+        end,
+        isReconnected = function(self)
+          return self.wasReconnected
         end,
       }
 
       Check.assertTrue(Openbus:connectByLoginPassword(user, password))
       Openbus:setLeaseExpiredCallback(lec)
-      while (not (lec:getWasExpired())) do
-        print("A")
+      local acs = Openbus:getAccessControlService()
+      Check.assertNotNil(acs)
+      acs:logout(Openbus:getCredential())
+      while (not (lec:isReconnected())) do
         oil.sleep(30)
       end
-      Check.assertTrue(Openbus:disconnect())
-    end,
-
-    testAddLeaseExpiredCbBeforeConnect = function(self)
+      Check.assertTrue(Openbus:disconnect())      
     end,
 
     testAddLeaseExpiredCbAfterConnect = function(self)
+      local lec = {
+        wasReconnected = false,
+        expired = function(self)
+          Check.assertTrue(Openbus:connectByLoginPassword(user, password))
+          self.wasReconnected = true
+        end,
+        isReconnected = function(self)
+          return self.wasReconnected
+        end,
+      }
+
+      Openbus:setLeaseExpiredCallback(lec)
+      Check.assertTrue(Openbus:connectByLoginPassword(user, password))
+      local acs = Openbus:getAccessControlService()
+      Check.assertNotNil(acs)
+      acs:logout(Openbus:getCredential())
+      while (not (lec:isReconnected())) do
+        oil.sleep(30)
+      end
+      Check.assertTrue(Openbus:disconnect())      
     end,
   },
 }
