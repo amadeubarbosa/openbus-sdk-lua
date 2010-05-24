@@ -118,10 +118,10 @@ function _renewLeaseAction(timer)
       log:warn("Falha na acessibilidade ao provedor do lease:", granted)
     else -- not granted or granted[1] == "IDL:omg.org/CORBA/NO_PERMISSION:1.0"
       log:lease("Lease não renovado, credencial expirou.")
-      timer:disable()
       if timer.leaseRenewer.leaseExpiredCallback then
         timer.leaseRenewer.leaseExpiredCallback:expired()
       end
+      timer:disable()
     end
   end
 end
