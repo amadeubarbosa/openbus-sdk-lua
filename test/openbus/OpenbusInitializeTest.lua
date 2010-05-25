@@ -16,7 +16,7 @@ local host = "localhost"
 local port = 2089
 local props = nil
 
-oil.verbose:level(5)
+oil.verbose:level(0)
 Log:level(5)
 
 Suite = {
@@ -32,6 +32,18 @@ Suite = {
 
     testInitInvalidPort = function(self)
       Check.assertFalse(Openbus:init(host, -1, props, iConfig, iConfig))
+    end,
+
+    testInitTwice = function(self)
+      Check.assertTrue(Openbus:init(host, port, nil, iConfig, iConfig))
+      Check.assertFalse(Openbus:init(host, port, nil, iConfig, iConfig))
+      Openbus:destroy()
+    end,
+
+    destroyWithoutInit = function(self)
+      Openbus:destroy()
+      Check.assertTrue(Openbus:init(host, port, nil, iConfig, iConfig))
+      Openbus:destroy()
     end,
   },
 }
