@@ -55,6 +55,12 @@ Suite = {
       Check.assertFalse(Openbus:connectByLoginPassword("INVALID", password))
     end,
 
+    testConnectByPasswordTwice = function(self)
+      Check.assertTrue(Openbus:connectByLoginPassword(user, password))
+      Check.assertFalse(Openbus:connectByLoginPassword(user, password))
+      Check.assertTrue(Openbus:disconnect())
+    end,
+
     testConnectByCertificate = function(self)
       Check.assertTrue(Openbus:connectByCertificate(entityName, privateKey, acsCertificate))
       Check.assertTrue(Openbus:disconnect())
@@ -67,22 +73,38 @@ Suite = {
     testConnectByCertificateNullACSCertificate = function(self)
       Check.assertFalse(Openbus:connectByCertificate(entityName, privateKey, nil))
     end,
-    
+
+    testConnectByCertificateInvalidEntityName = function(self)
+      Check.assertFalse(Openbus:connectByCertificate(nil, privateKey, acsCertificate))
+    end,
+
+    testConnectByCertificateTwice = function(self)
+      Check.assertTrue(Openbus:connectByCertificate(entityName, privateKey,
+          acsCertificate))
+      Check.assertFalse(Openbus:connectByCertificate(entityName, privateKey,
+          acsCertificate))
+      Check.assertTrue(Openbus:disconnect())
+    end,
+
     testConnectByCredential = function(self)
       Check.assertNil(Openbus:getCredential())
       Check.assertTrue(Openbus:connectByLoginPassword(user, password))
-      local registry = Openbus:getRegistryService()
-      Check.assertNotNil(registry)
       local credential = Openbus:getCredential();
       Check.assertNotNil(credential)
       Check.assertFalse(Openbus:connect(credential))
-      registry = Openbus:getRegistryService()
-      Check.assertNotNil(registry);
       Check.assertTrue(Openbus:disconnect())      
     end,
 
     testConnectByCredentialNullCredential = function(self)
       Check.assertFalse(Openbus:connectByCredential(nil))
+    end,
+
+    testConnectByCredentialInvalidCredential = function(self)
+      Check.assertTrue(Openbus:connectByLoginPassword(user, password))
+      local credential = Openbus:getCredential();
+      Check.assertNotNil(credential)
+      Check.assertTrue(Openbus:disconnect())      
+      Check.assertFalse(Openbus:connectByCredential(credential))
     end,
 
     testIsConnected = function(self)
