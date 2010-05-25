@@ -116,6 +116,10 @@ Openbus = oop.class {
   -- Politica de validacao de credenciais.
   ---
   credentialValidationPolicy = nil,
+  ---
+  --  Indica se a API já foi inicializada.
+  ---
+  inited = false,
 }
 
 ---
@@ -315,7 +319,9 @@ function Openbus:init(host, port, props, serverInterceptorConfig,
     log:error("OpenBus: O campo 'port' não pode ser nil nem negativo.")
     return false
   end
-
+  if self.inited then
+    return false
+  end
   -- init
   self.host = host
   self.port = port
@@ -342,12 +348,17 @@ function Openbus:init(host, port, props, serverInterceptorConfig,
   ClientInterceptor = require "openbus.interceptors.ClientInterceptor"
   ServerInterceptor = require "openbus.interceptors.ServerInterceptor"
   -- carrega IDLs
-  local status, err = oil.pcall(self._loadIDLs, self)
+  local status, result = oil.pcall(self._loadIDLs, self)
   if not status then
     log:error("OpenBus: Erro ao carregar as IDLs. Erro: " .. err)
     return false
   end
-  return err
+
+  if result then
+    self.inited = false
+  end
+
+  return result
 end
 
 ---
@@ -379,7 +390,7 @@ function Openbus:finish()
   end
   local status, err = oil.pcall(self.orb.shutdown, self.orb)
   if not status then
-    log:warn("Não foi possível executar o shutdown no ORB:\n"..err)
+    log:warn("Não foi possível executar o shutdown no ORB.")
   end
 end
 
@@ -673,6 +684,7 @@ function Openbus:destroy()
   self.credentialManager:invalidate()
   self.credentialManager:invalidateThreadValue()
   self.credentialValidationPolicy = nil
+  self.inited = false
 end
 
 ---
