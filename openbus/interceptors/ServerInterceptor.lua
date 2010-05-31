@@ -128,6 +128,7 @@ function receiverequest(self, request)
   -- XXX: nao existe forma padrao de recuperar o repID, esta e' uma
   -- intrusao no OiL, ou seja, pode quebrar no futuro.
   local repID = orb.ServantIndexer.indexer:typeof(request.object_key).repID
+  request.repID = repID
   local allowed = not (Openbus:isInterceptable(repID, request.operation) and
     Openbus:isInterceptable("::CORBA::Object", request.operation))
 
@@ -137,6 +138,16 @@ function receiverequest(self, request)
   then
     Log:interceptor("Desligando verbose do dispatcher...")
     oil.verbose:flag("dispatcher", false)
+  end
+
+  local oldPolicy = self.policy
+  if ( (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE) or
+       (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE_V1_04) ) and
+     (request.operation == "loginByCertificate")
+  then
+    --força a inserir credencial, ACSs nao podem se logar sem passar suas credenciais
+    allowed = false
+    self.policy = Utils.CredentialValidationPolicy[3]
   end
 
   if allowed then
@@ -181,6 +192,7 @@ function receiverequest(self, request)
                            .. socket.gettime() - request.requeststart .. "; "..
                            request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
       end
+      self.policy = oldPolicy
       return
     end
     if self.policy == Utils.CredentialValidationPolicy[2] then
@@ -293,9 +305,8 @@ function getCredential(self)
 end
 
 function needUpdate(self, request)
-   local repID = orb.ServantIndexer.indexer:typeof(request.object_key).repID
-   if self.updateOperations[repID] then
-      if self.updateOperations[repID][request.operation] then
+   if self.updateOperations[request.repID] then
+      if self.updateOperations[request.repID][request.operation] then
         return true
       end
    end
