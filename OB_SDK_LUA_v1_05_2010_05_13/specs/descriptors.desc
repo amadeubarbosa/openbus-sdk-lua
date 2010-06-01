@@ -92,6 +92,21 @@ descriptors = {
       ["management"] = "demo/hello",
     },
   },
+  { name = "openbus-demo-eventsink",
+    build = {
+      type = "tecmake",
+      src = SVNDIR .."/demo/eventSink",
+      mf = { },
+    },
+    dev_files = {
+      ["client.lua"] = "demo/eventSink",
+      ["client.sh"] = "demo/eventSink",
+      ["server.lua"] = "demo/eventSink",
+      ["server.sh"] = "demo/eventSink",
+      ["EventSink.properties"] = "demo/eventSink",
+      ["management"] = "demo/eventSink",
+    },
+  },
   { name = "openbus-demo-delegate",
     build = {
       type = "tecmake",
