@@ -12,7 +12,7 @@ local openbus = require "openbus.Openbus"
 
 -- Carrega as propriedades
 local props = {}
-utils:readProperties(props, "HelloSession.properties")
+utils:readProperties(props, "EventSink.properties")
 -- Aliases
 local host               = props["host.name"].value
 local port               = tonumber(props["host.port"].value)
