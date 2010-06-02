@@ -45,7 +45,7 @@ OPENBUS_LUA= \
 ${PRECMP_DIR}/openbusprecompiled.c: ${OPENBUS_LUA}
 	$(LUABIN) $(LUA_FLAGS) $(PRECMP_LUA)   $(PRECMP_FLAGS) $(OPENBUS_MODULES) 
 
-${PRECMP_DIR}/openbus.c: ${PRECMP_DIR}/openbus.c
+${PRECMP_DIR}/openbus.c: ${PRECMP_DIR}/openbusprecompiled.c
 	$(LUABIN) $(LUA_FLAGS) $(PRELOAD_LUA)  $(PRELOAD_FLAGS) -i ${PRECMP_DIR} openbus.h
 
 #Descomente a linha abaixo caso deseje ativar o VERBOSE
