@@ -16,6 +16,7 @@ local Utils = require "openbus.util.Utils"
 
 local DATA_DIR = os.getenv("OPENBUS_DATADIR")
 
+log:level(5)
 ---
 -- Representa um componente smart
 ---
@@ -47,16 +48,20 @@ function _fetchSmartComponent(self)
   local ref
 
   repeat
+    log:faulttolerance("[_fetchSmartComponent] Tentativa:" .. tostring(timeToTry))
     for key,values in pairs(self._keys) do
       smartpatch.updateHostInUse(key)
     end
 
     for key,values in pairs(self._keys) do
       ref = smartpatch.getCurrRef(key)
+      log:faulttolerance("[_fetchSmartComponent] Ref:" .. ref)
       local ret, service
       ret, stop, service = oil.pcall(Utils.fetchService, self._orb, ref, values.interface)
       if not ret or not stop then
         services = {}
+        log:faulttolerance("[_fetchSmartComponent] Nao encontrou, aguardando:"
+              .. timeOut.fetch.sleep .. " segundos")
         oil.sleep(timeOut.fetch.sleep)
         break
       else
@@ -65,6 +70,7 @@ function _fetchSmartComponent(self)
     end
 
     timeToTry = timeToTry + 1
+
   until stop or timeToTry == maxTimeToTry
 
   if services == {} or not stop then

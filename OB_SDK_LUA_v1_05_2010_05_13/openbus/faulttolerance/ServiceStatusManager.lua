@@ -88,6 +88,11 @@ function updateStatus(self, interceptedKey)
       local ret, ok, service = oil.pcall(Utils.fetchService, orb, ref, keyV.interface)
       if ret and ok then
         service:updateStatus("all")
+        local succ, updated = oil.pcall(service.updateStatus, service, "all")
+        if not succ then
+           Log:faulttolerance("[ServiceStatusManager][updateStatus] Erro na execução da atualização do estado. " ..
+                              "Erro: " .. updated)
+        end
       end
     end
   end
