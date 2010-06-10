@@ -214,9 +214,11 @@ function fetchAccessControlService(orb, host, port)
   local acs = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
     ACCESS_CONTROL_SERVICE_KEY, ACCESS_CONTROL_SERVICE_INTERFACE)
   if not OilUtilities:existent(acs) then
+print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
     log:error("Utils: Faceta IAccessControlService_v" .. OB_VERSION .. " não encontrada.")
     error()
   end
+print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
   local lp = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
     LEASE_PROVIDER_KEY, LEASE_PROVIDER_INTERFACE)
   if not OilUtilities:existent(lp) then
@@ -291,22 +293,21 @@ function fetchService(orb, objReference, objType)
    local success, service = oil.pcall(orb.newproxy, orb, objReference, objType)
 
    if success then
-     --TODO: Quando o bug do oil for consertado, mudar para: if not service:_non_existent() then
-     --local succ, non_existent = service.__try:_non_existent()
-     --if succ and not non_existent then
-    if OilUtilities:existent(service) then
+     if OilUtilities:existent(service) then
          --OK
            log:faulttolerance("[fetchService] Servico encontrado.")
-         --TODO: Essa linha é devido a um outro bug no OiL: type_id = ""
+         --TODO: Essa linha é devido a um bug no OiL: type_id = ""
          service.__reference.type_id = objType
          -- fim do TODO
 
          return true, service
-     end
-    end
-
-    log:error("[fetchService]: Servico ".. objReference .." nao encontrado.")
-    return false, nil
+      else
+         log:error("[fetchService]: Nao foi possivel obter o Serviço [".. objReference .."]")
+         return false, "Servico nao encontrado"
+      end
+   else
+      return false, "Erro: " .. tostring(service)
+   end
 
 end
 
