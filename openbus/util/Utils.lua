@@ -214,11 +214,9 @@ function fetchAccessControlService(orb, host, port)
   local acs = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
     ACCESS_CONTROL_SERVICE_KEY, ACCESS_CONTROL_SERVICE_INTERFACE)
   if not OilUtilities:existent(acs) then
-print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
     log:error("Utils: Faceta IAccessControlService_v" .. OB_VERSION .. " não encontrada.")
     error()
   end
-print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
   local lp = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
     LEASE_PROVIDER_KEY, LEASE_PROVIDER_INTERFACE)
   if not OilUtilities:existent(lp) then
