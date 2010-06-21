@@ -123,6 +123,11 @@ Os outros métodos do \emph{stub} do Serviço de Registro serão explicados em mais
   \item \code{ServiceOfferList findByCriteria(FacetList facets,	PropertyList properties)}: Busca uma ou mais ofertas de serviço no barramento que implementem todas as facetas discriminadas em \emph{facets} e que atendam aos critérios descritos no parâmetro \emph{criteria}, que é uma lista de propriedades descrita através de strings no formato chave = {valor1, valor2, ..., valorN}.
 \end{itemize}
 
+A API utiliza o log do Loop, que possui os níveis de log descritos no arquivo
+ \emph{openbus.util.Log}. Para alterar o nível de log da API deve-se 
+ chamar o método \emph{Log:level()} enviando um número referente ao núvel de log
+ como parâmetro. Este método se encontra no arquivo \emph{openbus.util.Log}.
+
 \subsection{Primeiros Passos}
 
 Basicamente há dois tipos de aplicações Openbus. Uma que oferta serviços e outra que consome serviços, sendo possível e natural uma aplicação híbrida que tanto oferte quanto consuma. Para ambos os tipos, existe uma certa dinâmica de programação já definida, e é justamente a explicitação dessa dinâmica que será o objetivo deste tópico.
