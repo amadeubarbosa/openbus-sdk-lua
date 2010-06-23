@@ -45,11 +45,14 @@ function main ()
   local helloFacet = helloComponent:getFacet("IDL:demoidl/hello/IHello:1.0")
   helloFacet = orb:narrow(helloFacet, "IDL:demoidl/hello/IHello:1.0")
 
-  -- Desconecta antes de chamar o sayHello. Dessa forma, se o metodo estiver
-  -- sendo checado, um erro será lançado. O comportamento esperado é que a
-  -- chamada funcione normalmente.
+  -- Chama sayHello antes de desconectar.
+  helloFacet:sayHello()
+
   openbus:disconnect()
 
+  -- Chama sayHello após desconectar. Dessa forma, se o metodo estiver
+  -- sendo checado, um erro será lançado pois não há credencial. O comportamento
+  -- esperado é que a chamada funcione normalmente.
   helloFacet:sayHello()
 
   openbus:destroy()

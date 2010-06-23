@@ -55,7 +55,10 @@ function main ()
   -- Instanciação do componente HelloComponent
   local component = scs.newComponent(facetDescriptions, {}, componentId)
 
-  -- Coloca o metodo sayHello como nao interceptavel
+  -- Coloca o metodo sayHello como nao interceptavel. O método é chamado
+  -- antes da conexão com o barramento para testar se o procedimento de 
+  -- conexão não modifica as variáveis envolvidas. Caso modifique, a demo não
+  -- irá funcionar.
   openbus:setInterceptable(facetDescriptions.IHello.interface_name, "sayHello", false)
 
   -- Conexão com o barramento e registro do componente
