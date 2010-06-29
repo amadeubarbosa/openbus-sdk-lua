@@ -34,7 +34,7 @@
 \begin{document} 
 
 \title{OpenBus-Lua - Tutorial - API}
-\author{C. Augusto, R. Cosme, R. Cerqueira \\
+\author{C. Augusto, R. Cosme, R. Cerqueira, M. Gatti \\
         Tecgraf \\
         Pontifícia Universidade Católica do Rio de Janeiro 
         (PUC-Rio)\\
@@ -59,7 +59,29 @@ Este documento é destinado aos usuários desenvolvedores de aplicações Lua que de
 
 \section{Preparação do Ambiente}
 
-O OpenBus utiliza o mecanismo de interceptação de CORBA no processo de controle de acesso aos serviços. Após a chamada de requisição de \emph{login} no barramento, todas as chamadas seguintes devem estar com a credencial de acesso anexada. Sendo assim, faz-se necessário a habilitação dos interceptadores frente ao ORB que será utilizado. No OpenBus-Lua o ORB utilizado será o OiL, e o barramento se encarregará da instalação dos interceptadores em sua inicialização, sendo necessário apenas que o usuário forneça as configurações dos interceptadores.
+O OpenBus utiliza o mecanismo de interceptação de CORBA no processo de controle de acesso aos serviços. Após a chamada de requisição de \emph{login} no barramento, todas as chamadas seguintes devem estar com a credencial de acesso anexada. Sendo assim, faz-se necessário a habilitação dos interceptadores frente ao ORB que será utilizado. No OpenBus-Lua o ORB utilizado será o OiL, e o barramento se encarregará da instalação dos interceptadores em sua inicialização, sendo necessário apenas que o usuário forneça as configurações dos interceptadores. Por padrão, a API Openbus utiliza as configurações definidas no arquivo \textit{"/conf/advanced/InterceptorsConfiguration.lua"}.
+
+\subsection{Preparação do Ambiente com Mecanismo de Tolerância a Falhas}
+
+O barramento possui um mecanismo de tolerância a falhas baseado em replicação. Ou seja, pode existir mais de uma réplica do componente do Serviço de Controle de Acesso ou do Serviço de Registro ativos em um dado momento. Para que este mecanismo possa funcionar corretamente, é preciso configurar os endereços das réplicas do Serviço de Controle de Acesso acessíveis no arquivo \textit{"/conf/ACSFaultToleranceConfiguration.lua"}.
+
+Além disso, o barramento define alguns tempos padrão usados durante a detecção e tratamento de falhas em uma determinada requisição. Se o cliente achar necessário, é possível modificar esses tempos no arquivo de configuração \textit{/conf/FTTimeOutConfiguration.lua}. Os seguintes atributos podem ser configurados, inclusive em tempo de execução:
+\begin{enumerate}
+   \item Tempo de resposta de uma requisição normal (atributo reply);
+   \item Tempo de resposta de uma requisição que testa se o objeto remoto existe (atributo non\_existent);
+   \item Tempo de busca por alguma réplica disponível (atributo fetch).
+\end{enumerate}
+\begin{labeledcode}[lua]{ftconfig}{Configuração padrão dos tempos do mecanismo de tolerância a falhas}
+reply =        {  MAX_TIMES = 600,
+                  sleep = 0.1,
+               },
+non_existent = {  MAX_TIMES = 30,
+                  sleep = 0.1,
+               },
+fetch        = {  MAX_TIMES = 22,
+                 sleep = 5,
+               },
+\end{labeledcode}
 	
 \subsection{Teste}
 
@@ -78,7 +100,9 @@ Após a execução do cliente, no terminal a seguinte mensagem deve ser exibida pel
 
 \subsection{API}\label{api}
 
-A API é composta pelo módulo openbus.Openbus e pela interface IRegistryService advinda da IDL do Serviço de Registro. O módulo Openbus atualmente é implementado como o padrão \emph{singleton}, pois suporta apenas um barramento. Para obter-se a instância do barramento e (re)inicializá-la, deve-se utilizar o Código~\ref{lst:barramento}.
+A API é composta pelo módulo \textit{openbus.Openbus}, pela interface \textit{IRegistryService} advinda da IDL do Serviço de Registro e pelo módulo \textit{faulttolerance.SmartComponent}. O módulo Openbus atualmente é implementado como o padrão \emph{singleton}, pois suporta apenas um barramento. 
+
+Para se obter a instância do barramento e (re)inicializá-la, deve-se utilizar o Código~\ref{lst:barramento}.
 
 \begin{labeledcode}[lua]{barramento}{Obtenção da Instância do Barramento}
 -- obtenção da instância do barramento
@@ -90,16 +114,46 @@ openbus:init("localhost", 2089)
 
 Um ORB é criado implicitamente na chamada \emph{init}.
 
+Em adição, para que o cliente possa se beneficiar do mecanismo de tolerância a falhas de forma transparente, é necessário habilitar o mecanismo através do método \textit{enableFaultTolerance()} (vide Código~\ref{lst:ft}, linha 7). Desta forma, a API vai configurar um \textit{SmartComponent} para o Serviço de Controle de Acesso, que é um \emph{stub} com mecanismos de detecção e tratamento de falhas.
+
+\begin{labeledcode}[lua]{ft}{Obtenção da Instância do Barramento com Mecanismo de Tolerância a Falhas Ativado}
+-- obtenção da instância do barramento
+local openbus = require "openbus.Openbus"
+
+-- host e porta apenas para fins de exemplo
+openbus:init("localhost", 2089)
+
+openbus:enableFaultTolerance()
+\end{labeledcode}
+
+Se os endereços das réplicas do Serviço de Controle de Acesso acessíveis estiverem configurados corretamente no arquivo \textit{"/conf/ACSFaultToleranceConfiguration.lua"}, a API tentará redirecionar a chamada para uma réplica sem falha sempre que houver uma das seguintes falhas durante uma requisição:
+
+\begin{verbatim}
+  IDL:omg.org/CORBA/NO_RESPONSE:1.0
+  IDL:omg.org/CORBA/COMM_FAILURE:1.0
+  IDL:omg.org/CORBA/OBJECT_NOT_EXIST:1.0
+  IDL:omg.org/CORBA/TRANSIENT:1.0
+  IDL:omg.org/CORBA/TIMEOUT:1.0
+  IDL:omg.org/CORBA/NO_RESOURCES:1.0
+  IDL:omg.org/CORBA/FREE_MEM:1.0
+  IDL:omg.org/CORBA/NO_MEMORY:1.0
+  IDL:omg.org/CORBA/INTERNAL:1.0
+\end{verbatim}
+
+Note que o método \textit{enableFaultTolerance()} deve ser chamada logo após a chamada do \textit{init()} ou o mecanismo não estará ativado para quaisquer operações da API Openbus ou requisições ao barramento seguintes a sua inicialização.
+
 Os outros métodos da API Openbus serão explicados em mais detalhes a seguir:
 
 \begin{itemize}
   \item \code{ORB getORB()}: Retorna o ORB utilizado.
   \item \code{void run()}: \emph{Loop} que processa requisições remotas. Execução de \emph{orb.run()}.
   \item \code{void destroy()}: Finaliza a execução do barramento.
+  \item \code{IComponent getACSIComponent()}: Retorna o \emph{stub} IComponent do Serviço de Controle de Acesso.
   \item \code{IAccessControlService getAccessControlService()}: Retorna o \emph{stub} do Serviço de Controle de Acesso.
   \item \code{IRegistryService getRegistryService()}: Retorna o \emph{stub} do Serviço de Registro.
   \item \code{ISessionService getSessionService()}: Retorna o \emph{stub} do serviço de sessão.
   \item \code{Credential getCredential()}: Retorna a credencial de identificação do usuário frente ao barramento.
+  \item \code{Credential getCredentialValidationPolicy()}: Retorna a a política de validação de credencial em uso.
   \item \code{Credential getInterceptedCredential()}: Retorna a credencial interceptada pelo interceptador servidor. Esta operação somente deve ser chamada durante o tratamento de alguma requisição à aplicação do usuário.
   \item \code{void setThreadCredential(Credential credential)}: Define uma credencial a ser utilizada no lugar da credencial corrente. Útil para fornecer uma credencial com o campo delegate preenchido.
   \item \code{void setLeaseExpiredCallback(LeaseExpiredCallback lec)}: Registra uma callback para a notificação de que o lease da credencial	de identificação do usuário expirou. LeaseExpiredCallback deve ser um objeto que contenha um método de nome \emph{expired()}.
@@ -107,9 +161,9 @@ Os outros métodos da API Openbus serão explicados em mais detalhes a seguir:
   \item \code{boolean isConnected()}: Informa o estado de conexão com o barramento.
   \item \code{IRegistryService connect(String user, String password}: Realiza uma tentativa de conexão com o barramento. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
     \subitem \code{InvalidCredentialException}: Caso a credencial seja rejeitada ao tentar obter o Serviço de Registro.
-  \item \code{IRegistryService connect(String name, String privateKeyFile, String acsCertificateFile)}: Realiza uma tentativa de conexão com o barramento, utilizando o mecanismo de certificação para o processo de autenticação. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
+  \item \code{IRegistryService connectByCertificate(String name, String privateKeyFile, String acsCertificateFile)}: Realiza uma tentativa de conexão com o barramento, utilizando o mecanismo de certificação para o processo de autenticação. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
     \subitem \code{InvalidCredentialException}: Caso a credencial seja rejeitada ao tentar obter o Serviço de Registro.
-  \item \code{IRegistryService connect(Credential credential)}: Realiza uma tentativa de conexão ao barramento, a partir de uma credencial já existente. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
+  \item \code{IRegistryService connectByCredential(Credential credential)}: Realiza uma tentativa de conexão ao barramento, a partir de uma credencial já existente. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
     \subitem \code{ACSUnavailableException}: Caso o Serviço de Controle de Acesso não consiga ser contactado.
   \item \code{boolean disconnect()}: Desfaz a conexão atual.
 \end{itemize}
@@ -117,7 +171,7 @@ Os outros métodos da API Openbus serão explicados em mais detalhes a seguir:
 Os outros métodos do \emph{stub} do Serviço de Registro serão explicados em mais detalhes a seguir:
 
 \begin{itemize}
-  \item \code{void Register(ServiceOffer serviceOffer, String registryId)}: Registra um serviço no barramento. O serviço é descrito através de uma oferta de serviço. Caso o serviço seja registrado com sucesso, a identificação do mesmo é armazenada no parâmetro de saída registryId.
+  \item \code{void register(ServiceOffer serviceOffer, String registryId)}: Registra um serviço no barramento. O serviço é descrito através de uma oferta de serviço. Caso o serviço seja registrado com sucesso, a identificação do mesmo é armazenada no parâmetro de saída registryId.
   \item \code{void unregister(String registryId)}: Remove uma oferta de serviço do barramento.
   \item \code{ServiceOfferList find(FacetList facets)}: Busca uma ou mais ofertas de serviço no barramento que implementem todas as facetas discriminadas em \emph{facets}.
   \item \code{ServiceOfferList findByCriteria(FacetList facets,	PropertyList properties)}: Busca uma ou mais ofertas de serviço no barramento que implementem todas as facetas discriminadas em \emph{facets} e que atendam aos critérios descritos no parâmetro \emph{criteria}, que é uma lista de propriedades descrita através de strings no formato chave = {valor1, valor2, ..., valorN}.
@@ -125,7 +179,7 @@ Os outros métodos do \emph{stub} do Serviço de Registro serão explicados em mais
 
 A API utiliza o log do Loop, que possui os níveis de log descritos no arquivo
  \emph{openbus.util.Log}. Para alterar o nível de log da API deve-se 
- chamar o método \emph{Log:level()} enviando um número referente ao núvel de log
+ chamar o método \emph{Log:level()} enviando um número referente ao nível de log
  como parâmetro. Este método se encontra no arquivo \emph{openbus.util.Log}.
 
 \subsection{Primeiros Passos}
