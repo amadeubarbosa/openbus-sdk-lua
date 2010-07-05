@@ -16,7 +16,6 @@ local Utils = require "openbus.util.Utils"
 
 local DATA_DIR = os.getenv("OPENBUS_DATADIR")
 
-log:level(5)
 ---
 -- Representa um componente smart
 ---
