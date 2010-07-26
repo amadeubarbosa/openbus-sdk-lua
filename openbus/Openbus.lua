@@ -77,10 +77,6 @@ Openbus = oop.class {
   ---
   rgs = nil,
   ---
-  -- Serviço de sessão.
-  ---
-  ss = nil,
-  ---
   -- Interceptador servidor.
   ---
   serverInterceptor = nil,
@@ -218,16 +214,12 @@ function Openbus:_loadIDLs()
   self.orb:loadidlfile(idlfile)
   idlfile = IDLPATH_DIR .. "/v"..version.."/registry_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/v"..version.."/session_service.idl"
-  self.orb:loadidlfile(idlfile)
   idlfile = IDLPATH_DIR .. "/v"..version.."/fault_tolerance.idl"
   self.orb:loadidlfile(idlfile)
 -- Carrega IDLs para clientes do barramento v1.04
   idlfile = IDLPATH_DIR .. "/v"..prev.."/access_control_service.idl"
   self.orb:loadidlfile(idlfile)
   idlfile = IDLPATH_DIR .. "/v"..prev.."/registry_service.idl"
-  self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/v"..prev.."/session_service.idl"
   self.orb:loadidlfile(idlfile)
    return true
 end
@@ -420,35 +412,6 @@ function Openbus:getACSIComponent()
       end
   end
   return self.ic
-end
-
----
--- Fornece o Serviço de Sessão. Caso o Openbus ainda não tenha a referência
--- para o Serviço de Sessão, obtém a mesma a partir do Serviço de Registro.
---
--- @return O Serviço de Sessão. Nil caso ainda não tenha sido obtida uma
---         referência e o Serviço de Controle de Acesso estiver inacessível.
----
-function Openbus:getSessionService()
-  if not self.rgs then
-    local registryService = self:getRegistryService()
-    self.rgs = self.orb:narrow(registryService,
-                    Utils.REGISTRY_SERVICE_INTERFACE)
-  end
-  if not self.ss and self.rgs then
-    local facets = { Utils.SESSION_SERVICE_FACET_NAME }
-    local offers = self.rgs:find(facets)
-    if #offers > 0 then
-      local facet = offers[1].member:getFacet(Utils.SESSION_SERVICE_INTERFACE)
-      if not facet then
-        return nil
-      end
-      self.ss = self.orb:narrow(facet, Utils.SESSION_SERVICE_INTERFACE)
-      return self.ss
-    end
-    return nil
-  end
-  return self.ss
 end
 
 ---
@@ -673,7 +636,6 @@ function Openbus:destroy()
   self.leaseRenewer = nil
   self.leaseExpiredCallback = nil
   self.rgs = nil
-  self.ss = nil
   self.serverInterceptor = nil
   self.serverInterceptorConfig = nil
   self.clientInterceptor = nil
@@ -694,7 +656,6 @@ function Openbus:_reset()
   self.ic = nil
   self.lp = nil
   self.ft = nil
-  self.ss = nil
   self.acs = nil
   self.rgs = nil
   self.leaseRenewer = nil

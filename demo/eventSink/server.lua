@@ -7,7 +7,7 @@ local oo      = require "loop.base"
 local utils   = require ("scs.core.utils").Utils()
 local oil     = require "oil"
 local openbus = require "openbus.Openbus"
-
+local obUtils = require "openbus.util.Utils"
 --oil.verbose:level(5)
 
 -- Carrega as propriedades
@@ -84,8 +84,18 @@ local function main ()
     os.exit(1)
   end
   -- Cria a sessão
-  local session, sessionId
-  local sessionService = openbus:getSessionService()
+  local sessionService, session, sessionId
+
+  local facets = { obUtils.SESSION_SERVICE_FACET_NAME }
+  local offers = registryService:find(facets)
+  if #offers > 0 then
+    local facet = offers[1].member:getFacet(obUtils.SESSION_SERVICE_INTERFACE)
+    if not facet then
+      io.stderr:write("[ERRO] Não foi possível obter a faceta do serviço de sessão.\n")
+    end
+    sessionService = orb:narrow(facet, obUtils.SESSION_SERVICE_INTERFACE)
+  end
+
   succ, session, sessionId = sessionService:createSession(context.IComponent)
   if not succ then
     io.stderr:write("[ERRO] Não foi possível criar sessão.\n")
