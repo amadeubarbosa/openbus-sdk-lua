@@ -77,9 +77,9 @@ local function main ()
   -- Instanciação do componente
   context = scs.newComponent(facetDescriptions, {}, componentId)
   -- Conexão com o barramento
-  local registryService = openbus:connectByCertificate(entityName,
+  local rs = openbus:connectByCertificate(entityName,
     privateKeyFile, acsCertificateFile)
-  if not registryService then
+  if not rs then
     io.stderr:write("[ERRO] Não foi possível conectar ao barramento.\n")
     os.exit(1)
   end
@@ -87,7 +87,7 @@ local function main ()
   local sessionService, session, sessionId
 
   local facets = { obUtils.SESSION_SERVICE_FACET_NAME }
-  local offers = registryService:find(facets)
+  local offers = rs:find(facets)
   if #offers > 0 then
     local facet = offers[1].member:getFacet(obUtils.SESSION_SERVICE_INTERFACE)
     if not facet then
@@ -107,7 +107,8 @@ local function main ()
   local comp = orb:narrow(session:_component(), compFacet)
   local sink = orb:narrow(comp:getFacet(sinkFacet), sinkFacet)
   -- Registro do componente
-  local succ, registryId = registryService.__try:register {
+  local registryService = orb:newproxy(rs, "protected") 
+  local succ, registryId = registryService:register {
     properties = { 
       {name = "sessionName", value = {"HelloSession"}}, 
       {name = "facets", value ={"IDL:tecgraf/openbus/session_service/v1_05/ISession:1.0"}},
