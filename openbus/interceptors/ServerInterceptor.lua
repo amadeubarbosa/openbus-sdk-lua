@@ -120,21 +120,23 @@ function receiverequest(self, request)
   if self.tests[request.object_key] ~= nil then
        self.tests[request.object_key]:receiverequest("; inicio; 0;"..
                          request.object_key .. "; " ..
-                         request.operation .. "-" .. request.requeststart)
+                         request.operation_name .. "-" .. request.requeststart)
   end
 
   Log:interceptor "INTERCEPTAÇÂO SERVIDOR!"
 
   -- XXX: nao existe forma padrao de recuperar o repID, esta e' uma
   -- intrusao no OiL, ou seja, pode quebrar no futuro.
-  local repID = orb.ServantIndexer.indexer:typeof(request.object_key).repID
+--  local repID = orb.ServantIndexer.indexer:typeof(request.object_key).repID
+-- fix para o XXX acima TODO: remover o comentario se funcionar.
+  local repID = request.interface.repID
   request.repID = repID
-  local allowed = not (Openbus:isInterceptable(repID, request.operation) and
-    Openbus:isInterceptable("::CORBA::Object", request.operation))
+  local allowed = not (Openbus:isInterceptable(repID, request.operation_name) and
+    Openbus:isInterceptable("::CORBA::Object", request.operation_name))
 
   if ( (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE) or
        (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE_V1_04) ) and
-     (request.operation == "loginByPassword")
+     (request.operation_name == "loginByPassword")
   then
     Log:interceptor("Desligando verbose do dispatcher...")
     oil.verbose:flag("dispatcher", false)
@@ -143,7 +145,7 @@ function receiverequest(self, request)
   local oldPolicy = self.policy
   if ( (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE) or
        (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE_V1_04) ) and
-     (request.operation == "loginByCertificate")
+     (request.operation_name == "loginByCertificate")
   then
     --força a inserir credencial, ACSs nao podem se logar sem passar suas credenciais
     allowed = false
@@ -151,15 +153,15 @@ function receiverequest(self, request)
   end
 
   if allowed then
-    Log:interceptor(format("OPERAÇÂO %s NÂO È CHECADA", request.operation))
+    Log:interceptor(format("OPERAÇÂO %s NÂO È CHECADA", request.operation_name))
 
     if self.tests[request.object_key] ~= nil then
        self.tests[request.object_key]:receiverequest("; fim    ; "  .. socket.gettime() - request.requeststart .. "; "..
-                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+                           request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
     end
     return
   else
-    Log:interceptor(format("OPERAÇÂO %s É CHECADA", request.operation))
+    Log:interceptor(format("OPERAÇÂO %s É CHECADA", request.operation_name))
     local credential, credential_v1_05
     for _, context in ipairs(request.service_context) do
       if context.context_id == self.contextID then
@@ -190,7 +192,7 @@ function receiverequest(self, request)
       if self.tests[request.object_key] ~= nil then
                self.tests[request.object_key]:receiverequest("; fim    ; "
                            .. socket.gettime() - request.requeststart .. "; "..
-                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+                           request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
       end
       self.policy = oldPolicy
       return
@@ -210,7 +212,7 @@ function receiverequest(self, request)
           if self.tests[request.object_key] ~= nil then
                self.tests[request.object_key]:receiverequest("; fim    ; "
                            .. socket.gettime() - request.requeststart .. "; "..
-                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+                           request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
           end
           return
         end
@@ -229,7 +231,7 @@ function receiverequest(self, request)
         if self.tests[request.object_key] ~= nil then
                self.tests[request.object_key]:receiverequest("; fim    ; "
                            .. socket.gettime() - request.requeststart .. "; "..
-                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+                           request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
         end
         return
       end
@@ -239,7 +241,7 @@ function receiverequest(self, request)
         if self.tests[request.object_key] ~= nil then
                self.tests[request.object_key]:receiverequest("; fim    ; "
                            .. socket.gettime() - request.requeststart .. "; "..
-                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+                           request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
         end
         return
       end
@@ -257,7 +259,7 @@ function receiverequest(self, request)
     if self.tests[request.object_key] ~= nil then
        self.tests[request.object_key]:receiverequest("; fim    ; "
                         .. socket.gettime() - request.requeststart .. "; "..
-                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+                           request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
     end
   end
 end
@@ -271,10 +273,10 @@ function sendreply(self, request)
   if self.tests[request.object_key] ~= nil then
        self.tests[request.object_key]:sendreply("; inicio; " ..
                            socket.gettime() - request.requeststart .. "; "..
-                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+                           request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
   end
 
-  if (request.operation == "loginByPassword") then
+  if (request.operation_name == "loginByPassword") then
     Log:interceptor("Ligando verbose do dispatcher...")
     oil.verbose:flag("dispatcher", true)
   end
@@ -282,7 +284,7 @@ function sendreply(self, request)
 
   if self:needUpdate(request) then
     local key = request.object_key
-    Log:interceptor("Atualizando estado para operacao: [".. request.operation .."].")
+    Log:interceptor("Atualizando estado para operacao: [".. request.operation_name .."].")
     oil.newthread(function()
                  self.serviceStatusManager:updateStatus(key)
                   end)
@@ -291,7 +293,7 @@ function sendreply(self, request)
   if self.tests[request.object_key] ~= nil then
        self.tests[request.object_key]:sendreply("; fim; "  ..
                            socket.gettime() - request.requeststart .. "; "..
-                           request.object_key .. "; " .. request.operation.. "-" .. request.requeststart)
+                           request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
   end
 end
 
@@ -306,7 +308,7 @@ end
 
 function needUpdate(self, request)
    if self.updateOperations[request.repID] then
-      if self.updateOperations[request.repID][request.operation] then
+      if self.updateOperations[request.repID][request.operation_name] then
         return true
       end
    end
@@ -318,7 +320,7 @@ function validateCredential (self, credential, request)
                                  self.accessControlService, credential)
   if success and res then
     if request then
-      Log:interceptor(format("CREDENCIAL VALIDADA PARA %s", request.operation))
+      Log:interceptor(format("CREDENCIAL VALIDADA PARA %s", request.operation_name))
       self.picurrent:setValue(credential)
     end
     return true

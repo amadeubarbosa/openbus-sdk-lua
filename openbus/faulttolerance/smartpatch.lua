@@ -67,27 +67,25 @@ function updateHostInUse(objkey)
   end
 end
 
-function setorb(value)
-  log:faulttolerance("[smartpatch] setorb")
-  orb = value
-  orb.ObjectProxies.extras.__smart = ObjectCache{
-    retrieve = function(_, type)
-      local class = orb.ObjectProxies.newcache(smartmethod)()
-      local updater = {}
-      function updater.notify()
-        tabop.clear(class)
-        class.__context = orb.ObjectProxies.context
-        class.__type = type
-        oo.initclass(class)
-      end
-      updater:notify()
-      if type.observer then
-        rawset(type.observer, class, updater)
-      end
-      return class
-    end
-  }
-end
+do
+  local ProxyManager = require("oil.builder.typed.client").ProxyManager
+  local utils = require "oil.kernel.base.Proxies.utils"
+  local assertresults = utils.assertresults
+  local unpackrequest = utils.unpackrequest
+  local callhandler   = utils.callhandler
+
+  function setorb(value)
+    log:faulttolerance("[smartpatch] setorb")
+    orb = value
+    local SmartProxyManager = ProxyManager{ invoker = smartmethod }
+    SmartProxyManager.requester = orb.OperationRequester.requests
+    SmartProxyManager.referrer  = orb.ObjectReferrer.references
+    SmartProxyManager.servants  = orb.ServantManager.servants
+    SmartProxyManager.indexer   = orb.TypeRepository.indexer
+    SmartProxyManager.types     = orb.TypeRepository.types
+
+    orb.extraproxies.smart = SmartProxyManager
+  end
 
 function smartmethod(invoker, operation)
   return function(self, ...)
@@ -106,7 +104,7 @@ function smartmethod(invoker, operation)
       local succ = false
       repeat
         --tempo para esperar uma resposta
-        succ = reply:ready()
+        succ = self.__manager.requester:getreply(reply, true) --reply:ready()
         oil.sleep(timeToWait)
         timeOut = timeOut + 1
       until timeOut == timeOutConfig.reply.MAX_TIMES or succ
@@ -114,7 +112,7 @@ function smartmethod(invoker, operation)
       local res, ex2
 
       if succ then
-        res, ex2 = reply:results()
+        res, ex2 = self.__manager.requester:getreply(reply) --reply:results()
         if res == false then
         -- ... pega excecao
           log:faulttolerance("[smartpatch] operacao retornou com erro no results: " .. ex2[1])
@@ -126,7 +124,7 @@ function smartmethod(invoker, operation)
           -- no smart proxy, então ao invés de retornar o proxy default
           -- criado pelo 'narrow' original retornamos o smart proxy dele.
           if operation == nil then
-            return ex2.__smart
+            return orb:newproxy(ex2, "smart")
           end
         end
       else
@@ -172,7 +170,7 @@ function smartmethod(invoker, operation)
           -- pega o proxy da proxima replica
           log:faulttolerance("[smartpatch] buscando replica: " ..
               replicas[indexCurr[self.__reference._object]])
-          prx2 = orb:newproxy(replicas[indexCurr[objkey]], self.__type)
+          prx2 = orb:newproxy(replicas[indexCurr[objkey]], "smart", self.__type)
 
           --if not prx2:_non_existent() then
           if OilUtilities:existent(prx2) then
@@ -190,7 +188,7 @@ function smartmethod(invoker, operation)
 
       if prx2 then
         --troca a referencia do proxy para a nova replica alvo
-        tabop.copy(prx2.__smart, self)
+        tabop.copy(prx2, self)
         log:faulttolerance("[smartpatch] trocou para replica: " ..
             replicas[indexCurr[self.__reference._object]])
         --executa o metodo solicitado e retorna
@@ -202,7 +200,12 @@ function smartmethod(invoker, operation)
     end
 
     -- se nao der erro, retorna com os resultados
-    return Proxies.assertresults(self, operation,
-        Proxies.assertcall(self, operation, reply, ex):results())
+    if reply then
+      assertresults(self, operation, self.__manager.requester:getreply(reply))
+      return assertresults(self, operation, unpackrequest(reply))
+    end
+    return callhandler(self, ex, operation)
   end
+end
+
 end

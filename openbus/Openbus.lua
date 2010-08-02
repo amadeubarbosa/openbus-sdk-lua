@@ -331,7 +331,14 @@ function Openbus:init(host, port, props, serverInterceptorConfig,
     props.tcpoptions.reuseaddr = true
   end
   if not props.flavor then
-    props.flavor = "intercepted;corba;typed;cooperative;base"
+    props.flavor = "cooperative;corba.intercepted"
+  end
+  --TODO: tratamento do bloco if abaixo e' um fix para garantir que os outros
+  --tipos de proxies suportados pelo oil 0.5 sejam habilitados. O Maia talvez
+  --coloque isso como padrao na versao final do oil 0.5. Se isso acontecer,
+  --remover essa linha.
+  if not props.extraproxies then
+    props.extraproxies = {"asynchronous", "protected"}
   end
   self.orb = oil.init(props)
   --TODO: remover esse uso de oil.orb no Openbus e mover os requires abaixo para

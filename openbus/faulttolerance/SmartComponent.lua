@@ -72,13 +72,14 @@ function _fetchSmartComponent(self)
 
   until stop or timeToTry == maxTimeToTry
 
+  --TODO: corrigir esse teste abaixo do "services == {}" que nunca sera igual pois "{}" e uma nova 
   if services == {} or not stop then
     log:faulttolerance("[_fetchSmartComponent] Componente tolerante a falhas nao encontrado.")
     return false, nil
   end
 
   for key,values in pairs(self._keys) do
-    services[key] = services[key].__smart
+    services[key] = self._orb:newproxy(services[key], "smart")
   end
 
   log:faulttolerance("Componente adaptado para ser um smart proxy.")
