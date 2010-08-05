@@ -94,7 +94,8 @@ function main ()
   local offers = registryService:findByCriteria({"ISession_v" .. OBUtils.OB_VERSION}, 
                                                 { {name = "sessionName", value = {"HelloSession"}} })
   for _, offer in ipairs(offers) do
-    local succ = offer.member.__try:_component()
+    local member = orb:newproxy(offer.member, "protected")
+    local succ = member:_component()
     if succ then
       local component = orb:narrow(offer.member, compFacet)
       local session = orb:narrow(component:getFacet(sessionFacet), sessionFacet)

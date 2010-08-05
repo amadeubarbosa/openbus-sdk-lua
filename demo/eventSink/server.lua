@@ -83,6 +83,7 @@ local function main ()
     io.stderr:write("[ERRO] Não foi possível conectar ao barramento.\n")
     os.exit(1)
   end
+  registryService = orb:newproxy(registryService, "protected")
   -- Cria a sessão
   local session, sessionId
   local sessionService = openbus:getSessionService()
@@ -97,7 +98,7 @@ local function main ()
   local comp = orb:narrow(session:_component(), compFacet)
   local sink = orb:narrow(comp:getFacet(sinkFacet), sinkFacet)
   -- Registro do componente
-  local succ, registryId = registryService.__try:register {
+  local succ, registryId = registryService:register {
     properties = { 
       {name = "sessionName", value = {"HelloSession"}}, 
       {name = "facets", value ={"IDL:tecgraf/openbus/session_service/v1_05/ISession:1.0"}},

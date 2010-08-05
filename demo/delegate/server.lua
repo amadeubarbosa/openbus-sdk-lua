@@ -62,7 +62,8 @@ function main ()
     io.stderr:write("HelloServer: Erro ao conectar ao barramento.\n")
     os.exit(1)
   end
-  local suc, id = registryService.__try:register({ properties = {}, member = component.IComponent})
+  registryService = orb:newproxy(registryService, "protected")
+  local suc, id = registryService:register({ properties = {}, member = component.IComponent})
   if not suc then
     io.stderr:write("HelloServer: Erro ao registrar ofertas.\n")
     if id[1] == "IDL:tecgraf/openbus/core/v1_05/registry_service/UnathorizedFacets:1.0" then
