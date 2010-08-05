@@ -125,10 +125,6 @@ function receiverequest(self, request)
 
   Log:interceptor "INTERCEPTAÇÂO SERVIDOR!"
 
-  -- XXX: nao existe forma padrao de recuperar o repID, esta e' uma
-  -- intrusao no OiL, ou seja, pode quebrar no futuro.
---  local repID = orb.ServantIndexer.indexer:typeof(request.object_key).repID
--- fix para o XXX acima TODO: remover o comentario se funcionar.
   local repID = request.interface.repID
   request.repID = repID
   local allowed = not (Openbus:isInterceptable(repID, request.operation_name) and
