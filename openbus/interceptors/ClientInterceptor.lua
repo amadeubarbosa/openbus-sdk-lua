@@ -38,8 +38,7 @@ end
 --@param request Informações sobre a requisição.
 ---
 function sendrequest(self, request)
-  log:interceptor("INTERCEPTAÇÂO CLIENTE OP: "..request.operation)
-
+  log:interceptor("INTERCEPTAÇÂO CLIENTE OP: "..request.operation_name)
   -- Verifica de existe credencial para envio
   if not self.credentialManager:hasValue() then
     log:interceptor "SEM CREDENCIAL !"

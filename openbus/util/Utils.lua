@@ -212,25 +212,25 @@ CredentialValidationPolicy = {
 function fetchAccessControlService(orb, host, port)
   port = tostring(port)
   local acs = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
-    ACCESS_CONTROL_SERVICE_KEY, ACCESS_CONTROL_SERVICE_INTERFACE)
+    ACCESS_CONTROL_SERVICE_KEY, "synchronous", ACCESS_CONTROL_SERVICE_INTERFACE)
   if not OilUtilities:existent(acs) then
     log:error("Utils: Faceta IAccessControlService_v" .. OB_VERSION .. " não encontrada.")
     error()
   end
   local lp = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
-    LEASE_PROVIDER_KEY, LEASE_PROVIDER_INTERFACE)
+    LEASE_PROVIDER_KEY, "synchronous", LEASE_PROVIDER_INTERFACE)
   if not OilUtilities:existent(lp) then
     log:error("Utils: Faceta ILeaseProvider não encontrada.")
     error()
   end
   local ic = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
-      OPENBUS_KEY, "IDL:scs/core/IComponent:1.0")
+      OPENBUS_KEY, "synchronous", "IDL:scs/core/IComponent:1.0")
   if not OilUtilities:existent(ic) then
     log:error("Utils: Faceta IComponent não encontrada.")
     error()
   end
   local ft = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..  FAULT_TOLERANT_ACS_KEY,
-    FAULT_TOLERANT_SERVICE_INTERFACE)
+    "synchronous", FAULT_TOLERANT_SERVICE_INTERFACE)
   if not OilUtilities:existent(ft) then
     log:error("Utils: Faceta IFaultTolerantService não encontrada.")
     error()
@@ -288,7 +288,7 @@ end
 function fetchService(orb, objReference, objType)
 
    log:faulttolerance("[fetchService]"..objReference.."-TYPE:"..objType)
-   local success, service = oil.pcall(orb.newproxy, orb, objReference, objType)
+   local success, service = oil.pcall(orb.newproxy, orb, objReference, "synchronous", objType)
 
    if success then
      if OilUtilities:existent(service) then
