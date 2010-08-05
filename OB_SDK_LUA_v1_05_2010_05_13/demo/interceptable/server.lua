@@ -71,7 +71,8 @@ function main ()
     io.stderr:write("HelloServer: Erro ao conectar ao barramento.\n")
     os.exit(1)
   end
-  local suc, id = registryService.__try:register({
+  registryService = orb:narrow(registryService, "protected")
+  local suc, id = registryService:register({
     member = component.IComponent,
     properties = {
       { name = "facets", value = {"IDL:demoidl/hello/IHello:1.0",} }
