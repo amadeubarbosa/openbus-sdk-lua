@@ -315,15 +315,17 @@ end
 --
 -- @param offerEntryA Oferta a ser comparada
 -- @param offerEntryB Oferta a ser comparada
+-- @param orb O ORB a ser utilizado
 --
 -- @return true se as ofertas pertencem ao mesmo membro com as mesmas propriedades.
 --  false em caso contrário.
 --
-function equalsOfferEntries(offerEntryA, offerEntryB)
+function equalsOfferEntries(offerEntryA, offerEntryB, orb)
   -- (A contido em B) ^ (B contido A) -> (A == B)
   return offerEntryA.credential.identifier == offerEntryB.credential.identifier and
     containsProperties(offerEntryA.properties, offerEntryB.properties)          and
-    containsProperties(offerEntryB.properties, offerEntryA.properties)
+    containsProperties(offerEntryB.properties, offerEntryA.properties)          and
+    orb:tostring(offerEntryA.offer.member) == orb:tostring(offerEntryB.offer.member)
 end
 
 ---
