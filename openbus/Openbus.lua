@@ -349,6 +349,8 @@ function Openbus:init(host, port, props, serverInterceptorConfig,
     props.extraproxies = {"asynchronous", "protected"}
   end
   self.orb = oil.init(props)
+  self.orb.ProxyManager.servants = nil -- habilita criação de proxies
+                                       -- para servants locais
   --TODO: remover esse uso de oil.orb no Openbus e mover os requires abaixo para
   --      o topo.
   oil.orb = self.orb
