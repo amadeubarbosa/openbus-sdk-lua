@@ -26,7 +26,6 @@ local string = string
 local gsub = gsub
 local setfenv = setfenv
 
----
 -- API de acesso a um barramento OpenBus.
 ---
 module "openbus.Openbus"
@@ -341,6 +340,8 @@ function Openbus:init(host, port, props, serverInterceptorConfig,
     props.extraproxies = {"asynchronous", "protected"}
   end
   self.orb = oil.init(props)
+  self.orb.ProxyManager.servants = nil -- habilita criação de proxies
+                                       -- para servants locais
   --TODO: remover esse uso de oil.orb no Openbus e mover os requires abaixo para
   --      o topo.
   oil.orb = self.orb
@@ -354,6 +355,10 @@ function Openbus:init(host, port, props, serverInterceptorConfig,
   end
 
   if result then
+  --TODO: Verificar porque no trunk está false e no branch true
+  --Além de teoricamente eles terem que ser iguais,
+  --avaliando a lógica, me parece que deveria ser true, para avisar que já
+  --foi iniciado (Maira)
     self.inited = false
   end
 

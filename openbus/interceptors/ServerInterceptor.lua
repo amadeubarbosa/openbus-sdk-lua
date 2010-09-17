@@ -250,8 +250,7 @@ function receiverequest(self, request)
       Log:interceptor("\n***NÂO TEM CREDENCIAL ***\n")
     end
     request.success = false
-    request.count = 1
-    request[1] = orb:newexcept{"CORBA::NO_PERMISSION", minor_code_value = 0}
+    request.results = { orb:newexcept{"CORBA::NO_PERMISSION", minor_code_value = 0} }
     if self.tests[request.object_key] ~= nil then
        self.tests[request.object_key]:receiverequest("; fim    ; "
                         .. socket.gettime() - request.requeststart .. "; "..
@@ -385,8 +384,7 @@ function lock(self, request)
     Log:interceptor("Lista de credenciais travada por mais de 5 segundos, abortando operação.")
     if request then
       request.success = false
-      request.count = 1
-      request[1] = orb:newexcept{"CORBA::TIMEOUT"}
+      request.results = { orb:newexcept{"CORBA::TIMEOUT"} }
       return false
     end
     return false
