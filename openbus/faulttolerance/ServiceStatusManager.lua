@@ -41,8 +41,8 @@ function setReplicas(self)
   local DATA_DIR = os.getenv("OPENBUS_DATADIR")
   local loadConfig, err = loadfile(DATA_DIR .."/conf/ACSFaultToleranceConfiguration.lua")
   if not loadConfig then
-    Log:error("O arquivo 'ACSFaultToleranceConfiguration' n√£o pode ser " ..
-        "carregado ou n√£o existe.",err)
+    Log:error("O arquivo 'ACSFaultToleranceConfiguration' n„o pode ser " ..
+        "carregado ou n„o existe.",err)
     os.exit(1)
   end
   setfenv(loadConfig,_M)
@@ -54,8 +54,8 @@ function setReplicas(self)
 
   local loadConfig, err = loadfile(DATA_DIR .."/conf/RSFaultToleranceConfiguration.lua")
   if not loadConfig then
-    Log:error("O arquivo 'RSFaultToleranceConfiguration' n√£o pode ser " ..
-        "carregado ou n√£o existe.",err)
+    Log:error("O arquivo 'RSFaultToleranceConfiguration' n„o pode ser " ..
+        "carregado ou n„o existe.",err)
     os.exit(1)
   end
   setfenv(loadConfig,_M)
