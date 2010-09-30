@@ -331,8 +331,8 @@ end
 ---
 -- Verifica se o primeiro conjunto de propriedades contém o segundo.
 --
--- Essas propriedades são o resultado da função RSFacet:createPropertyIndex().
--- Ela ignora as propriedades 'component_id' e 'registered_by' que são geradas
+-- Essas propriedades podem conter o resultado da função RSFacet:createPropertyIndex().
+-- Por isso, ignora as propriedades 'component_id', 'registered_by' e 'modified' que são geradas
 -- automaticamente, comparando somente os dados fornecidos pelo membro.
 --
 -- @param propertiesA Propriedades de registro
@@ -341,37 +341,39 @@ end
 -- @return true se propertiesA contém propertiesB. false, caso contrário.
 --
 function containsProperties(propertiesA, propertiesB)
-   for name, values in pairs(propertiesB) do
-     -- Propriedades registradas automaticamente pelo Serviço de Registro: ignorar
-     if name ~= "component_id" and name ~= "registered_by" then
-       if type ( values ) == "table" then
-         local count = 0
-         for value in pairs(values) do
-           count = count + 1
-           if not (propertiesA[name] and propertiesA[name][value]) then
-             return false
-           end
-         end
-         if count == 0 then
-         --tabela vazia
-             if not propertiesA[name] then
-                --propriedade nem existe em A
-                return false
-             else
-                local countA = 0
-                for valueA in pairs(propertiesA[name]) do
-                   countA = countA + 1
-                end
-                if countA > 0 then
-                --existe e tabela nao vazia, logo, nao esta contido
-                   return false
-                end
-             end
-         end
-       end
-     end
-   end
-   return true
+  for name, values in pairs(propertiesB) do
+    -- Propriedades registradas automaticamente pelo Serviço de Registro: ignorar
+    if name ~= "component_id" and
+      name ~= "registered_by" and
+      name ~= "modified" then
+      if type ( values ) == "table" then
+        local count = 0
+        for value in pairs(values) do
+          count = count + 1
+          if not (propertiesA[name] and propertiesA[name][value]) then
+            return false
+          end
+        end
+        if count == 0 then
+        --tabela vazia
+          if not propertiesA[name] then
+          --propriedade nem existe em A
+            return false
+          else
+            local countA = 0
+            for valueA in pairs(propertiesA[name]) do
+              countA = countA + 1
+            end
+            if countA > 0 then
+            --existe e tabela nao vazia, logo, nao esta contido
+              return false
+            end
+          end
+        end
+      end
+    end
+  end
+  return true
 end
 
 -- Parser de uma string serializada de descricoes de facetas
@@ -383,19 +385,113 @@ end
 function unmarshalHashFacets(strFacets)
   local facets = {}
   for facetDesc in string.gmatch(strFacets, "[^#]+") do
-    facets[facetDesc] = true
+    if facetDest then
+       facets[facetDesc] = true
+    end
   end
   return facets
 end
 
 function marshalHashFacets(facets)
-    local strFacets = ""
-    for facetDesc, value in ipairs(facets) do
-        strFacets = strFacets .. "#" .. facetDesc
-    end
-    return strFacets
+  local strFacets = ""
+  for facetDesc, value in pairs(facets) do
+     if type (facetDesc) ~= "table" then
+       -- ignora a reference para a faceta que é uma tabela  ( facet_ref )
+       -- que depois é recuperada pela IMetaInterface
+       strFacets = tostring(facetDesc) .. "#" .. strFacets
+     end
+  end
+  return strFacets
 end
 
+function convertToSendIndexedProperties(indexedProperties)
+
+  local syncProperties = {}
+
+  --transforma propriedades do tipo:
+  -- { name = "Hello_v1",
+  --   ["Hello_v1:1.0.0"] = true, }
+  for k, prop in pairs(syncProperties) do
+    if type(prop) == "table" then
+      for f, v in pairs(prop) do
+        if f == "name" and v ~= "value" and not prop.value then
+          prop.value = { tostring(v) }
+        end
+      end
+    end
+  end
+
+  --transforma properties["component_id"].name = componentId.name
+  table.insert( syncProperties,
+               { name="component_id_name",
+                 value= { indexedProperties.component_id.name }  } )
+
+  --transforma properties["component_id"][compId] = true
+  for field, val in pairs(indexedProperties.component_id) do
+     if field ~= "name" then
+        table.insert( syncProperties,
+               { name="component_id_compId_name" ,
+                 value= { field }  } )
+        table.insert( syncProperties,
+               { name="component_id_compId_val" ,
+                 value= { tostring(val) }  } )
+     end
+  end
+
+  --transforma properties["registered_by"][credential.owner] = true
+  for field, val in pairs(indexedProperties.registered_by) do
+    table.insert( syncProperties,
+              { name="registered_by_credential.owner_name" ,
+                value= { field }  } )
+    table.insert( syncProperties,
+              { name="registered_by_credential.owner_val" ,
+                value= { tostring(val) }  } )
+  end
+
+  --transforma properties["modified"]['time_in_string'] = true
+  for field, val in pairs(indexedProperties.modified) do
+    table.insert( syncProperties,
+              { name="modified" ,
+                value= { field }  } )
+  end
+
+  return syncProperties
+end
+
+function convertToReceiveIndexedProperties(syncProperties)
+
+  local indexedProperties = {}
+  indexedProperties["component_id"] = {}
+  indexedProperties["registered_by"] = {}
+  indexedProperties["modified"] = {}
+  local compId
+  local compIdVal
+
+  local credentialOwnerName
+  local credentialOwnerVal
+  for k, prop in pairs(syncProperties) do
+    if type(prop) == "table" then
+        if prop.name == "component_id_name" then
+          indexedProperties["component_id"].name = prop.value[1]
+        elseif prop.name == "component_id_compId_name" then
+          compId = prop.value[1]
+        elseif prop.name == "component_id_compId_val" then
+          compIdVal = prop.value[1]
+        elseif prop.name == "registered_by_credential.owner_name" then
+          credentialOwnerName = prop.value[1]
+        elseif prop.name == "registered_by_credential.owner_val" then
+          credentialOwnerVal = prop.value[1]
+        elseif prop.name == "modified" then
+          indexedProperties["modified"][prop.value[1]] = true
+        elseif prop.name then
+          indexedProperties[name] = prop.value
+        end
+    end
+  end
+  indexedProperties["component_id"][compId] = compIdVal
+  indexedProperties["registered_by"][credentialOwnerName] = credentialOwnerVal
+  return indexedProperties
+end
 
 patt="%-?%-?(%w+)(=?)(.*)"
 -- Parsing arguments and returns a 'table[option]=value'
