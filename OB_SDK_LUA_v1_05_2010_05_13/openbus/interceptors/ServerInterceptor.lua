@@ -90,6 +90,7 @@ function __init(self, config, accessControlService, policy)
     tests = config.tests or {},
     policy = policy,
     updateOperations = updateOperations,
+    updateThreads = {},
     serviceStatusManager = ServiceStatusManager:__init(),
   })
   -- Cria o timer caso a politica seja cached
@@ -280,9 +281,12 @@ function sendreply(self, request)
   if self:needUpdate(request) then
     local key = request.object_key
     Log:interceptor("Atualizando estado para operacao: [".. request.operation_name .."].")
-    oil.newthread(function()
-                 self.serviceStatusManager:updateStatus(key)
-                  end)
+    local currUpdateThread = function()
+                               self.serviceStatusManager:updateStatus(key)
+                             end
+    local thread = coroutine.create(currUpdateThread)
+    self.updateThreads[#self.updateThreads+1] = thread
+    oil.tasks:resume(thread)
   end
 
   if self.tests[request.object_key] ~= nil then
