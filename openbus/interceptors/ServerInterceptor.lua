@@ -117,6 +117,11 @@ end
 --@param request Dados sobre o request.
 ---
 function receiverequest(self, request)
+  -- Caso o objeto não exista, deixar o OiL lançar exceção OBJECT_NOT_EXIST
+  if not request.servant then
+    return
+  end
+
   request.requeststart = socket.gettime()
   if self.tests[request.object_key] ~= nil then
        self.tests[request.object_key]:receiverequest("; inicio; 0;"..
