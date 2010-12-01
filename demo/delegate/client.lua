@@ -43,10 +43,11 @@ function main ()
   -- Carga da IDL Hello
   orb:loadidlfile("../idl/delegate.idl")
 
-  -- Conexão com o barramento e obtenção do componente HelloComponent
-  local login = props.login.value
-  local password = props.password.value
-  local registryService = openbus:connectByLoginPassword(login, password)
+  -- Conexão com o barramento (tem de ser por certificado para o delegate) e obtenção do componente HelloComponent
+  local entityName = props["entity.name"].value
+  local privateKeyFile = props["private.key"].value
+  local acsCertificateFile = props["acs.certificate"].value
+  local registryService = openbus:connectByCertificate(entityName, privateKeyFile, acsCertificateFile)
   if not registryService then
     io.stderr:write("HelloClient: Erro ao conectar ao barramento.\n")
     os.exit(1)
