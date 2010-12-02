@@ -27,25 +27,13 @@ local scs = require "scs.core.base"
 
 -- Auxiliares
 local orb = openbus:getORB()
-local compFacet = "IDL:scs/core/IComponent:1.0"
-local sinkFacet = "IDL:tecgraf/openbus/session_service/v1_05/SessionEventSink:1.0"
+local compFacet = obUtils.COMPONENT_INTERFACE
+local sinkFacet = obUtils.SESSION_ES_INTERFACE
 local context
 
 -------------------------------------------------------------------------------
 -- Descrições do componente
 local facetDescriptions = {}
-
-facetDescriptions.IComponent = {
-  name = "IComponent",
-  interface_name = "IDL:scs/core/IComponent:1.0",
-  class = scs.Component
-}
-
-facetDescriptions.IMetaInterface = {
-  name = "IMetaInterface",
-  interface_name = "IDL:scs/core/IMetaInterface:1.0",
-  class = scs.MetaInterface
-}
 
 local componentId = {
   name = "HelloSource",
@@ -58,7 +46,7 @@ local componentId = {
 -------------------------------------------------------------------------------
 -- Publica os eventos no canal
 --
-local function publish(session, sink)
+local function publish(sessionId, sink)
   while true do
     oil.sleep(3)
     local num = math.random(1, 10)
@@ -66,7 +54,7 @@ local function publish(session, sink)
     local event = {}
     event.type = "LongEvent"
     event.value = setmetatable({ _anyval = num }, oil.corba.idl.long)
-    sink:push(event)
+    sink:push(sessionId, event)
   end
 end
 
@@ -110,8 +98,7 @@ local function main ()
   local registryService = orb:newproxy(rs, "protected") 
   local succ, registryId = registryService:register {
     properties = { 
-      {name = "sessionName", value = {"HelloSession"}}, 
-      {name = "facets", value ={"IDL:tecgraf/openbus/session_service/v1_05/ISession:1.0"}},
+      {name = "sessionName", value = {"HelloSession"}},
     },
     member = comp,
   }
@@ -130,7 +117,7 @@ local function main ()
     os.exit(1)
   end
   -- Publica os eventos
-  oil.newthread(publish, session, sink)
+  oil.newthread(publish, sessionId, sink)
   print("[INFO] Publisher ativado.")
 end
 
