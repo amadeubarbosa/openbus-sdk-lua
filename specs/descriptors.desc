@@ -1,13 +1,13 @@
 SUNOS64_TECMAKE_FLAGS="USE_NODEPEND=Yes TEC_UNAME=SunOS510_64 BUILD_64=yes"
 descriptors = {
   { name = "oil-source",
-    url = SVNREPURL.."/openbus/libs/trunk/oil-0.5-beta-obv",
-    directory = PRODAPP.."/oil-0.5-beta-obv",
+    url = SVNREPURL.."/openbus/libs/trunk/oil-0.5.0",
+    directory = PRODAPP.."/oil-0.5.0",
   },
   { name = "loop",
     build = {
       type = "tecmake",
-      src = PRODAPP.."/oil-0.5-beta-obv",
+      src = PRODAPP.."/oil-0.5.0",
       mf = { },
     },
     dev_files = {
