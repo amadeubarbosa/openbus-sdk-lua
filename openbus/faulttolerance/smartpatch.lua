@@ -92,110 +92,100 @@ function smartmethod(invoker, operation)
     -- realiza a chamada no servidor
     local reply, ex = invoker(self, ...)
     log:faulttolerance("[smartpatch] smartmethod ["..
-        (operation and operation.name or "unknown") .."]")
+    (operation and operation.name or "unknown") .."]")
     local replace = false
-    local timeOutConfig
-    if reply then
-      --recarregar timeouts de erro (para tempo ser dinâmico em tempo de execução)
-      timeOutConfig = assert(loadfile(DATA_DIR .."/conf/FTTimeOutConfiguration.lua"))()
+    --recarregar timeouts de erro (para tempo ser dinâmico em tempo de execução)
+    local timeOutConfig = assert(loadfile(DATA_DIR .."/conf/FTTimeOutConfiguration.lua"))()
+    local objkey
+    if reply ~= nil then
+      objkey = reply.object_key
       --Tempo total em caso de falha = sleep * MAX_TIMES
       local timeOut = 0
       local timeToWait = timeOutConfig.reply.sleep
-      local succ = false
+      local replyIsReady
       repeat
         --tempo para esperar uma resposta
-        succ = self.__manager.requester:getreply(reply, true) --reply:ready()
+        self.__manager.requester:getreply(reply, true)
+        replyIsReady = (reply.success ~= nil)
         oil.sleep(timeToWait)
         timeOut = timeOut + 1
-      until timeOut == timeOutConfig.reply.MAX_TIMES or succ
+      until replyIsReady or (timeOut == timeOutConfig.reply.MAX_TIMES)
 
-      local res, ex2
-
-      if succ then
-        res, ex2 = self.__manager.requester:getreply(reply) --reply:results()
-        if res == false then
-        -- ... pega excecao
-          log:faulttolerance("[smartpatch] operacao retornou com erro no results: " .. ex2[1])
-          if CriticalExceptions[ex2[1]] then
-            replace = true
-          end
+      if replyIsReady then
+        if reply.success == false then -- obteve uma excecao como resposta
+          ex = reply[1]
+          log:faulttolerance("[smartpatch] operacao retornou com erro no results: "..ex[1])
+          replace = (CriticalExceptions[ex[1]] ~= nil)
         else
           -- Segundo o Maia, operation só é 'nil' quando se deu um 'narrow'
           -- no smart proxy, então ao invés de retornar o proxy default
           -- criado pelo 'narrow' original retornamos o smart proxy dele.
+          -- [maia escreveu]: 'operation' nunca pode ser 'nil' no OiL 0.5
           if operation == nil then
-            return orb:newproxy(ex2, "smart")
+            return orb:newproxy(reply[1], "smart")
           end
         end
       else
-        res = false
-        ex2 = "timeout"
         log:faulttolerance("[smartpatch] operacao ["..
-             (operation and operation.name or "unknown") .."] retornou com erro por timeout")
+        (operation and operation.name or "unknown").."] retornou com erro por timeout")
+        ex = orb:newexcept{ "CORBA::TIMEOUT" }
         replace = true
       end
     end
 
-    if replace then
-      --se der erro...
-      if not timeOut then
-        --recarregar timeouts de erro (para tempo ser dinâmico em tempo de execução)
-        local timeOutConfig = assert(loadfile(DATA_DIR .."/conf/FTTimeOutConfiguration.lua"))()
-      end
-      --Tempo total em caso de falha = sleep * MAX_TIMES
-      local DEFAULT_ATTEMPTS = timeOutConfig.fetch.MAX_TIMES
-
-      local objkey = self.__reference._object
+    if replace then -- excecao critica ou timeout
       log:faulttolerance("[smartpatch] tratando requisicao para key: ".. objkey)
       --pega a lista de replicas com o objectkey do servidor "interceptado"
       local replicas = Replicas[objkey]
 
       -- se nao tiver a lista de replicas retorna com erro
-      if replicas == nil or #replicas < 2 then error(ex) end
+      if replicas == nil or #replicas < 2 then
+        return callhandler(self, ex, operation)
+      end
 
+      --Tempo total em caso de falha = sleep * MAX_TIMES
+      local DEFAULT_ATTEMPTS = timeOutConfig.fetch.MAX_TIMES
       local prx2
       local attempts = DEFAULT_ATTEMPTS
-      local stop = false
       local lastIndex = indexCurr[objkey]
       repeat
-        local numberOfHosts = # Replicas[objkey]
+        local numberOfHosts = #replicas
         if indexCurr[objkey] == numberOfHosts then
           indexCurr[objkey] = 1
         else
           indexCurr[objkey] = indexCurr[objkey] + 1
         end
+        local newIndex = indexCurr[objkey]
 
+        attempts = attempts-1
         --nao pega a mesma replica que deu erro
-        if replicas[indexCurr[objkey]] ~= replicas[lastIndex] then
+        if replicas[newIndex] ~= replicas[lastIndex] then
           -- pega o proxy da proxima replica
           log:faulttolerance("[smartpatch] buscando replica: " ..
-              replicas[indexCurr[self.__reference._object]])
-          prx2 = orb:newproxy(replicas[indexCurr[objkey]], "smart", self.__type)
+              replicas[indexCurr[objkey]])
+          prx2 = orb:newproxy(replicas[newIndex], "smart")
 
-          --if not prx2:_non_existent() then
           if OilUtilities:existent(prx2) then
-            --OK
-            stop = true
             log:faulttolerance("[smartpatch] replica encontrada: " ..
-                replicas[indexCurr[self.__reference._object]])
-          else
-            prx2 = nil
-            oil.sleep(timeOutConfig.fetch.sleep)
+                replicas[indexCurr[objkey]])
+            break
           end
+          prx2 = nil
+          oil.sleep(timeOutConfig.fetch.sleep)
         end
-        attempts = attempts - 1
-      until stop or attempts == 0
+      until attempts == 0
 
       if prx2 then
         --troca a referencia do proxy para a nova replica alvo
         tabop.copy(prx2, self)
         log:faulttolerance("[smartpatch] trocou para replica: " ..
-            replicas[indexCurr[self.__reference._object]])
+            replicas[indexCurr[objkey]])
         --executa o metodo solicitado e retorna
         return self[operation.name](self, ...)
       else
         log:faulttolerance("[smartpatch] nenhuma replica encontrada apos "
             .. tostring(DEFAULT_ATTEMPTS - attempts) .. " tentativas")
+        return callhandler(self, ex, operation)
       end
     end
 
