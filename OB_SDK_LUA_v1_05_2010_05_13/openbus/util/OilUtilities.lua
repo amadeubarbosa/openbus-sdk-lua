@@ -12,11 +12,11 @@ local DATA_DIR = os.getenv("OPENBUS_DATADIR")
 module ("openbus.util.OilUtilities", oop.class)
 
 function existent(self, proxy)
-    Log:faulttolerance("[existent]OilUtilities")
+  Log:faulttolerance("[existent]OilUtilities")
   local not_exists = nil
 
   --recarregar timeouts de erro (para tempo ser dinâmico em tempo de execução)
-    local timeOut = assert(loadfile(DATA_DIR .."/conf/FTTimeOutConfiguration.lua"))()
+  local timeOut = assert(loadfile(DATA_DIR .."/conf/FTTimeOutConfiguration.lua"))()
 
   --Tempo total em caso de falha = sleep * MAX_TIMES
   local MAX_TIMES = timeOut.non_existent.MAX_TIMES
@@ -26,8 +26,8 @@ function existent(self, proxy)
   local parent = oil.tasks.current
 
   local thread = coroutine.create(function()
-         executedOK, not_exists = oil.pcall(proxy._non_existent, proxy)
-         oil.tasks:resume(parent)
+        executedOK, not_exists = oil.pcall(proxy._non_existent, proxy)
+        oil.tasks:resume(parent)
   end)
 
   while executedOK == nil do
@@ -37,23 +37,21 @@ function existent(self, proxy)
     oil.tasks:remove(thread)
 
     timeToTrie = timeToTrie + 1
-
     if timeToTrie > MAX_TIMES then
        break
     end
-    end
-
-    if executedOK == nil and not_exists == nil then
-        return false, "call timeout"
-    elseif not_exists ~= nil then
-       if executedOK and not not_exists then
-          return true
-       else
-          return false, not_exists
-       end
+  end
+  if executedOK == nil and not_exists == nil then
+    return false, "call timeout"
+  elseif not_exists ~= nil then
+    if executedOK and not not_exists then
+      return true, true
     else
-       return false, not_exists
+     return false, not_exists
     end
+  else
+    return false, not_exists
+  end
 end
 
 
