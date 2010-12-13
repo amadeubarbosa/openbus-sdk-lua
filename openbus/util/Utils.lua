@@ -532,7 +532,7 @@ function parse_args(arg, usage_msg, allowempty)
 end
 
 function setVerboseOutputFile(verbose, outputFileName)
-  local outputFile, errMsg = io.open(outputFileName, "w")
+  local outputFile, errMsg = io.open(outputFileName, "a+")
   if not outputFile then
     return nil, errMsg
   end
