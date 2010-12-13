@@ -3,6 +3,8 @@ local print       = print
 local tostring    = tostring
 local loadfile    = loadfile
 local assert      = assert
+local format      = string.format
+
 local tabop       = require "loop.table"
 local ObjectCache = require "loop.collection.ObjectCache"
 
@@ -10,7 +12,7 @@ local oo      = require "oil.oo"
 local giop    = require "oil.corba.giop"
 local Proxies = require "oil.kernel.base.Proxies"
 
-local log          = require "openbus.util.Log"
+local Log          = require "openbus.util.Log"
 local OilUtilities = require "openbus.util.OilUtilities"
 
 local DATA_DIR = os.getenv("OPENBUS_DATADIR")
@@ -75,7 +77,6 @@ do
   local callhandler   = utils.callhandler
 
   function setorb(value)
-    log:faulttolerance("[smartpatch] setorb")
     orb = value
     local SmartProxyManager = ProxyManager{ invoker = smartmethod }
     SmartProxyManager.requester = orb.OperationRequester.requests
@@ -91,8 +92,6 @@ function smartmethod(invoker, operation)
   return function(self, ...)
     -- realiza a chamada no servidor
     local reply, ex = invoker(self, ...)
-    log:faulttolerance("[smartpatch] smartmethod ["..
-    (operation and operation.name or "unknown") .."]")
     local replace = false
     --recarregar timeouts de erro (para tempo ser dinâmico em tempo de execução)
     local timeOutConfig = assert(loadfile(DATA_DIR .."/conf/FTTimeOutConfiguration.lua"))()
@@ -111,10 +110,12 @@ function smartmethod(invoker, operation)
         timeOut = timeOut + 1
       until replyIsReady or (timeOut == timeOutConfig.reply.MAX_TIMES)
 
+      local operationName = (operation and operation.name or "unknown")
       if replyIsReady then
         if reply.success == false then -- obteve uma excecao como resposta
           ex = reply[1]
-          log:faulttolerance("[smartpatch] operacao retornou com erro no results: "..ex[1])
+          Log:error(format("Ocorreu uma exceção do tipo %s na operacao %s",
+              ex[1], operationName))
           replace = (CriticalExceptions[ex[1]] ~= nil)
         else
           -- Segundo o Maia, operation só é 'nil' quando se deu um 'narrow'
@@ -126,20 +127,22 @@ function smartmethod(invoker, operation)
           end
         end
       else
-        log:faulttolerance("[smartpatch] operacao ["..
-        (operation and operation.name or "unknown").."] retornou com erro por timeout")
+        Log:error(format("A operacao %s retornou com erro por causa do timeout configurado para %d segundos",
+            operationName, timeOutConfig.reply.MAX_TIMES))
         ex = orb:newexcept{ "CORBA::TIMEOUT" }
         replace = true
       end
     end
 
     if replace then -- excecao critica ou timeout
-      log:faulttolerance("[smartpatch] tratando requisicao para key: ".. objkey)
       --pega a lista de replicas com o objectkey do servidor "interceptado"
       local replicas = Replicas[objkey]
 
       -- se nao tiver a lista de replicas retorna com erro
       if replicas == nil or #replicas < 2 then
+        Log:error(format("Não existem réplicas configuradas para a faceta %s",
+            objkey))
+        error(ex)
         return callhandler(self, ex, operation)
       end
 
@@ -161,13 +164,13 @@ function smartmethod(invoker, operation)
         --nao pega a mesma replica que deu erro
         if replicas[newIndex] ~= replicas[lastIndex] then
           -- pega o proxy da proxima replica
-          log:faulttolerance("[smartpatch] buscando replica: " ..
-              replicas[indexCurr[objkey]])
+          Log:debug(format("Buscando a réplica %s",
+              replicas[indexCurr[self.__reference._object]]))
           prx2 = orb:newproxy(replicas[newIndex], "smart")
 
           if OilUtilities:existent(prx2) then
-            log:faulttolerance("[smartpatch] replica encontrada: " ..
-                replicas[indexCurr[objkey]])
+            Log:debug(format("A replica %s foi encontrada",
+                replicas[indexCurr[self.__reference._object]]))
             break
           end
           prx2 = nil
@@ -178,13 +181,15 @@ function smartmethod(invoker, operation)
       if prx2 then
         --troca a referencia do proxy para a nova replica alvo
         tabop.copy(prx2, self)
-        log:faulttolerance("[smartpatch] trocou para replica: " ..
+        Log:debug("Referência para a faceta %s alterada para a réplica %s",
+            self._reference._object,
             replicas[indexCurr[objkey]])
         --executa o metodo solicitado e retorna
         return self[operation.name](self, ...)
       else
-        log:faulttolerance("[smartpatch] nenhuma replica encontrada apos "
-            .. tostring(DEFAULT_ATTEMPTS - attempts) .. " tentativas")
+        Log:error(format(
+            "Nenhuma réplica válida foi encontrada para a faceta %s apos %d tentativas",
+            self._referece._object, DEFAULT_ATTEMPTS - attempts))
         return callhandler(self, ex, operation)
       end
     end

@@ -2,7 +2,7 @@
 
 local oil = require "oil"
 local oop = require "loop.base"
-local log = require "openbus.util.Log"
+local Log = require "openbus.util.Log"
 local CredentialManager = require "openbus.util.CredentialManager"
 local Utils = require "openbus.util.Utils"
 local LeaseRenewer = require "openbus.lease.LeaseRenewer"
@@ -14,8 +14,6 @@ local LoginPasswordAuthenticator =
     require "openbus.authenticators.LoginPasswordAuthenticator"
 local CertificateAuthenticator =
     require "openbus.authenticators.CertificateAuthenticator"
-
---log:level(5)
 
 local pairs = pairs
 local os = os
@@ -168,7 +166,7 @@ function Openbus:_fetchACS()
   end
 
   if not status then
-     log:error("Erro ao obter as facetas do Serviço de Controle de Acesso.")
+     Log:error("Erro ao obter as facetas do Serviço de Controle de Acesso.")
      return false
   end
   if (self.isFaultToleranceEnable and not services) or
@@ -189,7 +187,7 @@ function Openbus:_fetchACS()
   if not self.serverInterceptor or not self.clientInterceptor then
     local status, err = oil.pcall(self._setInterceptors, self)
     if not status then
-        log:error("Erro ao cadastrar interceptadores no ORB. Erro: " .. err)
+        Log:error("Erro ao cadastrar interceptadores no ORB. Erro: " .. err)
         return false
     end
   end
@@ -202,7 +200,7 @@ end
 function Openbus:_loadIDLs()
   local IDLPATH_DIR = os.getenv("IDLPATH_DIR")
   if not IDLPATH_DIR then
-    log:error("Openbus: A variável IDLPATH_DIR não foi definida.")
+    Log:error("Openbus: A variável IDLPATH_DIR não foi definida.")
     return false
   end
   local version = Utils.OB_VERSION
@@ -246,9 +244,9 @@ end
 -- Habilita o mecanismo de tolerancia a falhas
 --
 function Openbus:enableFaultTolerance()
-  log:faulttolerance("Mecanismo de tolerancia a falhas sendo habilitado...")
+  Log:info("O mecanismo de tolerancia a falhas está sendo habilitado")
   if not self.orb then
-    log:error("OpenBus: O orb precisa ser inicializado.")
+    Log:error("O orb precisa ser inicializado.")
     return false
   end
 
@@ -303,11 +301,11 @@ end
 function Openbus:init(host, port, props, serverInterceptorConfig,
   clientInterceptorConfig, policy)
   if not host then
-    log:error("OpenBus: O campo 'host' não pode ser nil")
+    Log:error("OpenBus: O campo 'host' não pode ser nil")
     return false
   end
   if not port or port < 0 then
-    log:error("OpenBus: O campo 'port' não pode ser nil nem negativo.")
+    Log:error("OpenBus: O campo 'port' não pode ser nil nem negativo.")
     return false
   end
   if self.inited then
@@ -350,7 +348,7 @@ function Openbus:init(host, port, props, serverInterceptorConfig,
   -- carrega IDLs
   local status, result = oil.pcall(self._loadIDLs, self)
   if not status then
-    log:error("OpenBus: Erro ao carregar as IDLs. Erro: " .. err)
+    Log:error("OpenBus: Erro ao carregar as IDLs. Erro: " .. err)
     return false
   end
 
@@ -399,7 +397,7 @@ function Openbus:finish()
   end
   local status, err = oil.pcall(self.orb.shutdown, self.orb)
   if not status then
-    log:warn("Não foi possível executar o shutdown no ORB.")
+    Log:warn("Não foi possível executar o shutdown no ORB.")
   end
 end
 
@@ -414,7 +412,7 @@ function Openbus:getAccessControlService()
 
   if not self.acs and self.isFaultToleranceEnable then
       if not self:_fetchACS() then
-        log:error("OpenBus: Não foi possível acessar o servico de controle de acesso.")
+        Log:error("OpenBus: Não foi possível acessar o servico de controle de acesso.")
         return false
       end
   end
@@ -424,7 +422,7 @@ end
 function Openbus:getACSIComponent()
   if not self.ic and self.isFaultToleranceEnable then
       if not self:_fetchACS() then
-        log:error("OpenBus: Não foi possível acessar o servico de controle de acesso.")
+        Log:error("OpenBus: Não foi possível acessar o servico de controle de acesso.")
         return false
       end
   end
@@ -518,7 +516,7 @@ end
 ---
 function Openbus:connectByLoginPassword(user, password)
   if not user or not password then
-    log:error("OpenBus: Os parâmetros 'user' e 'password' não podem ser nil.")
+    Log:error("OpenBus: Os parâmetros 'user' e 'password' não podem ser nil.")
     return false
   end
   local authenticator = LoginPasswordAuthenticator(user, password)
@@ -541,7 +539,7 @@ end
 ---
 function Openbus:connectByCertificate(name, privateKeyFile, acsCertificateFile)
   if not name or not privateKeyFile or not acsCertificateFile then
-    log:error("OpenBus: Nenhum parâmetro pode ser nil.")
+    Log:error("OpenBus: Nenhum parâmetro pode ser nil.")
     return false
   end
   local authenticator = CertificateAuthenticator(name, privateKeyFile,
@@ -553,7 +551,7 @@ function Openbus:connect(authenticator)
   if not self.credentialManager:hasValue() then
     if not self.acs then
       if not self:_fetchACS() then
-        log:error("OpenBus: Não foi possível acessar o barramento.")
+        Log:error("Não foi possível obter o serviço de controle de acesso")
         return false
       end
     end
@@ -561,11 +559,11 @@ function Openbus:connect(authenticator)
     if credential then
       return self:_completeConnection(credential, lease)
     else
-      log:error("OpenBus: Não foi possível conectar ao barramento.")
+      Log:error("Não foi possível fazer a autenticação no barramento")
       return false
     end
   else
-    log:error("OpenBus: O barramento já está conectado.")
+    Log:error("A conexão com o barramento já está estabelecida")
     return false
   end
 end
@@ -583,12 +581,12 @@ end
 ---
 function Openbus:connectByCredential(credential)
   if not credential then
-    log:error("OpenBus: O parâmetro 'credential' não pode ser nil.")
+    Log:error("OpenBus: O parâmetro 'credential' não pode ser nil.")
     return false
   end
   if not self.acs then
     if not self:_fetchACS() then
-      log:error("OpenBus: Não foi possível acessar o barramento.")
+      Log:error("OpenBus: Não foi possível acessar o barramento.")
       return false
     end
   end
@@ -601,7 +599,7 @@ function Openbus:connectByCredential(credential)
     end
     return self.rgs
   end
-  log:error("OpenBus: Credencial inválida.")
+  Log:error("OpenBus: Credencial inválida.")
   return false
 end
 
@@ -617,7 +615,7 @@ function Openbus:disconnect()
       local status, err = oil.pcall(self.leaseRenewer.stopRenew,
         self.leaseRenewer)
       if not status then
-        log:error(
+        Log:error(
           "OpenBus: Não foi possível parar a renovação de lease. Erro: " .. err)
       end
       self.leaseRenewer = nil
@@ -626,7 +624,7 @@ function Openbus:disconnect()
        status, err = oil.pcall(self.acs.logout, self.acs,
             self.credentialManager:getValue())
        if not status then
-          log:error("OpenBus: Não foi possível realizar o logout. Erro " .. err)
+          Log:error("OpenBus: Não foi possível realizar o logout. Erro " .. err)
        end
     end
     self.credentialManager:invalidate()

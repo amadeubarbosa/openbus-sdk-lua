@@ -3,9 +3,10 @@
 local oil = require"oil"
 local oop = require "loop.base"
 local Timer = require "loop.thread.Timer"
-local log = require "openbus.util.Log"
+local Log = require "openbus.util.Log"
 
 local tostring = tostring
+local format = string.format
 
 ---
 --Objeto que é responsável por renovar o lease junto a um Provider.
@@ -24,7 +25,8 @@ module ("openbus.lease.LeaseRenewer", oop.class)
 --@return O renovador de lease.
 ---
 function __init(self, lease, credential, leaseProvider, leaseExpiredCallback)
-  log:lease("Lease set to "..lease)
+  Log:debug(format("O tempo de duração de lease foi definido para %d segundos",
+      lease))
   return oop.rawnew(self,
     { lease = lease,
       credential = credential,
@@ -40,7 +42,8 @@ end
 ---
 function setLease(self, lease)
   self.lease = lease
-  log:lease("Lease set to "..lease)
+  Log:debug(format("O tempo de duração de lease foi definido para %d segundos",
+      lease))
 end
 
 ---
@@ -112,12 +115,10 @@ function _renewLeaseAction(timer)
     end
   else
     if not success and granted[1] ~= "IDL:omg.org/CORBA/NO_PERMISSION:1.0" then
-      -- Quando ocorre falha no acesso ao provedor, tenta renovar com
-      -- uma freqüência maior.
-      -- log:warn("Falha na acessibilidade ao provedor do lease.")
-      log:warn("Falha na acessibilidade ao provedor do lease:", granted)
+      Log:warn("Ocorreu um erro na comunicação com o provedor do lease: ",
+          granted)
     else -- not granted or granted[1] == "IDL:omg.org/CORBA/NO_PERMISSION:1.0"
-      log:lease("Lease não renovado, credencial expirou.")
+      Log:debug("O lease não foi renovado porque a credencial expirou")
       if timer.leaseRenewer.leaseExpiredCallback then
         timer.leaseRenewer.leaseExpiredCallback:expired()
       end

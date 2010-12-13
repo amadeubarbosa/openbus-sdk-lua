@@ -48,21 +48,22 @@ MAXIMUM_CREDENTIALS_CACHE_SIZE = 20
 --@return O interceptador.
 ---
 function __init(self, config, accessControlService, policy)
-  Log:interceptor("Construindo interceptador para serviço")
+  Log:debug("Construindo o interceptador de servidor")
   local lir = Openbus:getORB():getLIR()
   -- Obtém as operações das interfaces que devem ser verificadas
   if config.interfaces then
     for _, iconfig in ipairs(config.interfaces) do
-      Log:interceptor(true, format("Checar interface: %s", iconfig.interface))
+      Log:config(format("A interface %s será interceptada",
+          iconfig.interface))
       for _, op in ipairs(iconfig.excluded_ops or {}) do
         Openbus:setInterceptable(iconfig.interface, op, false)
-        Log:interceptor(format("Não checar operação: %s", op))
+        Log:config(format("A operação %s da interface %s não será interceptada",
+            op, iconfig.interface))
       end
-      Log:interceptor(false)
     end
   else
     -- Se nenhuma interface especificada, checa todas as operações
-    Log:interceptor("checar todas as operações de qualquer interface")
+    Log:config("Todas  as operações de todas as interfaces serão interceptadas")
   end
   local updateOperations = {}
   if config.ft_update_policy then
@@ -81,11 +82,13 @@ function __init(self, config, accessControlService, policy)
   for op in pairs(giop.ObjectOperations) do
     Openbus:setInterceptable("::CORBA::Object", op, false)
   end
+
   local obj = oop.rawnew(self, {
     credentialType = lir:lookup_id(config.credential_type).type,
     credentialType_v1_05 = lir:lookup_id(config.credential_type_v1_05).type,
     contextID = config.contextID,
     picurrent = PICurrent(),
+    isOiLVerboseDispatcherEnabled = oil.verbose:flag("dispatcher"),
     accessControlService = accessControlService,
     tests = config.tests or {},
     policy = policy,
@@ -93,6 +96,7 @@ function __init(self, config, accessControlService, policy)
     updateThreads = {},
     serviceStatusManager = ServiceStatusManager:__init(),
   })
+
   -- Cria o timer caso a politica seja cached
   if policy == Utils.CredentialValidationPolicy[2] then
     obj.credentials = {}
@@ -103,10 +107,10 @@ function __init(self, config, accessControlService, policy)
     obj.myTimer.rate = TASK_DELAY
     obj.myTimer.action = credentialValidatorAction
     obj.myTimer:enable()
-    Log:interceptor("Cache de credenciais com capacidade máxima de " ..
-      MAXIMUM_CREDENTIALS_CACHE_SIZE .. " credenciais.");
-    Log:interceptor("Revalidação do cache realizada a cada " ..
-      TASK_DELAY .. " segundos.");
+    Log:config(format("Utilizando cache com capacidade máxima de %d credenciais",
+        MAXIMUM_CREDENTIALS_CACHE_SIZE))
+    Log:config(format("A cache de credenciais será atualizada a cada %d segundos",
+        TASK_DELAY))
   end
   return obj
 end
@@ -129,18 +133,17 @@ function receiverequest(self, request)
                          request.operation_name .. "-" .. request.requeststart)
   end
 
-  Log:interceptor "INTERCEPTAÇÂO SERVIDOR!"
-
   local repID = request.interface.repID
   request.repID = repID
   local allowed = not (Openbus:isInterceptable(repID, request.operation_name) and
     Openbus:isInterceptable("::CORBA::Object", request.operation_name))
 
-  if ( (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE) or
-       (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE_V1_04) ) and
-     (request.operation_name == "loginByPassword")
+  if ((repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE) or
+      (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE_V1_04) ) and
+      (request.operation_name == "loginByPassword") and
+      self.isOiLVerboseDispatcherEnabled
   then
-    Log:interceptor("Desligando verbose do dispatcher...")
+    Log:debug("Desativando o verbose do dispatcher")
     oil.verbose:flag("dispatcher", false)
   end
 
@@ -155,7 +158,8 @@ function receiverequest(self, request)
   end
 
   if allowed then
-    Log:interceptor(format("OPERAÇÂO %s NÂO È CHECADA", request.operation_name))
+    Log:debug(format("A operação %s não deve ser interceptada",
+        request.operation_name))
 
     if self.tests[request.object_key] ~= nil then
        self.tests[request.object_key]:receiverequest("; fim    ; "  .. socket.gettime() - request.requeststart .. "; "..
@@ -163,23 +167,26 @@ function receiverequest(self, request)
     end
     return
   else
-    Log:interceptor(format("OPERAÇÂO %s É CHECADA", request.operation_name))
+    Log:debug(format("A operação %s foi interceptada", request.operation_name))
     local credential, credential_v1_05
     for _, context in ipairs(request.service_context) do
       if context.context_id == self.contextID then
-        Log:interceptor "TEM CREDENCIAL!"
         local decoder = orb:newdecoder(context.context_data)
         local status, cred = oil.pcall(decoder.get, decoder, self.credentialType)
         if status then
           credential = cred
-          Log:interceptor(format("CREDENCIAL V1.04: %s, %s", credential.identifier,
-            credential.owner))
+          Log:debug(format(
+              "A credencial {%s, %s, %s} de tipo %s foi recebida",
+              credential.identifier, credential.owner, credential.delegate,
+              self.credentialType.repID))
         end
         status, cred = oil.pcall(decoder.get, decoder, self.credentialType_v1_05)
         if status then
           credential_v1_05 = cred
-          Log:interceptor(format("CREDENCIAL V1.05: %s, %s", credential_v1_05.identifier,
-            credential_v1_05.owner))
+          Log:debug(format(
+              "A credencial {%s, %s, %s} de tipo %s foi recebida",
+              credential_v1_05.identifier, credential_v1_05.owner,
+              credential.delegate, self.credentialType_v1_05.repID))
         end
         break
       end
@@ -189,7 +196,7 @@ function receiverequest(self, request)
     -- trata politica
     if self.policy == Utils.CredentialValidationPolicy[3] then
       -- politica sem validacao
-      Log:interceptor("Utilizando política sem validação de credencial. A credencial não será checada.")
+      Log:debug("Utilizando política sem validação de credencial. A credencial não será checada.")
       self.picurrent:setValue(credentialFound)
       if self.tests[request.object_key] ~= nil then
                self.tests[request.object_key]:receiverequest("; fim    ; "
@@ -206,7 +213,9 @@ function receiverequest(self, request)
         if (credential_v1_05 and self:areCredentialsEqual(credential_v1_05, v)) or
            (credential and self:areCredentialsEqual(credential, v))
         then
-          Log:interceptor("A credencial interceptada está na cache.")
+          Log:debug(format("A credencial {%s, %s, %s} já está na cache",
+              credentialFound.identifier, credentialFound.owner,
+              credentialFound.delegate))
           table.remove(self.credentials, i)
           table.insert(self.credentials, credentialFound)
           self.picurrent:setValue(credentialFound)
@@ -220,12 +229,15 @@ function receiverequest(self, request)
         end
       end
       self:unlock()
-      Log:interceptor("A credencial interceptada não está na cache.")
+      Log:debug(format("A credencial {%s, %s, %s} não está na cache",
+          credentialFound.identifier, credentialFound.owner, credential.delegate))
       if self:isValid(credential_v1_05, credential, request) then
-        Log:interceptor("A credencial interceptada é válida.")
+        Log:debug(format("A credencial {%s, %s, %s} é válida",
+            credentialFound.identifier, credentialFound.owner,
+            credentialFound.delegate))
         self:lock(request)
         if #self.credentials == MAXIMUM_CREDENTIALS_CACHE_SIZE then
-          Log:interceptor("A cache está cheia.")
+          Log:debug("A cache está cheia.")
           table.remove(self.credentials, 1)
         end
         table.insert(self.credentials, credentialFound)
@@ -251,12 +263,16 @@ function receiverequest(self, request)
 
     -- Credencial inválida ou sem credencial
     if credentialFound then
-      Log:interceptor("\n ***CREDENCIAL INVALIDA ***\n")
+      Log:debug(format("A credencial {%s, %s, %s} é inválida",
+          credentialFound.identifier, credential.owner, credential.delegate))
     else
-      Log:interceptor("\n***NÂO TEM CREDENCIAL ***\n")
+      Log:error(format("A operação %s não recebeu uma credencial",
+          request.operation_name))
     end
+
     request.success = false
     request.results = { orb:newexcept{"CORBA::NO_PERMISSION", minor_code_value = 0} }
+
     if self.tests[request.object_key] ~= nil then
        self.tests[request.object_key]:receiverequest("; fim    ; "
                         .. socket.gettime() - request.requeststart .. "; "..
@@ -271,21 +287,32 @@ end
 --@param request Dados sobre o request.
 ---
 function sendreply(self, request)
+  if not request.servant then
+    return
+  end
+
   if self.tests[request.object_key] ~= nil then
        self.tests[request.object_key]:sendreply("; inicio; " ..
                            socket.gettime() - request.requeststart .. "; "..
                            request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
   end
 
-  if (request.operation_name == "loginByPassword") then
-    Log:interceptor("Ligando verbose do dispatcher...")
+  local repID = request.interface.repID
+  if ((repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE) or
+      (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE_V1_04) ) and
+      (request.operation_name == "loginByPassword") and
+      self.isOiLVerboseDispatcherEnabled
+  then
+    Log:debug("Reativando o verbose do dispatcher")
     oil.verbose:flag("dispatcher", true)
   end
+
   request.service_context = {}
 
   if self:needUpdate(request) then
     local key = request.object_key
-    Log:interceptor("Atualizando estado para operacao: [".. request.operation_name .."].")
+    Log:debug("Atualizando estado para operacao: [".. request.operation_name ..
+        "]")
     local currUpdateThread = function()
                                self.serviceStatusManager:updateStatus(key)
                              end
@@ -299,6 +326,9 @@ function sendreply(self, request)
                            socket.gettime() - request.requeststart .. "; "..
                            request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
   end
+  
+  Log:debug(format("O reply para a operação %s foi enviado",
+      request.operation_name))
 end
 
 ---
@@ -324,7 +354,6 @@ function validateCredential (self, credential, request)
                                  self.accessControlService, credential)
   if success and res then
     if request then
-      Log:interceptor(format("CREDENCIAL VALIDADA PARA %s", request.operation_name))
       self.picurrent:setValue(credential)
     end
     return true
@@ -337,28 +366,32 @@ end
 ---
 function credentialValidatorAction(self)
   while not self.obj:lock() do
-    Log:interceptor("ATENÇÃO: Impossivel verificar as credenciais da cache por estar travada. Tentando novamente.")
+    Log:debug("Não foi possível obter acesso exclusivo à cache de credenciais")
   end
   if #self.obj.credentials > 0 then
-    Log:interceptor("Executando a validação de credenciais.")
+    Log:debug("Executando a validação de credenciais")
     local success, results = oil.pcall(self.obj.accessControlService.areValid,
       self.obj.accessControlService, self.obj.credentials)
     if success then
       local shift = 0
       for i, ret in ipairs(results) do
         if not ret then
-          Log:interceptor("A credencial " .. i .. " não é mais válida.")
+          local credential = self.obj.credentials[i - shift]
+          Log:debug(format("A credencial {%s, %s, %s} não é mais válida",
+              credential.identifier, credential.owner, credential.delegate))
           table.remove(self.obj.credentials, i - shift)
           shift = shift + 1
         else
-          Log:interceptor("A credencial " .. i .. " ainda é válida.")
+          local credential = self.obj.credentials[i - shift]
+          Log:debug(format("A credencial {%s, %s, %s} ainda é válida",
+              credential.identifier, credential.owner, credential.delegate))
         end
       end
     else
-      Log:interceptor("Erro ao tentar validar as credenciais:\n" .. results)
+      Log:warn("Não foi possível validar as credenciais da cache", results)
     end
   else
-    Log:interceptor("Validação de credenciais não foi executada pois não existem credenciais na cache.")
+    Log:debug("A validação de credenciais não foi executada pois não existem credenciais na cache.")
   end
   self.obj:unlock()
 end
@@ -382,7 +415,7 @@ function lock(self, request)
   local maxWaits = 10
   while numWaits <= maxWaits do
     if self.myLock then
-      Log:interceptor("Lista de credenciais travada. Aguardando meio segundo para tentar novamente e dar prosseguimento à chamada.")
+      Log:debug("A cache de credenciais está em uso exclusivo no momento. Aguardando meio segundo para tentar um novo acesso exclusivo")
       oil.sleep(0.5)
       numWaits = numWaits + 1
     else
@@ -390,7 +423,7 @@ function lock(self, request)
     end
   end
   if numWaits > maxWaits then
-    Log:interceptor("Lista de credenciais travada por mais de 5 segundos, abortando operação.")
+    Log:debug("A cache de credenciais está em uso exclusivo por mais de 5 segundos. A tentativa de novo acesso exclusivo à cache será cancelada")
     if request then
       request.success = false
       request.results = { orb:newexcept{"CORBA::TIMEOUT"} }

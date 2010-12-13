@@ -1,5 +1,5 @@
+local format = string.format
 local assert = assert
-local print = print
 local loadfile = loadfile
 local pairs = pairs
 local os = os
@@ -23,12 +23,9 @@ module("openbus.faulttolerance.ServiceStatusManager", oop.class)
 --
 ---
 function __init(self)
-
   if self._keys ~= nil then
-    Log:faulttolerance("ServiceStatusManager constructer - return EXISTENT")
     return self
   else
-    Log:faulttolerance("ServiceStatusManager constructer - return NEW instance")
     return oop.rawnew(self, { _keys = self:setReplicas() })
   end
 end
@@ -39,10 +36,12 @@ end
 ---
 function setReplicas(self)
   local DATA_DIR = os.getenv("OPENBUS_DATADIR")
-  local loadConfig, err = loadfile(DATA_DIR .."/conf/ACSFaultToleranceConfiguration.lua")
+  local configFile = DATA_DIR .."/conf/ACSFaultToleranceConfiguration.lua"
+  local loadConfig, err = loadfile(configFile)
   if not loadConfig then
-    Log:error("O arquivo 'ACSFaultToleranceConfiguration' não pode ser " ..
-        "carregado ou não existe.",err)
+    Log:error(format(
+        "O arquivo de configuração %s não pôde ser carregado ou não existe",
+        configFile), err)
     os.exit(1)
   end
   setfenv(loadConfig,_M)
@@ -52,10 +51,12 @@ function setReplicas(self)
   self._keys[Utils.FAULT_TOLERANT_ACS_KEY] = { interface = Utils.FAULT_TOLERANT_SERVICE_INTERFACE,
       hosts = ftconfig.hosts.FTACS, }
 
-  local loadConfig, err = loadfile(DATA_DIR .."/conf/RSFaultToleranceConfiguration.lua")
+  local configFile = DATA_DIR .."/conf/RSFaultToleranceConfiguration.lua"
+  local loadConfig, err = loadfile(configFile)
   if not loadConfig then
-    Log:error("O arquivo 'RSFaultToleranceConfiguration' não pode ser " ..
-        "carregado ou não existe.",err)
+    Log:error(format(
+        "O arquivo de configuração %s não pôde ser carregado ou não existe",
+        configFile), err)
     os.exit(1)
   end
   setfenv(loadConfig,_M)
@@ -70,7 +71,6 @@ end
 --
 ---
 function updateStatus(self, interceptedKey)
-  Log:faulttolerance("[ServiceStatusManager][updateStatus] Chave interceptada:" .. interceptedKey)
   local objKey = nil
   if interceptedKey == Utils.ACCESS_CONTROL_SERVICE_KEY or
      interceptedKey == Utils.LEASE_PROVIDER_KEY or
@@ -84,16 +84,16 @@ function updateStatus(self, interceptedKey)
   if objKey ~= nil then
     local keyV = self._keys[objKey]
     for _,ref in pairs(keyV.hosts) do
-      Log:faulttolerance("[ServiceStatusManager][updateStatus]Buscando para atualizar replica [" .. ref .."-TYPE:".. keyV.interface .."]")
+      Log:debug(format("[ServiceStatusManager][updateStatus]Buscando para atualizar replica [%s-TYPE:%s]", ref, keyV.interface))
       local ret, ok, service = oil.pcall(Utils.fetchService, orb, ref, keyV.interface)
       if ret and ok then
         service:updateStatus("all")
         local succ, updated = oil.pcall(service.updateStatus, service, "all")
         if not succ then
-           Log:faulttolerance("[ServiceStatusManager][updateStatus] Erro na execução da atualização do estado. " ..
-                              "Erro: " .. updated)
+          Log:warn("Falha na atualização do estado", updated)
         end
       end
     end
   end
 end
+

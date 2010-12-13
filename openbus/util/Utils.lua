@@ -8,14 +8,19 @@ local tostring = tostring
 local assert   = assert
 local unpack   = unpack
 local error    = error
+local format   = string.format
 
 local os     = os
 local string = string
 local table  = table
+local io       = io
 
 local oil = require "oil"
+
 local oop = require "loop.base"
-local log = require "openbus.util.Log"
+local Viewer = require "loop.debug.Viewer"
+
+local Log = require "openbus.util.Log"
 local OilUtilities = require "openbus.util.OilUtilities"
 
 
@@ -78,6 +83,8 @@ FT_SERVICE_MONITOR_INTERFACE =
 ---
 COMPONENT_INTERFACE =
   "IDL:scs/core/IComponent:1.0"
+
+METAINTERFACE_INTERFACE = "IDL:scs/core/IMetaInterface:1.0"
 
 ---
 --  A interface IRegistryService.
@@ -215,25 +222,25 @@ function fetchAccessControlService(orb, host, port)
   local acs = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
     ACCESS_CONTROL_SERVICE_KEY, "synchronous", ACCESS_CONTROL_SERVICE_INTERFACE)
   if not OilUtilities:existent(acs) then
-    log:error("Utils: Faceta IAccessControlService_v" .. OB_VERSION .. " não encontrada.")
+    Log:error("Utils: Faceta IAccessControlService_v" .. OB_VERSION .. " não encontrada.")
     error()
   end
   local lp = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
     LEASE_PROVIDER_KEY, "synchronous", LEASE_PROVIDER_INTERFACE)
   if not OilUtilities:existent(lp) then
-    log:error("Utils: Faceta ILeaseProvider não encontrada.")
+    Log:error("Utils: Faceta ILeaseProvider não encontrada.")
     error()
   end
   local ic = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
       OPENBUS_KEY, "synchronous", "IDL:scs/core/IComponent:1.0")
   if not OilUtilities:existent(ic) then
-    log:error("Utils: Faceta IComponent não encontrada.")
+    Log:error("Utils: Faceta IComponent não encontrada.")
     error()
   end
   local ft = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..  FAULT_TOLERANT_ACS_KEY,
     "synchronous", FAULT_TOLERANT_SERVICE_INTERFACE)
   if not OilUtilities:existent(ft) then
-    log:error("Utils: Faceta IFaultTolerantService não encontrada.")
+    Log:error("Utils: Faceta IFaultTolerantService não encontrada.")
     error()
   end
   return acs, lp, ic, ft
@@ -266,7 +273,7 @@ function getReplicaFacetByReceptacle(orb, component, receptacleName,
                                     replicaIRecep,
                                     receptacleName)
     if not status then
-      log:error("Nao foi possivel obter o Serviço [".. replicaIface .. "]: " .. conns[1])
+      Log:error("Nao foi possivel obter o Serviço [".. replicaIface .. "]: " .. conns[1])
       return nil
     elseif conns[1] then
       local recepIC = conns[1].objref
@@ -278,31 +285,30 @@ function getReplicaFacetByReceptacle(orb, component, receptacleName,
             return recepFacet
           end
       end
-      log:error("Nao foi possivel obter a faceta [".. replicaIface .. "]: " .. recepFacet)
+      Log:error("Nao foi possivel obter a faceta [".. replicaIface .. "]: " .. recepFacet)
     end
   end
-  log:error("Nao foi possivel obter o Serviço [".. replicaIface .. "].")
+  Log:error("Nao foi possivel obter o Serviço [".. replicaIface .. "].")
   return nil
 end
 
 
 function fetchService(orb, objReference, objType)
-
-   log:faulttolerance("[fetchService]"..objReference.."-TYPE:"..objType)
-   local success, service = oil.pcall(orb.newproxy, orb, objReference, "synchronous", objType)
+   Log:debug(format("Tentativa de obter o serviço %s do tipo %s", objReference,
+       objType))
+   local success, service = oil.pcall(orb.newproxy, orb, objReference,
+       "synchronous", objType)
 
    if success then
      if OilUtilities:existent(service) then
-         --OK
-           log:faulttolerance("[fetchService] Servico encontrado.")
-         --TODO: Essa linha é devido a um bug no OiL: type_id = ""
-         service.__reference.type_id = objType
-         -- fim do TODO
-
-         return true, service
+       Log:debug(format("O serviço %s foi encontrado", objReference))
+       --TODO: Essa linha é devido a um bug no OiL: type_id = ""
+       service.__reference.type_id = objType
+       -- fim do TODO
+       return true, service
       else
-         log:error("[fetchService]: Nao foi possivel obter o Serviço [".. objReference .."]")
-         return false, "Servico nao encontrado"
+        Log:error(format("O serviço %s não foi encontrado", objReference))
+        return false, "Servico nao encontrado"
       end
    else
       return false, "Erro: " .. tostring(service)
@@ -525,6 +531,16 @@ function parse_args(arg, usage_msg, allowempty)
   return arguments
 end
 
+function setVerboseOutputFile(verbose, outputFileName)
+  local outputFile, errMsg = io.open(outputFileName, "w")
+  if not outputFile then
+    return nil, errMsg
+  end
 
-
+  if not verbose.viewer then
+    verbose.viewer = Viewer()
+  end
+  verbose.viewer.output = outputFile
+  return outputFile
+end
 

@@ -1,11 +1,13 @@
 -- $Id$
 
+local format = string.format
+
 local oil = require "oil"
 local orb = oil.orb
 
 local oop = require "loop.base"
 
-local log = require "openbus.util.Log"
+local Log = require "openbus.util.Log"
 
 ---
 --Interceptador de requisições de serviço, responsável por inserir no contexto
@@ -22,8 +24,7 @@ module("openbus.interceptors.ClientInterceptor", oop.class)
 --@return O interceptador.
 ---
 function __init(self, config, credentialManager)
-
-  log:interceptor("Construindo interceptador para cliente")
+  Log:debug("Construindo o interceptador de cliente")
   local lir = orb:getLIR()
   return oop.rawnew(self,
            {credentialManager = credentialManager,
@@ -38,22 +39,24 @@ end
 --@param request Informações sobre a requisição.
 ---
 function sendrequest(self, request)
-  log:interceptor("INTERCEPTAÇÂO CLIENTE OP: "..request.operation_name)
   -- Verifica de existe credencial para envio
   if not self.credentialManager:hasValue() then
-    log:interceptor "SEM CREDENCIAL !"
+    Log:debug(format("Não há credencial para enviar à operação %s",
+        request.operation_name))
     return
   end
-  log:interceptor("TEM CREDENCIAL!")
 
   -- Insere a credencial no contexto do serviço
   local encoder = orb:newencoder()
-  encoder:put(self.credentialManager:getValue(),
-              self.credentialType)
-  encoder:put(self.credentialManager:getValue(),
-              self.credentialType_v1_05)
+
+  local credential = self.credentialManager:getValue()
+  encoder:put(credential, self.credentialType)
+  encoder:put(credential, self.credentialType_v1_05)
   request.service_context =  {
     { context_id = self.contextID, context_data = encoder:getdata() }
   }
-  log:interceptor("INSERI CREDENCIAL")
+
+  Log:debug(format("A credencial {%s, %s, %s} foi enviada à operação %s",
+      credential.identifier, credential.owner, credential.delegate,
+      request.operation_name))
 end

@@ -2,7 +2,6 @@ local print = print
 local coroutine = coroutine
 local loadfile = loadfile
 local assert = assert
-local Log = require "openbus.util.Log"
 local oop = require "loop.simple"
 
 local oil = require "oil"
@@ -12,7 +11,6 @@ local DATA_DIR = os.getenv("OPENBUS_DATADIR")
 module ("openbus.util.OilUtilities", oop.class)
 
 function existent(self, proxy)
-  Log:faulttolerance("[existent]OilUtilities")
   local not_exists = nil
 
   --recarregar timeouts de erro (para tempo ser dinâmico em tempo de execução)

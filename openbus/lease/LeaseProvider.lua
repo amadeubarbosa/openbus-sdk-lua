@@ -3,7 +3,6 @@
 local oil = require"oil"
 local oop = require "loop.base"
 local Timer = require "loop.thread.Timer"
-local log = require "openbus.util.Log"
 
 ---
 --Responsável por verificar os leases oferecidos.
