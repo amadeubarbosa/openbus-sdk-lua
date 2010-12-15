@@ -29,7 +29,7 @@ function __init(self, config, credentialManager)
   return oop.rawnew(self,
            {credentialManager = credentialManager,
             credentialType = lir:lookup_id(config.credential_type).type,
-            credentialType_v1_05 = lir:lookup_id(config.credential_type_v1_05).type,
+            credentialTypePrev = lir:lookup_id(config.credential_type_prev).type,
             contextID = config.contextID})
 end
 
@@ -48,10 +48,9 @@ function sendrequest(self, request)
 
   -- Insere a credencial no contexto do serviço
   local encoder = orb:newencoder()
-
   local credential = self.credentialManager:getValue()
   encoder:put(credential, self.credentialType)
-  encoder:put(credential, self.credentialType_v1_05)
+  encoder:put(credential, self.credentialTypePrev)
   request.service_context =  {
     { context_id = self.contextID, context_data = encoder:getdata() }
   }

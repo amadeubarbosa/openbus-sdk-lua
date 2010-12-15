@@ -32,50 +32,49 @@ module "openbus.util.Utils"
 ---
 -- Versao atual do OpenBus
 ---
-OB_VERSION = "1_05"
+OB_VERSION = "v1_06"
 
 ---
 -- Versao anterior do OpenBus
 ---
-OB_PREV = "1_04"
+OB_PREV = "v1_05"
 
 ---
 --  A interface IAccessControlService.
 ---
-ACCESS_CONTROL_SERVICE_INTERFACE =
-  "IDL:tecgraf/openbus/core/v" .. OB_VERSION ..
+ACCESS_CONTROL_SERVICE_INTERFACE = "IDL:tecgraf/openbus/core/"..OB_VERSION..
     "/access_control_service/IAccessControlService:1.0"
 
 ---
---  A interface IAccessControlService ate a versao 1.04.
+--  A interface IAccessControlService utilizada na versão anterior.
 ---
-ACCESS_CONTROL_SERVICE_INTERFACE_V1_04 =
-  "IDL:openbusidl/acs/IAccessControlService:1.0"
+ACCESS_CONTROL_SERVICE_INTERFACE_PREV = "IDL:tecgraf/openbus/core/"..OB_PREV..
+    "/access_control_service/IAccessControlService:1.0"
 
 ---
 --  A interface ILeaseProvider.
 ---
-LEASE_PROVIDER_INTERFACE = "IDL:tecgraf/openbus/core/v" .. OB_VERSION ..
-  "/access_control_service/ILeaseProvider:1.0"
+LEASE_PROVIDER_INTERFACE = "IDL:tecgraf/openbus/core/" .. OB_VERSION ..
+    "/access_control_service/ILeaseProvider:1.0"
 
 ---
---  A interface ILeaseProvider ate a versao 1.04.
+--  A interface ILeaseProvider utilizada na versão anterior.
 ---
-LEASE_PROVIDER_INTERFACE_V1_04 =
-  "IDL:openbusidl/acs/ILeaseProvider:1.0"
+LEASE_PROVIDER_INTERFACE_PREV = "IDL:tecgraf/openbus/core/"..OB_PREV..
+    "/access_control_service/ILeaseProvider:1.0"
 
 ---
 --  A interface IFaultTolerantService.
 ---
 FAULT_TOLERANT_SERVICE_INTERFACE =
-  "IDL:tecgraf/openbus/fault_tolerance/v" .. OB_VERSION ..
+  "IDL:tecgraf/openbus/fault_tolerance/" .. OB_VERSION ..
     "/IFaultTolerantService:1.0"
 
 ---
 --  A interface IFTServiceMonitor.
 ---
 FT_SERVICE_MONITOR_INTERFACE =
-  "IDL:tecgraf/openbus/fault_tolerance/v" .. OB_VERSION ..
+  "IDL:tecgraf/openbus/fault_tolerance/" .. OB_VERSION ..
     "/IFTServiceMonitor:1.0"
 
 ---
@@ -89,100 +88,103 @@ METAINTERFACE_INTERFACE = "IDL:scs/core/IMetaInterface:1.0"
 ---
 --  A interface IRegistryService.
 ---
-REGISTRY_SERVICE_INTERFACE =
-  "IDL:tecgraf/openbus/core/v" .. OB_VERSION ..
+REGISTRY_SERVICE_INTERFACE = "IDL:tecgraf/openbus/core/"..OB_VERSION..
     "/registry_service/IRegistryService:1.0"
 
 ---
---  A interface IRegistryService ate a versao 1.04.
+--  A interface IRegistryService utilizada na versão anterior.
 ---
-REGISTRY_SERVICE_INTERFACE_V1_04 =
-  "IDL:openbusidl/rs/IRegistryService:1.0"
+REGISTRY_SERVICE_INTERFACE_PREV = "IDL:tecgraf/openbus/core/"..OB_PREV..
+    "/registry_service/IRegistryService:1.0"
 
 ---
 --  A chave para obtenção do barramento.
 ---
-OPENBUS_KEY = "openbus_v" .. OB_VERSION
+OPENBUS_KEY = "openbus_" .. OB_VERSION
 
 ---
 --  As chaves CORBALOC para obtenção das interfaces do ACS.
 ---
-ACCESS_CONTROL_SERVICE_KEY = "ACS_v" .. OB_VERSION
-ACCESS_CONTROL_SERVICE_KEY_V1_04 = "ACS"
-LEASE_PROVIDER_KEY = "LP_v" .. OB_VERSION
-LEASE_PROVIDER_KEY_V1_04 = "LP"
-FAULT_TOLERANT_ACS_KEY = "FTACS_v" .. OB_VERSION
-MANAGEMENT_ACS_KEY = "MGMACS_v" .. OB_VERSION
+ACCESS_CONTROL_SERVICE_KEY = "ACS_"..OB_VERSION
+ACCESS_CONTROL_SERVICE_KEY_PREV = "ACS_"..OB_PREV
+LEASE_PROVIDER_KEY = "LP_"..OB_VERSION
+LEASE_PROVIDER_KEY_PREV = "LP_"..OB_PREV
+FAULT_TOLERANT_ACS_KEY = "FTACS_"..OB_VERSION
+MANAGEMENT_KEY = "MGM_"..OB_VERSION
 
 ---
 --  As chaves CORBALOC para obtenção das interfaces do RS.
 ---
-REGISTRY_SERVICE_KEY = "RS_v" .. OB_VERSION
-REGISTRY_SERVICE_KEY_V1_04 = "RS"
-FAULT_TOLERANT_RS_KEY = "FTRS_v" .. OB_VERSION
-FT_RS_MONITOR_KEY = "FTRSMonitor_v" .. OB_VERSION
-MANAGEMENT_RS_KEY = "MGMRS_v" .. OB_VERSION
+REGISTRY_SERVICE_KEY = "RS_"..OB_VERSION
+REGISTRY_SERVICE_KEY_PREV = "RS_"..OB_PREV
+FAULT_TOLERANT_RS_KEY = "FTRS_"..OB_VERSION
+FT_RS_MONITOR_KEY = "FTRSMonitor_"..OB_VERSION
+MANAGEMENT_RS_KEY = "MGMRS_" .. OB_VERSION
 
 ---
 --  A interface ISessionService.
 ---
-SESSION_SERVICE_INTERFACE = "IDL:tecgraf/openbus/session_service/v" .. OB_VERSION ..
-  "/ISessionService:1.0"
+SESSION_SERVICE_INTERFACE = "IDL:tecgraf/openbus/session_service/"..OB_VERSION..
+    "/ISessionService:1.0"
 
 ---
---  A interface ISessionService ate a versao 1.04.
+--  A interface ISessionService utilizada na versão anterior.
 ---
-SESSION_SERVICE_INTERFACE_V1_04 = "IDL:openbusidl/ss/ISessionService:1.0"
+SESSION_SERVICE_INTERFACE_PREV = "IDL:tecgraf/openbus/session_service/"..
+    OB_PREV.."/ISessionService:1.0"
 
 ---
 --  A interface SessionEventSink.
 ---
-SESSION_ES_INTERFACE = "IDL:tecgraf/openbus/session_service/v" .. OB_VERSION ..
-  "/SessionEventSink:1.0"
+SESSION_ES_INTERFACE = "IDL:tecgraf/openbus/session_service/"..OB_VERSION..
+    "/SessionEventSink:1.0"
 
 ---
---  A interface SessioneventSink ate a versao 1.04.
+--  A interface SessioneventSink utilizada na versão anterior.
 ---
-SESSION_ES_INTERFACE_V1_04 = "IDL:openbusidl/ss/SessionEventSink:1.0"
+SESSION_ES_INTERFACE_PREV = "IDL:tecgraf/openbus/session_service/"..OB_PREV..
+    "/SessionEventSink:1.0"
 
 ---
 --  A interface ISession.
 ---
-SESSION_INTERFACE = "IDL:tecgraf/openbus/session_service/v" .. OB_VERSION ..
+SESSION_INTERFACE = "IDL:tecgraf/openbus/session_service/"..OB_VERSION..
   "/ISession:1.0"
 
 ---
---  A interface ISession ate a versao 1.04.
+--  A interface ISession utilizada na versão anterior.
 ---
-SESSION_INTERFACE_V1_04 = "IDL:openbusidl/ss/ISession:1.0"
+SESSION_INTERFACE_PREV = "IDL:tecgraf/openbus/session_service/"..OB_PREV..
+  "/ISession:1.0"
 
 ---
 --  A interface ICredentialObserver.
 ---
-CREDENTIAL_OBSERVER_INTERFACE = "IDL:tecgraf/openbus/core/v" .. OB_VERSION ..
-  "/access_control_service/ICredentialObserver:1.0"
+CREDENTIAL_OBSERVER_INTERFACE = "IDL:tecgraf/openbus/core/"..OB_VERSION..
+    "/access_control_service/ICredentialObserver:1.0"
 
 ---
---  A interface ICredentialObserver ate a versao 1.04.
+--  A interface ICredentialObserver utilizada na versão anterior.
 ---
-CREDENTIAL_OBSERVER_INTERFACE_V1_04 = "IDL:openbusidl/acs/ICredentialObserver:1.0"
+CREDENTIAL_OBSERVER_INTERFACE_PREV = "IDL:tecgraf/openbus/core/"..OB_PREV..
+    "/access_control_service/ICredentialObserver:1.0"
 
 ---
 --  A interface IManagement do Servico de Controle de Acesso.
 ---
-MANAGEMENT_ACS_INTERFACE =  "IDL:tecgraf/openbus/core/v" .. OB_VERSION ..
+MANAGEMENT_ACS_INTERFACE =  "IDL:tecgraf/openbus/core/" .. OB_VERSION ..
   "/access_control_service/IManagement:1.0"
 
 ---
 --  A interface IManagement do Servico de Registro.
 ---
-MANAGEMENT_RS_INTERFACE =  "IDL:tecgraf/openbus/core/v" .. OB_VERSION ..
+MANAGEMENT_RS_INTERFACE =  "IDL:tecgraf/openbus/core/" .. OB_VERSION ..
   "/registry_service/IManagement:1.0"
 
 ---
 --  O nome da faceta do Serviço de Sessão.
 ---
-SESSION_SERVICE_FACET_NAME = "ISessionService_v" .. OB_VERSION
+SESSION_SERVICE_FACET_NAME = "ISessionService_" .. OB_VERSION
 
 ---
 --  A interface IHDataService.
@@ -222,7 +224,7 @@ function fetchAccessControlService(orb, host, port)
   local acs = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..
     ACCESS_CONTROL_SERVICE_KEY, "synchronous", ACCESS_CONTROL_SERVICE_INTERFACE)
   if not OilUtilities:existent(acs) then
-    Log:error("Utils: Faceta IAccessControlService_v" .. OB_VERSION .. " não encontrada.")
+    Log:error(format("A faceta IAccessControlService_%s não foi encontrada", OB_VERSION))
     error()
   end
   local lp = orb:newproxy("corbaloc::".. host .. ":" .. port .. "/" ..

@@ -23,6 +23,7 @@ local require = require
 local string = string
 local gsub = gsub
 local setfenv = setfenv
+local format = string.format
 
 -- API de acesso a um barramento OpenBus.
 ---
@@ -203,21 +204,23 @@ function Openbus:_loadIDLs()
     Log:error("Openbus: A variável IDLPATH_DIR não foi definida.")
     return false
   end
-  local version = Utils.OB_VERSION
-  local prev = Utils.OB_PREV
-  local idlfile = IDLPATH_DIR .. "/v"..version.."/scs.idl"
+
+  local idlfile = IDLPATH_DIR .. "/"..Utils.OB_VERSION.."/scs.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/v"..version.."/access_control_service.idl"
+  idlfile = IDLPATH_DIR .. "/"..Utils.OB_VERSION.."/access_control_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/v"..version.."/registry_service.idl"
+  idlfile = IDLPATH_DIR .. "/"..Utils.OB_VERSION.."/registry_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/v"..version.."/fault_tolerance.idl"
+  idlfile = IDLPATH_DIR .. "/"..Utils.OB_VERSION.."/fault_tolerance.idl"
   self.orb:loadidlfile(idlfile)
--- Carrega IDLs para clientes do barramento v1.04
-  idlfile = IDLPATH_DIR .. "/v"..prev.."/access_control_service.idl"
+
+  -- Carrega IDLs para clientes do barramento que ainda utilizam o SDK da versão
+  -- anterior
+  idlfile = IDLPATH_DIR .. "/"..Utils.OB_PREV.."/access_control_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/v"..prev.."/registry_service.idl"
+  idlfile = IDLPATH_DIR .. "/"..Utils.OB_PREV.."/registry_service.idl"
   self.orb:loadidlfile(idlfile)
+
    return true
 end
 
@@ -348,7 +351,7 @@ function Openbus:init(host, port, props, serverInterceptorConfig,
   -- carrega IDLs
   local status, result = oil.pcall(self._loadIDLs, self)
   if not status then
-    Log:error("OpenBus: Erro ao carregar as IDLs. Erro: " .. err)
+    Log:error(format("Não foi possível carregar os arquivos de IDL: %s", result))
     return false
   end
 
@@ -438,7 +441,7 @@ function Openbus:getRegistryService()
                                      self.orb,
                                      acsIC,
                                      "RegistryServiceReceptacle",
-                                     "IRegistryService_v" .. Utils.OB_VERSION,
+                                     "IRegistryService_" .. Utils.OB_VERSION,
                                      Utils.REGISTRY_SERVICE_INTERFACE)
   if not status then
         --erro ja foi logado

@@ -1,6 +1,5 @@
 -- $Id$
 
-local print  = print
 local pairs  = pairs
 local ipairs = ipairs
 local format = string.format
@@ -85,7 +84,7 @@ function __init(self, config, accessControlService, policy)
 
   local obj = oop.rawnew(self, {
     credentialType = lir:lookup_id(config.credential_type).type,
-    credentialType_v1_05 = lir:lookup_id(config.credential_type_v1_05).type,
+    credentialTypePrev = lir:lookup_id(config.credential_type_prev).type,
     contextID = config.contextID,
     picurrent = PICurrent(),
     isOiLVerboseDispatcherEnabled = oil.verbose:flag("dispatcher"),
@@ -139,7 +138,7 @@ function receiverequest(self, request)
     Openbus:isInterceptable("::CORBA::Object", request.operation_name))
 
   if ((repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE) or
-      (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE_V1_04) ) and
+      (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE_PREV) ) and
       (request.operation_name == "loginByPassword") and
       self.isOiLVerboseDispatcherEnabled
   then
@@ -149,7 +148,7 @@ function receiverequest(self, request)
 
   local oldPolicy = self.policy
   if ( (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE) or
-       (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE_V1_04) ) and
+       (repID == Utils.ACCESS_CONTROL_SERVICE_INTERFACE_PREV) ) and
      (request.operation_name == "loginByCertificate")
   then
     --força a inserir credencial, ACSs nao podem se logar sem passar suas credenciais
@@ -168,7 +167,7 @@ function receiverequest(self, request)
     return
   else
     Log:debug(format("A operação %s foi interceptada", request.operation_name))
-    local credential, credential_v1_05
+    local credential, credentialPrev
     for _, context in ipairs(request.service_context) do
       if context.context_id == self.contextID then
         local decoder = orb:newdecoder(context.context_data)
@@ -180,18 +179,18 @@ function receiverequest(self, request)
               credential.identifier, credential.owner, credential.delegate,
               self.credentialType.repID))
         end
-        status, cred = oil.pcall(decoder.get, decoder, self.credentialType_v1_05)
+        status, cred = oil.pcall(decoder.get, decoder, self.credentialTypePrev)
         if status then
-          credential_v1_05 = cred
+          credentialPrev = cred
           Log:debug(format(
               "A credencial {%s, %s, %s} de tipo %s foi recebida",
-              credential_v1_05.identifier, credential_v1_05.owner,
-              credential.delegate, self.credentialType_v1_05.repID))
+              credentialPrev.identifier, credentialPrev.owner,
+              credentialPrev.delegate, self.credentialTypePrev.repID))
         end
         break
       end
     end
-    local credentialFound = credential_v1_05 or credential
+    local credentialFound = credentialPrev or credential
 
     -- trata politica
     if self.policy == Utils.CredentialValidationPolicy[3] then
@@ -210,8 +209,7 @@ function receiverequest(self, request)
       -- politica de cache
       self:lock(request)
       for i, v in ipairs(self.credentials) do
-        if (credential_v1_05 and self:areCredentialsEqual(credential_v1_05, v)) or
-           (credential and self:areCredentialsEqual(credential, v))
+        if (credentialFound and self:areCredentialsEqual(credentialFound, v))
         then
           Log:debug(format("A credencial {%s, %s, %s} já está na cache",
               credentialFound.identifier, credentialFound.owner,
@@ -231,7 +229,7 @@ function receiverequest(self, request)
       self:unlock()
       Log:debug(format("A credencial {%s, %s, %s} não está na cache",
           credentialFound.identifier, credentialFound.owner, credential.delegate))
-      if self:isValid(credential_v1_05, credential, request) then
+      if self:validateCredential(credentialFound, request) then
         Log:debug(format("A credencial {%s, %s, %s} é válida",
             credentialFound.identifier, credentialFound.owner,
             credentialFound.delegate))
@@ -251,7 +249,7 @@ function receiverequest(self, request)
       end
     else
       -- politica sempre
-      if self:isValid(credential_v1_05, credential, request) then
+      if self:validateCredential(credentialFound, request) then
         if self.tests[request.object_key] ~= nil then
                self.tests[request.object_key]:receiverequest("; fim    ; "
                            .. socket.gettime() - request.requeststart .. "; "..
@@ -394,17 +392,6 @@ function credentialValidatorAction(self)
     Log:debug("A validação de credenciais não foi executada pois não existem credenciais na cache.")
   end
   self.obj:unlock()
-end
-
----
--- Tenta validar as credenciais de duas versoes do barramento.
----
-function isValid(self, credential, prev, request)
-  if (credential and self:validateCredential(credential, request)) or
-     (prev and self:validateCredential(prev, request)) then
-    return true
-  end
-  return false
 end
 
 ---
