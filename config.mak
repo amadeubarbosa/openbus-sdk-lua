@@ -34,6 +34,7 @@ OPENBUS_MODULES=$(addprefix openbus.,\
 	util.CredentialManager \
 	util.Log \
 	util.OilUtilities \
+	util.Audit \
 	util.TableDB \
 	util.TestLog \
 	util.Utils )
