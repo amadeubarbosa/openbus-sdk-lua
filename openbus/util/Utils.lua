@@ -86,6 +86,15 @@ COMPONENT_INTERFACE =
 METAINTERFACE_INTERFACE = "IDL:scs/core/IMetaInterface:1.0"
 
 ---
+----  A interface IReceptacles.
+-----
+--
+RECEPTACLES_INTERFACE =
+  "IDL:scs/core/IReceptacles:1.0"
+
+
+
+---
 --  A interface IRegistryService.
 ---
 REGISTRY_SERVICE_INTERFACE = "IDL:tecgraf/openbus/core/"..OB_VERSION..
@@ -174,6 +183,7 @@ CREDENTIAL_OBSERVER_INTERFACE_PREV = "IDL:tecgraf/openbus/core/"..OB_PREV..
 ---
 MANAGEMENT_ACS_INTERFACE =  "IDL:tecgraf/openbus/core/" .. OB_VERSION ..
   "/access_control_service/IManagement:1.0"
+
 
 ---
 --  A interface IManagement do Servico de Registro.
@@ -317,6 +327,34 @@ function fetchService(orb, objReference, objType)
    end
 
 end
+
+function setInterceptableIfaceMap(ifaceMap, iface, method, interceptable)
+  -- Guarda apenas os métodos que não devem ser interceptados
+  local methods
+  if interceptable then
+    methods = ifaceMap[iface]
+    if methods then
+      methods[method] = nil
+      if not next(method) then
+        ifaceMap[iface] = nil
+      end
+    end
+  else
+    methods = ifaceMap[iface]
+    if not methods then
+      methods = {}
+      ifaceMap[iface] = methods
+    end
+    methods[method] = true
+  end
+  return ifaceMap
+end
+
+function isInterceptable(ifaceMap, iface, method)
+  local methods = ifaceMap[iface]
+  return not (methods and methods[method])
+end
+
 
 ---
 -- Verifica se duas entradas de ofertas com propriedades

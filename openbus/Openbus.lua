@@ -1,5 +1,4 @@
 -- $Id: Openbus.lua 90798 2009-04-23 02:06:47Z augusto $
-
 local oil = require "oil"
 local oop = require "loop.base"
 local Log = require "openbus.util.Log"
@@ -106,6 +105,14 @@ Openbus = oop.class {
   -- Política padrão é de interceptar todos.
   ---
   ifaceMap = nil,
+
+  ---
+  -- Guarda os métodos que não devem ser interceptados
+  -- se mesmo processo.
+  ---
+  ifaceMapLocalProcess = nil,
+
+
   ---
   -- Politica de validacao de credenciais.
   ---
@@ -127,6 +134,7 @@ function Openbus:__init()
   end
   local instance = self._instance
   instance.ifaceMap = {}
+  instance.ifaceMapLocalProcess = {}
   instance.credentialManager = CredentialManager()
   return instance
 end
@@ -141,12 +149,20 @@ function Openbus:_setInterceptors()
     config = assert(loadfile(DATA_DIR ..
       "/conf/advanced/InterceptorsConfiguration.lua"))()
   end
-  self.serverInterceptor = ServerInterceptor(self.serverInterceptorConfig or
-    config, self.acs, self.credentialValidationPolicy)
-  self.orb:setserverinterceptor(self.serverInterceptor)
-  self.clientInterceptor = ClientInterceptor(self.clientInterceptorConfig or
-    config, self.credentialManager)
+  self:_setServerInterceptor(  ServerInterceptor:__init(self.serverInterceptorConfig or
+      config, self.acs, self.credentialValidationPolicy) )
+  self:_setClientInterceptor( ClientInterceptor:__init(self.clientInterceptorConfig or
+      config, self.credentialManager) )
+end
+
+function Openbus:_setClientInterceptor(clientInterceptor)
+  self.clientInterceptor = clientInterceptor
   self.orb:setclientinterceptor(self.clientInterceptor)
+end
+
+function Openbus:_setServerInterceptor(serverInterceptor)
+  self.serverInterceptor = serverInterceptor
+  self.orb:setserverinterceptor(self.serverInterceptor)
 end
 
 
@@ -158,8 +174,21 @@ end
 ---
 function Openbus:_fetchACS()
 
-  local status, acs, lp, ft, ic
+  if self:__fetchACS() then
+    if not self.serverInterceptor or not self.clientInterceptor then
+      local status, err = oil.pcall(self._setInterceptors, self)
+      if not status then
+        log:error("Erro ao cadastrar interceptadores no ORB. Erro: " .. err)
+        return false
+      end
+    end
+    return true
+  end
+  return false
+end
 
+function Openbus:__fetchACS()
+  local status, acs, lp, ft, ic
   if self.isFaultToleranceEnable then
     status, services = self.smartACS:_fetchSmartComponent()
   else
@@ -172,26 +201,17 @@ function Openbus:_fetchACS()
   end
   if (self.isFaultToleranceEnable and not services) or
      (not self.isFaultToleranceEnable and not acs) then
-        -- o erro já foi pego e logado
-        return false
+  -- o erro já foi pego e logado
+     return false
   end
-
   if self.isFaultToleranceEnable then
-    acs = services[Utils.ACCESS_CONTROL_SERVICE_KEY]
-    lp = services[Utils.LEASE_PROVIDER_KEY]
-    ic = services[Utils.OPENBUS_KEY]
-    ft = services[Utils.FAULT_TOLERANT_ACS_KEY]
+     acs = services[Utils.ACCESS_CONTROL_SERVICE_KEY]
+     lp = services[Utils.LEASE_PROVIDER_KEY]
+     ic = services[Utils.OPENBUS_KEY]
+     ft = services[Utils.FAULT_TOLERANT_ACS_KEY]
   end
-
   self.acs, self.lp, self.ic, self.ft = acs, lp, ic, ft
 
-  if not self.serverInterceptor or not self.clientInterceptor then
-    local status, err = oil.pcall(self._setInterceptors, self)
-    if not status then
-        Log:error("Erro ao cadastrar interceptadores no ORB. Erro: " .. err)
-        return false
-    end
-  end
   return true
 end
 
@@ -661,6 +681,7 @@ function Openbus:destroy()
   self.isFaultToleranceEnable = false
   self.smartACS = nil
   self.ifaceMap = {}
+  self.ifaceMapLocalProcess = {}
   self.credentialManager:invalidate()
   self.credentialManager:invalidateThreadValue()
   self.credentialValidationPolicy = nil
@@ -731,24 +752,7 @@ end
 -- @param interceptable Indica se o método deve ser interceptado ou não.
 --
 function Openbus:setInterceptable(iface, method, interceptable)
-  -- Guarda apenas os métodos que não devem ser interceptados
-  local methods
-  if interceptable then
-    methods = self.ifaceMap[iface]
-    if methods then
-      methods[method] = nil
-      if not next(method) then
-        self.ifaceMap[iface] = nil
-      end
-    end
-  else
-    methods = self.ifaceMap[iface]
-    if not methods then
-      methods = {}
-      self.ifaceMap[iface] = methods
-    end
-    methods[method] = true
-  end
+  self.ifaceMap = Utils.setInterceptableIfaceMap(self.ifaceMap, iface, method, interceptable)
 end
 
 ---
@@ -760,8 +764,16 @@ end
 -- @return true se o método deve ser interceptado e false, caso contrário.
 --
 function Openbus:isInterceptable(iface, method)
-  local methods = self.ifaceMap[iface]
-  return not (methods and methods[method])
+  return Utils.isInterceptable(self.ifaceMap, iface, method)
 end
+
+function Openbus:setInterceptableByLocalProcess(iface, method, interceptable)
+  self.ifaceMapLocalProcess = Utils.setInterceptableIfaceMap(self.ifaceMapLocalProcess, iface, method, interceptable)
+end
+
+function Openbus:isInterceptableByLocalProcess(iface, method)
+  return Utils.isInterceptable(self.ifaceMapLocalProcess, iface, method)
+end
+
 
 return Openbus()

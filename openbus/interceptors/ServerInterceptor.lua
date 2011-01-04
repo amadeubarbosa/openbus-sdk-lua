@@ -48,7 +48,6 @@ MAXIMUM_CREDENTIALS_CACHE_SIZE = 20
 ---
 function __init(self, config, accessControlService, policy)
   Log:debug("Construindo o interceptador de servidor")
-  local lir = Openbus:getORB():getLIR()
   -- Obtém as operações das interfaces que devem ser verificadas
   if config.interfaces then
     for _, iconfig in ipairs(config.interfaces) do
@@ -80,11 +79,12 @@ function __init(self, config, accessControlService, policy)
   -- A classe Object de CORBA não tem repID, criar um identificar interno.
   for op in pairs(giop.ObjectOperations) do
     Openbus:setInterceptable("::CORBA::Object", op, false)
+    Log:interceptor(format("Não checar operação: %s", op))
   end
 
   local obj = oop.rawnew(self, {
-    credentialType = lir:lookup_id(config.credential_type).type,
-    credentialTypePrev = lir:lookup_id(config.credential_type_prev).type,
+    configCredentialType = config.credential_type,
+    configCredentialTypePrev = config.credential_type_prev,
     contextID = config.contextID,
     picurrent = PICurrent(),
     isOiLVerboseDispatcherEnabled = oil.verbose:flag("dispatcher"),
@@ -123,6 +123,12 @@ function receiverequest(self, request)
   -- Caso o objeto não exista, deixar o OiL lançar exceção OBJECT_NOT_EXIST
   if not request.servant then
     return
+  end
+
+  local lir = Openbus:getORB():getLIR()
+  if not self.credentialType then
+   self.credentialType = lir:lookup_id(self.configCredentialType).type
+   self.credentialTypePrev = lir:lookup_id(self.configCredentialTypePrev).type
   end
 
   request.requeststart = socket.gettime()
@@ -178,6 +184,9 @@ function receiverequest(self, request)
               "A credencial {%s, %s, %s} de tipo %s foi recebida",
               credential.identifier, credential.owner, credential.delegate,
               self.credentialType.repID))
+          if self:checkSameProcess(request, credential) then
+            return
+          end
         end
         status, cred = oil.pcall(decoder.get, decoder, self.credentialTypePrev)
         if status then
@@ -186,6 +195,9 @@ function receiverequest(self, request)
               "A credencial {%s, %s, %s} de tipo %s foi recebida",
               credentialPrev.identifier, credentialPrev.owner,
               credentialPrev.delegate, self.credentialTypePrev.repID))
+          if self:checkSameProcess(request, credential_v1_05) then
+            return
+          end
         end
         break
       end
@@ -205,62 +217,63 @@ function receiverequest(self, request)
       self.policy = oldPolicy
       return
     end
-    if self.policy == Utils.CredentialValidationPolicy[2] then
-      -- politica de cache
-      self:lock(request)
-      for i, v in ipairs(self.credentials) do
-        if (credentialFound and self:areCredentialsEqual(credentialFound, v))
-        then
-          Log:debug(format("A credencial {%s, %s, %s} já está na cache",
+
+    if credentialFound then
+      if self.policy == Utils.CredentialValidationPolicy[2] then
+        -- politica de cache
+        self:lock(request)
+        for i, v in ipairs(self.credentials) do
+          if (credentialFound and self:areCredentialsEqual(credentialFound, v))
+          then
+            Log:debug(format("A credencial {%s, %s, %s} já está na cache",
+                credentialFound.identifier, credentialFound.owner,
+                credentialFound.delegate))
+            table.remove(self.credentials, i)
+            table.insert(self.credentials, credentialFound)
+            self.picurrent:setValue(credentialFound)
+            self:unlock()
+            if self.tests[request.object_key] ~= nil then
+                 self.tests[request.object_key]:receiverequest("; fim    ; "
+                             .. socket.gettime() - request.requeststart .. "; "..
+                             request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
+            end
+            return
+          end
+        end
+        self:unlock()
+        Log:debug(format("A credencial {%s, %s, %s} não está na cache",
+            credentialFound.identifier, credentialFound.owner, credential.delegate))
+        if self:validateCredential(credentialFound, request) then
+          Log:debug(format("A credencial {%s, %s, %s} é válida",
               credentialFound.identifier, credentialFound.owner,
               credentialFound.delegate))
-          table.remove(self.credentials, i)
+          self:lock(request)
+          if #self.credentials == MAXIMUM_CREDENTIALS_CACHE_SIZE then
+            Log:debug("A cache está cheia.")
+            table.remove(self.credentials, 1)
+          end
           table.insert(self.credentials, credentialFound)
-          self.picurrent:setValue(credentialFound)
           self:unlock()
           if self.tests[request.object_key] ~= nil then
-               self.tests[request.object_key]:receiverequest("; fim    ; "
-                           .. socket.gettime() - request.requeststart .. "; "..
-                           request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
+            self.tests[request.object_key]:receiverequest("; fim    ; "
+                      .. socket.gettime() - request.requeststart .. "; "..
+                      request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
+          end
+          return
+        end
+      else
+        -- politica sempre
+        if self:validateCredential(credentialFound, request) then
+          if self.tests[request.object_key] ~= nil then
+            self.tests[request.object_key]:receiverequest("; fim    ; "
+                      .. socket.gettime() - request.requeststart .. "; "..
+                      request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
           end
           return
         end
       end
-      self:unlock()
-      Log:debug(format("A credencial {%s, %s, %s} não está na cache",
-          credentialFound.identifier, credentialFound.owner, credential.delegate))
-      if self:validateCredential(credentialFound, request) then
-        Log:debug(format("A credencial {%s, %s, %s} é válida",
-            credentialFound.identifier, credentialFound.owner,
-            credentialFound.delegate))
-        self:lock(request)
-        if #self.credentials == MAXIMUM_CREDENTIALS_CACHE_SIZE then
-          Log:debug("A cache está cheia.")
-          table.remove(self.credentials, 1)
-        end
-        table.insert(self.credentials, credentialFound)
-        self:unlock()
-        if self.tests[request.object_key] ~= nil then
-               self.tests[request.object_key]:receiverequest("; fim    ; "
-                           .. socket.gettime() - request.requeststart .. "; "..
-                           request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
-        end
-        return
-      end
-    else
-      -- politica sempre
-      if self:validateCredential(credentialFound, request) then
-        if self.tests[request.object_key] ~= nil then
-               self.tests[request.object_key]:receiverequest("; fim    ; "
-                           .. socket.gettime() - request.requeststart .. "; "..
-                           request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
-        end
-        return
-      end
-    end
 
-    -- Credencial inválida ou sem credencial
-    if credentialFound then
+      -- Credencial inválida ou sem credencial
       Log:debug(format("A credencial {%s, %s, %s} é inválida",
           credentialFound.identifier, credential.owner, credential.delegate))
     else
@@ -324,7 +337,7 @@ function sendreply(self, request)
                            socket.gettime() - request.requeststart .. "; "..
                            request.object_key .. "; " .. request.operation_name.. "-" .. request.requeststart)
   end
-  
+
   Log:debug(format("O reply para a operação %s foi enviado",
       request.operation_name))
 end
@@ -336,6 +349,10 @@ end
 ---
 function getCredential(self)
   return self.picurrent:getValue()
+end
+
+function checkSameProcess(self, request, credential)
+  return false
 end
 
 function needUpdate(self, request)

@@ -29,8 +29,9 @@ OPENBUS_MODULES=$(addprefix openbus.,\
 	interceptors.ClientInterceptor \
 	interceptors.PICurrent \
 	interceptors.ServerInterceptor \
-	lease.LeaseProvider \
+        interceptors.SameProcessServerInterceptor \
 	lease.LeaseRenewer \
+        lease.LeaseProvider \
 	util.CredentialManager \
 	util.Log \
 	util.OilUtilities \

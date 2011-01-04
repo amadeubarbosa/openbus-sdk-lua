@@ -8,7 +8,7 @@ local orb = oil.orb
 local oop = require "loop.base"
 
 local Log = require "openbus.util.Log"
-
+local Openbus = require "openbus.Openbus"
 ---
 --Interceptador de requisições de serviço, responsável por inserir no contexto
 --da requisição a credencial do cliente.
@@ -25,11 +25,10 @@ module("openbus.interceptors.ClientInterceptor", oop.class)
 ---
 function __init(self, config, credentialManager)
   Log:debug("Construindo o interceptador de cliente")
-  local lir = orb:getLIR()
   return oop.rawnew(self,
            {credentialManager = credentialManager,
-            credentialType = lir:lookup_id(config.credential_type).type,
-            credentialTypePrev = lir:lookup_id(config.credential_type_prev).type,
+            configCredentialType = config.credential_type,
+            configCredentialTypePrev = config.credential_type_prev,
             contextID = config.contextID})
 end
 
@@ -39,6 +38,12 @@ end
 --@param request Informações sobre a requisição.
 ---
 function sendrequest(self, request)
+  local lir = orb:getLIR()
+  if not self.credentialType then
+   self.credentialType = lir:lookup_id(self.configCredentialType).type
+   self.credentialTypePrev = lir:lookup_id(self.configCredentialTypePrev).type
+  end
+
   -- Verifica de existe credencial para envio
   if not self.credentialManager:hasValue() then
     Log:debug(format("Não há credencial para enviar à operação %s",
