@@ -3,7 +3,7 @@ local coroutine = coroutine
 local loadfile = loadfile
 local assert = assert
 local oop = require "loop.simple"
-
+local protected = require "oil.kernel.base.Proxies.protected"
 local oil = require "oil"
 
 local DATA_DIR = os.getenv("OPENBUS_DATADIR")
@@ -22,7 +22,11 @@ function existent(self, proxy)
   local parent = oil.tasks.current
   local executedOK, not_exists = nil, nil
   local thread = coroutine.create(function()
-        executedOK, not_exists = oil.pcall(proxy._non_existent, proxy)
+        if proxy.__manager.invoker == protected then
+          executedOK, not_exists = proxy:_non_existent()
+        else
+          executedOK, not_exists = oil.pcall(proxy._non_existent, proxy)
+        end
         oil.tasks:resume(parent)
   end)
 
