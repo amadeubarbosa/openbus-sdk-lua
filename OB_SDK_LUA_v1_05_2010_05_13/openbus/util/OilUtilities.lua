@@ -2,9 +2,8 @@ local print = print
 local coroutine = coroutine
 local loadfile = loadfile
 local assert = assert
-local Log = require "openbus.util.Log"
 local oop = require "loop.simple"
-
+local protected = require "oil.kernel.base.Proxies.protected"
 local oil = require "oil"
 
 local DATA_DIR = os.getenv("OPENBUS_DATADIR")
@@ -12,8 +11,6 @@ local DATA_DIR = os.getenv("OPENBUS_DATADIR")
 module ("openbus.util.OilUtilities", oop.class)
 
 function existent(self, proxy)
-  Log:faulttolerance("[existent]OilUtilities")
-  local not_exists = nil
 
   --recarregar timeouts de erro (para tempo ser dinâmico em tempo de execução)
   local timeOut = assert(loadfile(DATA_DIR .."/conf/FTTimeOutConfiguration.lua"))()
@@ -22,33 +19,27 @@ function existent(self, proxy)
   local MAX_TIMES = timeOut.non_existent.MAX_TIMES
   local timeToTrie = 1
   local threadTime = timeOut.non_existent.sleep
-  local executedOK = nil
   local parent = oil.tasks.current
-
+  local executedOK, not_exists = nil, nil
   local thread = coroutine.create(function()
-        executedOK, not_exists = oil.pcall(proxy._non_existent, proxy)
+        if proxy.__manager.invoker == protected then
+          executedOK, not_exists = proxy:_non_existent()
+        else
+          executedOK, not_exists = oil.pcall(proxy._non_existent, proxy)
+        end
         oil.tasks:resume(parent)
   end)
 
-  while executedOK == nil do
-
-    oil.tasks:resume(thread)
-    oil.tasks:suspend(threadTime)
-    oil.tasks:remove(thread)
-
-    timeToTrie = timeToTrie + 1
-    if timeToTrie > MAX_TIMES then
-       break
+  oil.tasks:resume(thread)
+  if executedOK == nil then
+    oil.tasks:suspend(threadTime*MAX_TIMES)
+    if executedOK == nil then
+      oil.tasks:remove(thread)
+      return false, "call timeout"
     end
   end
-  if executedOK == nil and not_exists == nil then
-    return false, "call timeout"
-  elseif not_exists ~= nil then
-    if executedOK and not not_exists then
-      return true, true
-    else
-     return false, not_exists
-    end
+  if executedOK and not not_exists then
+    return true, true
   else
     return false, not_exists
   end
