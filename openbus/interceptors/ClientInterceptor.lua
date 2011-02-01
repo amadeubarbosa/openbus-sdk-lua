@@ -3,7 +3,7 @@
 local format = string.format
 
 local oil = require "oil"
-
+local orb = oil.orb
 local oop = require "loop.base"
 
 local Log = require "openbus.util.Log"
@@ -37,7 +37,11 @@ end
 --@param request Informações sobre a requisição.
 ---
 function sendrequest(self, request)
-  local orb = Openbus:getORB()
+  --o orb só terá sido iniciado sem a api Openbus, quando este interceptador
+  --estiver sendo utilizado sem o uso da api.
+  if not orb then
+    orb = Openbus:getORB()
+  end
   local lir = orb:getLIR()
   if not self.credentialType then
    self.credentialType = lir:lookup_id(self.configCredentialType).type
