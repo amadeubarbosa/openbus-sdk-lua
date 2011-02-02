@@ -359,7 +359,7 @@ function Openbus:init(host, port, props, serverInterceptorConfig,
   -- carrega IDLs
   local status, result = oil.pcall(self._loadIDLs, self)
   if not status then
-    log:error("OpenBus: Erro ao carregar as IDLs. Erro: " .. err)
+    log:error("OpenBus: Erro ao carregar as IDLs. Erro: " .. result)
     return false
   end
 
