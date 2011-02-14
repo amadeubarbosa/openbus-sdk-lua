@@ -79,7 +79,7 @@ function main ()
   end
   -- Assume que há só uma sessão cadastrada no registro
   -- local offers = registryService:find({"ISession_v" .. OBUtils.OB_VERSION})
-  local offers = registryService:findByCriteria({"ISession_v" .. OBUtils.OB_VERSION}, 
+  local offers = registryService:findByCriteria({"ISession_" .. OBUtils.OB_VERSION}, 
                                                 { {name = "sessionName", value = {"HelloSession"}} })
   for _, offer in ipairs(offers) do
     local member = orb:newproxy(offer.member, "protected")
