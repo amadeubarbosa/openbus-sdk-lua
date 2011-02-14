@@ -67,6 +67,11 @@ local componentId = {
 
 -------------------------------------------------------------------------------
 function main ()
+  -- Carga da IDL do Serviço de Sessão
+  local IDLPATH_DIR = os.getenv("IDLPATH_DIR")
+  local idlfile = IDLPATH_DIR .. "/".. OBUtils.OB_VERSION.."/session_service.idl"
+  orb:loadidlfile(idlfile)
+
   -- Permite que o ORB comece a aguardar requisições
   openbus:run()
   -- Instanciação do componente
