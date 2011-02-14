@@ -29,9 +29,9 @@ local scs = require "scs.core.base"
 
 -- Auxiliares
 local orb = openbus:getORB()
-local compFacet = "IDL:scs/core/IComponent:1.0"
-local sessionFacet = "IDL:tecgraf/openbus/session_service/v1_05/ISession:1.0"
-local sinkFacet = "IDL:tecgraf/openbus/session_service/v1_05/SessionEventSink:1.0"
+local compFacet = OBUtils.COMPONENT_INTERFACE
+local sessionFacet = OBUtils.SESSION_INTERFACE
+local sinkFacet = OBUtils.SESSION_ES_INTERFACE
 local context, sessionId
 
 -------------------------------------------------------------------------------
@@ -43,25 +43,13 @@ function Sink:disconnect()
   -- do nothing
 end
 
-function Sink:push(event)
-  print("Recebido: " .. event.value._anyval)
+function Sink:push(sessionId, event)
+  print("Recebido: " .. event.value._anyval .. " do membro de Id " .. sessionId)
 end
 
 -------------------------------------------------------------------------------
 -- Descrições do componente
 local facetDescriptions = {}
-
-facetDescriptions.IComponent = {
-  name = "IComponent",
-  interface_name = "IDL:scs/core/IComponent:1.0",
-  class = scs.Component
-}
-
-facetDescriptions.IMetaInterface = {
-  name = "IMetaInterface",
-  interface_name = "IDL:scs/core/IMetaInterface:1.0",
-  class = scs.MetaInterface
-}
 
 facetDescriptions.SessionEventSink = {
   name = "SessionEventSink",
@@ -79,6 +67,11 @@ local componentId = {
 
 -------------------------------------------------------------------------------
 function main ()
+  -- Carga da IDL do Serviço de Sessão
+  local IDLPATH_DIR = os.getenv("IDLPATH_DIR")
+  local idlfile = IDLPATH_DIR .. "/v".. OBUtils.OB_VERSION.."/session_service.idl"
+  orb:loadidlfile(idlfile)
+
   -- Permite que o ORB comece a aguardar requisições
   openbus:run()
   -- Instanciação do componente
