@@ -20,7 +20,7 @@ local user = "tester"
 local password = "tester"
 
 local entityName = "TesteBarramento"
-local privateKey = "resources/Teste.ke"
+local privateKey = "resources/Teste.key"
 local acsCertificate = "resources/AccessControlService.crt"
 
 oil.verbose:level(0)
