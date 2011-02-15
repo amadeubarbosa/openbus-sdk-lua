@@ -71,6 +71,13 @@ FAULT_TOLERANT_SERVICE_INTERFACE =
     "/IFaultTolerantService:1.0"
 
 ---
+--  A interface IFaultTolerantService na versão anterior.
+---
+FAULT_TOLERANT_SERVICE_INTERFACE_PREV =
+  "IDL:tecgraf/openbus/fault_tolerance/" .. OB_PREV ..
+    "/IFaultTolerantService:1.0"
+
+---
 --  A interface IFTServiceMonitor.
 ---
 FT_SERVICE_MONITOR_INTERFACE =
@@ -83,16 +90,16 @@ FT_SERVICE_MONITOR_INTERFACE =
 COMPONENT_INTERFACE =
   "IDL:scs/core/IComponent:1.0"
 
+---
+--  A interface IMetaInterface.
+---
 METAINTERFACE_INTERFACE = "IDL:scs/core/IMetaInterface:1.0"
 
 ---
-----  A interface IReceptacles.
------
---
+--  A interface IReceptacles.
+---
 RECEPTACLES_INTERFACE =
   "IDL:scs/core/IReceptacles:1.0"
-
-
 
 ---
 --  A interface IRegistryService.
@@ -110,6 +117,7 @@ REGISTRY_SERVICE_INTERFACE_PREV = "IDL:tecgraf/openbus/core/"..OB_PREV..
 --  A chave para obtenção do barramento.
 ---
 OPENBUS_KEY = "openbus_" .. OB_VERSION
+OPENBUS_KEY_PREV = "openbus_" .. OB_PREV
 
 ---
 --  As chaves CORBALOC para obtenção das interfaces do ACS.
@@ -119,7 +127,9 @@ ACCESS_CONTROL_SERVICE_KEY_PREV = "ACS_"..OB_PREV
 LEASE_PROVIDER_KEY = "LP_"..OB_VERSION
 LEASE_PROVIDER_KEY_PREV = "LP_"..OB_PREV
 FAULT_TOLERANT_ACS_KEY = "FTACS_"..OB_VERSION
+FAULT_TOLERANT_ACS_KEY_PREV = "FTACS_"..OB_PREV
 MANAGEMENT_KEY = "MGM_"..OB_VERSION
+MANAGEMENT_KEY_PREV = "MGM_"..OB_PREV
 
 ---
 --  As chaves CORBALOC para obtenção das interfaces do RS.
@@ -127,8 +137,11 @@ MANAGEMENT_KEY = "MGM_"..OB_VERSION
 REGISTRY_SERVICE_KEY = "RS_"..OB_VERSION
 REGISTRY_SERVICE_KEY_PREV = "RS_"..OB_PREV
 FAULT_TOLERANT_RS_KEY = "FTRS_"..OB_VERSION
+FAULT_TOLERANT_RS_KEY_PREV = "FTRS_"..OB_PREV
 FT_RS_MONITOR_KEY = "FTRSMonitor_"..OB_VERSION
+FT_RS_MONITOR_KEY_PREV = "FTRSMonitor_"..OB_PREV
 MANAGEMENT_RS_KEY = "MGMRS_" .. OB_VERSION
+MANAGEMENT_RS_KEY_PREV = "MGMRS_" .. OB_PREV
 
 ---
 --  A interface ISessionService.
@@ -184,11 +197,22 @@ CREDENTIAL_OBSERVER_INTERFACE_PREV = "IDL:tecgraf/openbus/core/"..OB_PREV..
 MANAGEMENT_ACS_INTERFACE =  "IDL:tecgraf/openbus/core/" .. OB_VERSION ..
   "/access_control_service/IManagement:1.0"
 
+---
+--  A interface IManagement do Servico de Controle de Acesso na versão anterior.
+---
+MANAGEMENT_ACS_INTERFACE_PREV =  "IDL:tecgraf/openbus/core/" .. OB_PREV ..
+  "/access_control_service/IManagement:1.0"
 
 ---
 --  A interface IManagement do Servico de Registro.
 ---
 MANAGEMENT_RS_INTERFACE =  "IDL:tecgraf/openbus/core/" .. OB_VERSION ..
+  "/registry_service/IManagement:1.0"
+
+---
+--  A interface IManagement do Servico de Registro na versão anterior.
+---
+MANAGEMENT_RS_INTERFACE_PREV =  "IDL:tecgraf/openbus/core/" .. OB_PREV ..
   "/registry_service/IManagement:1.0"
 
 ---

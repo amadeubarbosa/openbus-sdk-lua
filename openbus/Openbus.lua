@@ -240,6 +240,8 @@ function Openbus:_loadIDLs()
   self.orb:loadidlfile(idlfile)
   idlfile = IDLPATH_DIR .. "/"..Utils.OB_PREV.."/registry_service.idl"
   self.orb:loadidlfile(idlfile)
+  idlfile = IDLPATH_DIR .. "/"..Utils.OB_PREV.."/fault_tolerance.idl"
+  self.orb:loadidlfile(idlfile)
 
    return true
 end
