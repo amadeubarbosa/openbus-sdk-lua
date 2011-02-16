@@ -221,11 +221,6 @@ MANAGEMENT_RS_INTERFACE_PREV =  "IDL:tecgraf/openbus/core/" .. OB_PREV ..
 SESSION_SERVICE_FACET_NAME = "ISessionService_" .. OB_VERSION
 
 ---
---  A interface IHDataService.
----
-DATA_SERVICE_INTERFACE = "IDL:openbusidl/data_service/IHDataService:1.0"
-
----
 --  Nome da propriedade que indica o identificador de um componente.
 ---
 COMPONENT_ID_PROPERTY_NAME = "component_id"
