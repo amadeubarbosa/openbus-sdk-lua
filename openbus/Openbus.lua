@@ -378,11 +378,7 @@ function Openbus:init(host, port, props, serverInterceptorConfig,
   end
 
   if result then
-  --TODO: Verificar porque no trunk está false e no branch true
-  --Além de teoricamente eles terem que ser iguais,
-  --avaliando a lógica, me parece que deveria ser true, para avisar que já
-  --foi iniciado (Maira)
-    self.inited = false
+    self.inited = true
   end
 
   return result
@@ -411,14 +407,16 @@ function Openbus:finish()
   if not self.orb then
     return
   end
-  -- remove as threads de atualização do estado
-  for _, thread in pairs(self.serverInterceptor.updateThreads) do
-     oil.tasks:remove(thread)
-  end
-  -- desabilita o timer em caso de política de cache. O interceptador é o próprio objeto de timer.
-  if self.credentialValidationPolicy == Utils.CredentialValidationPolicy[2] then
-    self.serverInterceptor.myTimer:disable()
-    self.serverInterceptor.myTimer.scheduler:remove(self.serverInterceptor.myTimer.thread)
+  if self.serverInterceptor then
+    -- remove as threads de atualização do estado
+    for _, thread in pairs(self.serverInterceptor.updateThreads) do
+       oil.tasks:remove(thread)
+    end
+    -- desabilita o timer em caso de política de cache. O interceptador é o próprio objeto de timer.
+    if self.credentialValidationPolicy == Utils.CredentialValidationPolicy[2] then
+      self.serverInterceptor.myTimer:disable()
+      self.serverInterceptor.myTimer.scheduler:remove(self.serverInterceptor.myTimer.thread)
+    end
   end
   local status, err = oil.pcall(self.orb.shutdown, self.orb)
   if not status then
