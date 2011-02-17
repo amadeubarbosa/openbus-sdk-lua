@@ -6,7 +6,6 @@ local CredentialManager = require "openbus.util.CredentialManager"
 local Utils = require "openbus.util.Utils"
 local LeaseRenewer = require "openbus.lease.LeaseRenewer"
 local OilUtilities = require "openbus.util.OilUtilities"
-local smartpatch = require "openbus.faulttolerance.smartpatch"
 local SmartComponent = require "openbus.faulttolerance.SmartComponent"
 
 local LoginPasswordAuthenticator =
