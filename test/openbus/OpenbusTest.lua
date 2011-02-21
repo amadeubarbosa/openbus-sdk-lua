@@ -20,11 +20,11 @@ local user = "tester"
 local password = "tester"
 
 local entityName = "TesteBarramento"
-local privateKey = "resources/Teste.key"
+local privateKey = "resources/TesteBarramento.key"
 local acsCertificate = "resources/AccessControlService.crt"
 
 oil.verbose:level(0)
-Log:level(0)
+Log:level(3)
 
 Suite = {
   Test1 = {
@@ -147,6 +147,7 @@ Suite = {
           return self.wasExpired
         end,
       }
+      Log:info("<< Teste da validade da lease >>")
     
       Check.assertTrue(Openbus:connectByLoginPassword(user, password))
       Openbus:setLeaseExpiredCallback(lec)
@@ -154,32 +155,10 @@ Suite = {
       Check.assertNotNil(acs)
       acs:logout(Openbus:getCredential())
       while (not (lec:isExpired())) do
+        Log:info("Lease não expirou: esperando 30 segundos...")
         oil.sleep(30)
       end
       Check.assertFalse(Openbus:disconnect())      
-    end,
-
-    testAddLeaseExpiredCbBeforeConnect = function(self)
-      local lec = {
-        wasReconnected = false,
-        expired = function(self)
-          Check.assertTrue(Openbus:connectByLoginPassword(user, password))
-          self.wasReconnected = true
-        end,
-        isReconnected = function(self)
-          return self.wasReconnected
-        end,
-      }
-
-      Check.assertTrue(Openbus:connectByLoginPassword(user, password))
-      Openbus:setLeaseExpiredCallback(lec)
-      local acs = Openbus:getAccessControlService()
-      Check.assertNotNil(acs)
-      acs:logout(Openbus:getCredential())
-      while (not (lec:isReconnected())) do
-        oil.sleep(30)
-      end
-      Check.assertTrue(Openbus:disconnect())      
     end,
 
     testAddLeaseExpiredCbAfterConnect = function(self)
@@ -193,13 +172,38 @@ Suite = {
           return self.wasReconnected
         end,
       }
+      Log:info("<< Teste da reconexão após a lease não ser mais válida [Callback cadastrada depois do connect] >>")
+      Check.assertTrue(Openbus:connectByLoginPassword(user, password))
+      Openbus:setLeaseExpiredCallback(lec)
+      local acs = Openbus:getAccessControlService()
+      Check.assertNotNil(acs)
+      acs:logout(Openbus:getCredential())
+      while (not (lec:isReconnected())) do
+        Log:info("Lease não expirou: esperando 30 segundos...")
+        oil.sleep(30)
+      end
+      Check.assertTrue(Openbus:disconnect())      
+    end,
 
+    testAddLeaseExpiredCbBeforeConnect = function(self)
+      local lec = {
+        wasReconnected = false,
+        expired = function(self)
+          Check.assertTrue(Openbus:connectByLoginPassword(user, password))
+          self.wasReconnected = true
+        end,
+        isReconnected = function(self)
+          return self.wasReconnected
+        end,
+      }
+      Log:info("<< Teste da reconexão após a lease não ser mais válida [Callback cadastrada antes do connect] >>")
       Openbus:setLeaseExpiredCallback(lec)
       Check.assertTrue(Openbus:connectByLoginPassword(user, password))
       local acs = Openbus:getAccessControlService()
       Check.assertNotNil(acs)
       acs:logout(Openbus:getCredential())
       while (not (lec:isReconnected())) do
+        Log:info("Lease não expirou: esperando 30 segundos...")
         oil.sleep(30)
       end
       Check.assertTrue(Openbus:disconnect())      
