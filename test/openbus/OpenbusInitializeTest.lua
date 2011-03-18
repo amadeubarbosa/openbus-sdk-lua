@@ -19,7 +19,7 @@ local port = 2089
 local props = nil
 
 oil.verbose:level(0)
-Log:level(5)
+Log:level(0)
 
 Suite = {
   Test1 = {
@@ -32,8 +32,12 @@ Suite = {
       Check.assertFalse(Openbus:init(nil, port, props, iConfig, iConfig))
     end,
 
-    testInitInvalidPort = function(self)
+    testInitNegativePort = function(self)
       Check.assertFalse(Openbus:init(host, -1, props, iConfig, iConfig))
+    end,
+
+    testInitInvalidPort = function(self)
+      Check.assertFalse(Openbus:init(host, "INVALID", props, iConfig, iConfig))
     end,
 
     testInitTwice = function(self)

@@ -22,6 +22,7 @@ local string = string
 local gsub = gsub
 local setfenv = setfenv
 local format = string.format
+local type = type
 
 -- API de acesso a um barramento OpenBus.
 ---
@@ -328,13 +329,19 @@ function Openbus:init(host, port, props, serverInterceptorConfig,
     Log:error("OpenBus: O campo 'host' não pode ser nil")
     return false
   end
-  if not port or port < 0 then
-    Log:error("OpenBus: O campo 'port' não pode ser nil nem negativo.")
+  if type(port) ~= "number" then
+    Log:error("OpenBus: O campo 'port' deve ser um número.")
+    return false
+  end
+  if port < 0 then
+    Log:error("OpenBus: O campo 'port' não pode ser negativo.")
     return false
   end
   if self.inited then
+    Log:error("Openbus já inicializado.")
     return false
   end
+
   -- init
   self.host = host
   self.port = port
