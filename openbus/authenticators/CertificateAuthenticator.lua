@@ -1,6 +1,7 @@
 -- $Id$
 
 local format = string.format
+local tostring = tostring
 
 local lce = require "lce"
 
@@ -39,18 +40,18 @@ function authenticate(self, acs)
   if not privateKey then
     Log:error(format(
         "Ocorreu um erro ao carregar o arquivo de chave privada %s: %s",
-        self.privateKeyFile, err))
+        self.privateKeyFile, tostring(err)))
     return nil
   end
   challenge, err = lce.cipher.decrypt(privateKey, challenge)
   if not challenge then
     Log:error(format("Ocorreu um erro ao descriptografar o desafio obtido: %s",
-        err))
+        tostring(err)))
   end
   local certificate, err = lce.x509.readfromderfile(self.acsCertificateFile)
   if not certificate then
     Log:error(format("Ocorreu um erro ao carregar o arquivo de certificado digital do barramento %s",
-        self.acsCertificateFile), err)
+        self.acsCertificateFile), tostring(err))
   end
   local answer = lce.cipher.encrypt(certificate:getpublickey(), challenge)
   local succ, credential, lease = acs:loginByCertificate(self.name, answer)

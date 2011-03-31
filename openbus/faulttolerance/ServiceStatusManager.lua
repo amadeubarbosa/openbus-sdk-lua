@@ -4,6 +4,7 @@ local loadfile = loadfile
 local pairs = pairs
 local os = os
 local setfenv = setfenv
+local tostring = tostring
 
 local Log = require "openbus.util.Log"
 local oop = require "loop.simple"
@@ -41,7 +42,7 @@ function setReplicas(self)
   if not loadConfig then
     Log:error(format(
         "O arquivo de configuração %s não pôde ser carregado ou não existe",
-        configFile), err)
+        configFile), tostring(err))
     os.exit(1)
   end
   setfenv(loadConfig,_M)
@@ -56,7 +57,7 @@ function setReplicas(self)
   if not loadConfig then
     Log:error(format(
         "O arquivo de configuração %s não pôde ser carregado ou não existe",
-        configFile), err)
+        configFile), tostring(err))
     os.exit(1)
   end
   setfenv(loadConfig,_M)

@@ -23,6 +23,7 @@ local gsub = gsub
 local setfenv = setfenv
 local format = string.format
 local type = type
+local tostring = tostring
 
 -- API de acesso a um barramento OpenBus.
 ---
@@ -379,7 +380,7 @@ function Openbus:init(host, port, props, serverInterceptorConfig,
   -- carrega IDLs
   local status, result = oil.pcall(self._loadIDLs, self)
   if not status then
-    Log:error(format("Não foi possível carregar os arquivos de IDL: %s", result))
+    Log:error(format("Não foi possível carregar os arquivos de IDL: %s", tostring(result)))
     return false
   end
 

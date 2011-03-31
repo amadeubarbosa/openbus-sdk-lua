@@ -16,6 +16,8 @@ local assert   = assert
 local pcall    = pcall
 local setfenv  = setfenv
 local loadfile = loadfile
+local tostring = tostring
+
 --
 -- Classe que gerencia dados em disco.  Esses dados são tuplas
 -- <chave,valor> -- abstração de tabela em Lua.  Ao atribuir um novo
@@ -119,14 +121,14 @@ end
 function loadAll(self)
    local reader, msg = loadfile(self.dbfile)
    if not reader then
-      msg = string.format("Erro ao carregar dados do disco: %s", msg)
+      msg = string.format("Erro ao carregar dados do disco: %s", tostring(msg))
       return nil, msg
    end
    -- Sandbox
    setfenv(reader, {})
    local succ, data = pcall(reader)
    if not succ then
-      data = string.format("Erro ao carregar dados do disco: %s", data)
+      data = string.format("Erro ao carregar dados do disco: %s", tostring(data))
       return nil, data
    end
    -- Arquivo vazio, criar uma lista vazia
@@ -163,17 +165,17 @@ function saveAll(self, data)
    end)
    if not succ then
       os.remove(tmp)
-      msg = string.format("Não foi possível criar a nova base: %s", msg)
+      msg = string.format("Não foi possível criar a nova base: %s", tostring(msg))
       return false, msg
    end
    succ, msg = os.remove(self.dbfile)
    if not succ then
-      msg = string.format("Não foi possível remover base antiga: %s", msg)
+      msg = string.format("Não foi possível remover base antiga: %s", tostring(msg))
       return false, msg
    end
    succ, msg = os.rename(tmp, self.dbfile)
    if not succ then
-      msg = string.format("Não foi possível renomear a nova base: %s", msg)
+      msg = string.format("Não foi possível renomear a nova base: %s", tostring(msg))
       return false, msg
    end
    return true
