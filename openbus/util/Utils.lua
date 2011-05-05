@@ -409,9 +409,8 @@ end
 function containsProperties(propertiesA, propertiesB)
   for name, values in pairs(propertiesB) do
     -- Propriedades registradas automaticamente pelo Serviço de Registro: ignorar
-    if name ~= "component_id" and
-      name ~= "registered_by" and
-      name ~= "modified" then
+    if name ~= "component_id" and name ~= "registered_by" and
+        name ~= "modified"  and name ~= "registrationDate" then
       if type ( values ) == "table" then
         local count = 0
         for value in pairs(values) do
