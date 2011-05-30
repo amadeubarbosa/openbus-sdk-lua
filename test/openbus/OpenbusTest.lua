@@ -21,15 +21,42 @@ local props = {}
 local user = "tester"
 local password = "tester"
 
-local entityName = "TesteBarramento"
-local privateKey = "resources/TesteBarramento.key"
-local acsCertificate = "resources/AccessControlService.crt"
-
 oil.verbose:level(0)
 Log:level(3)
 
 Suite = {
-  Test1 = {
+  Test1 = { --Testa o método de inicialização
+    testInitNullProps = function(self)
+      Check.assertTrue(Openbus:init(host, port, nil, iConfig, iConfig))
+      Openbus:destroy()
+    end,
+
+    testInitNullHost = function(self)
+      Check.assertFalse(Openbus:init(nil, port, props, iConfig, iConfig))
+    end,
+
+    testInitNegativePort = function(self)
+      Check.assertFalse(Openbus:init(host, -1, props, iConfig, iConfig))
+    end,
+
+    testInitInvalidPort = function(self)
+      Check.assertFalse(Openbus:init(host, "INVALID", props, iConfig, iConfig))
+    end,
+
+    testInitTwice = function(self)
+      Check.assertTrue(Openbus:init(host, port, nil, iConfig, iConfig))
+      Check.assertFalse(Openbus:init(host, port, nil, iConfig, iConfig))
+      Openbus:destroy()
+    end,
+
+    destroyWithoutInit = function(self)
+      Openbus:destroy()
+      Check.assertTrue(Openbus:init(host, port, nil, iConfig, iConfig))
+      Openbus:destroy()
+    end,
+  },
+  
+  Test2 = {
     beforeTestCase = function(self)
       Openbus:init(host, port, nil, iConfig)
     end,
@@ -60,31 +87,6 @@ Suite = {
     testConnectByPasswordTwice = function(self)
       Check.assertTrue(Openbus:connectByLoginPassword(user, password))
       Check.assertFalse(Openbus:connectByLoginPassword(user, password))
-      Check.assertTrue(Openbus:disconnect())
-    end,
-
-    testConnectByCertificate = function(self)
-      Check.assertTrue(Openbus:connectByCertificate(entityName, privateKey, acsCertificate))
-      Check.assertTrue(Openbus:disconnect())
-    end,
-    
-    testConnectByCertificateNullKey = function(self)
-      Check.assertFalse(Openbus:connectByCertificate(entityName, nil, acsCertificate))
-    end,
-    
-    testConnectByCertificateNullACSCertificate = function(self)
-      Check.assertFalse(Openbus:connectByCertificate(entityName, privateKey, nil))
-    end,
-
-    testConnectByCertificateInvalidEntityName = function(self)
-      Check.assertFalse(Openbus:connectByCertificate(nil, privateKey, acsCertificate))
-    end,
-
-    testConnectByCertificateTwice = function(self)
-      Check.assertTrue(Openbus:connectByCertificate(entityName, privateKey,
-          acsCertificate))
-      Check.assertFalse(Openbus:connectByCertificate(entityName, privateKey,
-          acsCertificate))
       Check.assertTrue(Openbus:disconnect())
     end,
 
@@ -210,5 +212,100 @@ Suite = {
       end
       Check.assertTrue(Openbus:disconnect())      
     end,
+  },
+  
+  Test3 = { -- Testa connectByCertificate
+    beforeTestCase = function(self)
+      local OPENBUS_HOME = os.getenv("OPENBUS_HOME")
+      local ltime = tostring(socket.gettime())
+      ltime = string.gsub(ltime, "%.", "")
+      
+      self.systemId     = "TesteBarramento".. ltime
+      self.deploymentId = self.systemId
+      self.testKeyFile  = self.systemId .. ".key"
+      self.acsCertFile  = "AccessControlService.crt"
+      local testACSCertFile = assert(io.open(self.acsCertFile,"r"))
+      testACSCertFile:close()
+
+      os.execute(OPENBUS_HOME.."/specs/shell/openssl-generate.ksh -n " .. self.systemId .. " -c "..OPENBUS_HOME.."/openssl/openssl.cnf <TesteBarramentoCertificado_input.txt  2> genkey-err.txt >genkeyT.txt ")
+
+      os.execute(OPENBUS_HOME.."/core/bin/run_management.sh --acs-host=" .. host ..
+                                                                        " --acs-port=" .. port  ..
+                                                                        " --login=tester" ..
+                                                                        " --password=tester" ..
+                                                                        " --add-system="..self.systemId ..
+                                                                        " --description=Teste_do_OpenBus" ..
+                                                                        " 2>> management-err.txt >>management.txt ")
+
+      os.execute(OPENBUS_HOME.."/core/bin/run_management.sh --acs-host=" .. host ..
+                                                                        " --acs-port=" .. port  ..
+                                                                        " --login=tester" ..
+                                                                        " --password=tester" ..
+                                                                        " --add-deployment="..self.deploymentId ..
+                                                                        " --system="..self.systemId ..
+                                                                        " --description=Teste_do_Barramento" ..
+                                                                        " --certificate="..self.systemId..".crt"..
+                                                                        " 2>> management-err.txt >>management.txt ")
+
+      Openbus:init(host, port, nil, iConfig)
+    end,
+
+    afterTestCase = function(self)
+      Openbus:destroy()
+      local OPENBUS_HOME = os.getenv("OPENBUS_HOME")
+      os.execute(OPENBUS_HOME.."/core/bin/run_management.sh --acs-host=" .. host ..
+                                                                        " --acs-port=" .. port ..
+                                                                        " --login=tester" ..
+                                                                        " --password=tester" ..
+                                                                        " --del-deployment="..self.deploymentId..
+                                                                        " 2>> management-err.txt >>management.txt ")
+
+      os.execute(OPENBUS_HOME.."/core/bin/run_management.sh --acs-host=" .. host ..
+                                                                        " --acs-port=" .. port ..
+                                                                        " --login=tester" ..
+                                                                        " --password=tester" ..
+                                                                        " --del-system="..self.systemId..
+                                                                        " 2>> management-err.txt >>management.txt ")
+                                                                        
+      --Apaga as chaves e certificados gerados
+      os.execute("rm -r " .. self.systemId .. ".key")
+      os.execute("rm -r " .. self.systemId .. ".crt")
+    end,
+
+    afterEachTest = function(self)
+      if Openbus:isConnected() then
+        Openbus:disconnect()
+      end
+    end,
+
+    testConnectByCertificate = function(self)
+      Check.assertTrue(Openbus:connectByCertificate(self.deploymentId, 
+          self.testKeyFile, self.acsCertFile))
+      Check.assertTrue(Openbus:disconnect())
+    end,
+    
+    testConnectByCertificateNullKey = function(self)
+      Check.assertFalse(Openbus:connectByCertificate(self.deploymentId, nil, 
+          self.acsCertFile))
+    end,
+    
+    testConnectByCertificateNullACSCertificate = function(self)
+      Check.assertFalse(Openbus:connectByCertificate(self.deploymentId, 
+          self.testKeyFile, nil))
+    end,
+
+    testConnectByCertificateInvalidEntityName = function(self)
+      Check.assertFalse(Openbus:connectByCertificate(nil, self.testKeyFile, 
+          self.acsCertFile))
+    end,
+
+    testConnectByCertificateTwice = function(self)
+      Check.assertTrue(Openbus:connectByCertificate(self.deploymentId, 
+          self.testKeyFile, self.acsCertFile))
+      Check.assertFalse(Openbus:connectByCertificate(self.deploymentId, 
+          self.testKeyFile, self.acsCertFile))
+      Check.assertTrue(Openbus:disconnect())
+    end,
+    
   },
 }
