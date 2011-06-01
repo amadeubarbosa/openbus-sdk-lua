@@ -15,17 +15,16 @@
 \setlength{\parskip}{6mm}
 \textheight=8.2in
 
+%% Redefines the label 'Listing' to ..
+\def\lstlistingname{Código}
+\lstset{inputencoding=latin1}
+\codestyle{colorful}
+%% Removes hyperlinks borders
+\hypersetup{
+  pdfborder = {0 0 0},
+}
+
 \newcommand{\code}[1]{\texttt{#1}}
-
-%% Redefines the label 'Listing' to ..                                            
-\def\lstlistingname{Código}                                                       
-\lstset{inputencoding=latin1}                                                     
-\codestyle{colorful}                                                              
-%% Removes hyperlinks borders                                                     
-\hypersetup{                                                                      
-  pdfborder = {0 0 0},                                                            
-}                                                                                 
-
 
 % ===================
 % Inicio do documento
@@ -40,9 +39,8 @@
         (PUC-Rio)\\
         openbus-dev@tecgraf.puc-rio.br}
 
-\date{}
+\date{\today}
 \maketitle
-
 
 \pagenumbering{arabic}
 
@@ -56,6 +54,9 @@ Este documento é destinado aos usuários desenvolvedores de aplicações Lua que de
 	\item Modelo de Componentes SCS.
 	\item Conceitos básicos do Openbus.
 \end{itemize}
+
+Maiores informações podem ser obtidas em:
+\url{http://www.tecgraf.puc-rio.br/openbus}
 
 \section{Preparação do Ambiente}
 
@@ -94,15 +95,18 @@ Naturalmente a execução da demo necessita de um barramento em operação. A demo p
   \item Executar a demo: ./run
 \end{itemize}
 
-Após a execução do cliente, no terminal a seguinte mensagem deve ser exibida pelo processo servidor, entre outras: "HELLO!"
+Após a execução do cliente, no terminal a seguinte mensagem deve ser exibida pelo processo servidor, entre outras: ``HELLO!"
 
 \section{Desenvolvimento}
 
 \subsection{API}\label{api}
 
-A API é composta pelo módulo \textit{openbus.Openbus}, pela interface \textit{IRegistryService} advinda da IDL do Serviço de Registro e pelo módulo \textit{faulttolerance.SmartComponent}. O módulo Openbus atualmente é implementado como o padrão \emph{singleton}, pois suporta apenas um barramento. 
-
-Para se obter a instância do barramento e (re)inicializá-la, deve-se utilizar o Código~\ref{lst:barramento}.
+A API é composta pelo módulo \textit{openbus.Openbus}, pela interface
+\textit{IRegistryService} advinda da IDL do Serviço de Registro e pelo módulo
+\textit{faulttolerance.SmartComponent}. O módulo Openbus atualmente é
+implementado como o padrão \emph{singleton}, pois suporta apenas um barramento. 
+Para se obter a instância do barramento e (re)inicializá-la, deve-se utilizar o
+Código~\ref{lst:barramento}.
 
 \begin{labeledcode}[lua]{barramento}{Obtenção da Instância do Barramento}
 -- obtenção da instância do barramento
@@ -145,41 +149,52 @@ Note que o método \textit{enableFaultTolerance()} deve ser chamada logo após a c
 Os outros métodos da API Openbus serão explicados em mais detalhes a seguir:
 
 \begin{itemize}
+  \item \code{boolean init(host, port, props, serverInterceptorConfig,
+clientInterceptorConfig, policy)}: Retorna o barramento para o seu estado
+inicial, ou seja, desfaz as definições de atributos realizadas. Em seguida,
+inicializa o Orb.
   \item \code{ORB getORB()}: Retorna o ORB utilizado.
   \item \code{void run()}: \emph{Loop} que processa requisições remotas. Execução de \emph{orb.run()}.
   \item \code{void destroy()}: Finaliza a execução do barramento.
+  \item \code{void finish()}: Finaliza a execução do ORB.
   \item \code{IComponent getACSIComponent()}: Retorna o \emph{stub} IComponent do Serviço de Controle de Acesso.
   \item \code{IAccessControlService getAccessControlService()}: Retorna o \emph{stub} do Serviço de Controle de Acesso.
   \item \code{IRegistryService getRegistryService()}: Retorna o \emph{stub} do Serviço de Registro.
+  \item \code{void setCredential(credential)}: Configura a credencial da entidade.
   \item \code{Credential getCredential()}: Retorna a credencial de identificação do usuário frente ao barramento.
   \item \code{Credential getCredentialValidationPolicy()}: Retorna a a política de validação de credencial em uso.
   \item \code{Credential getInterceptedCredential()}: Retorna a credencial interceptada pelo interceptador servidor. Esta operação somente deve ser chamada durante o tratamento de alguma requisição à aplicação do usuário.
-  \item \code{void setThreadCredential(Credential credential)}: Define uma credencial a ser utilizada no lugar da credencial corrente. Útil para fornecer uma credencial com o campo delegate preenchido.
-  \item \code{void setLeaseExpiredCallback(LeaseExpiredCallback lec)}: Registra uma callback para a notificação de que o lease da credencial	de identificação do usuário expirou. LeaseExpiredCallback deve ser um objeto que contenha um método de nome \emph{expired()}.
-  \item \code{void removeLeaseExpiredCallback(LeaseExpiredCallback lec)}: Remove uma callback previamente registrada para a notificação de lease expirado.
+  \item \code{void setThreadCredential(credential)}: Define uma credencial a ser utilizada no lugar da credencial corrente. Útil para fornecer uma credencial com o campo delegate preenchido.
+  \item \code{void setLeaseExpiredCallback(lec)}: Registra uma callback para a notificação de que o lease da credencial	de identificação do usuário expirou. LeaseExpiredCallback deve ser um objeto que contenha um método de nome \emph{expired()}.
+  \item \code{void removeLeaseExpiredCallback(lec)}: Remove uma callback previamente registrada para a notificação de lease expirado.
   \item \code{boolean isConnected()}: Informa o estado de conexão com o barramento.
-  \item \code{IRegistryService connect(String user, String password}: Realiza uma tentativa de conexão com o barramento. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
+  \item \code{IRegistryService connectByLoginPassword(user, password}: Realiza uma tentativa de conexão com o barramento. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
     \subitem \code{InvalidCredentialException}: Caso a credencial seja rejeitada ao tentar obter o Serviço de Registro.
-  \item \code{IRegistryService connectByCertificate(String name, String privateKeyFile, String acsCertificateFile)}: Realiza uma tentativa de conexão com o barramento, utilizando o mecanismo de certificação para o processo de autenticação. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
+  \item \code{IRegistryService connectByCertificate(name, privateKeyFile,  acsCertificateFile)}: Realiza uma tentativa de conexão com o barramento, utilizando o mecanismo de certificação para o processo de autenticação. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
     \subitem \code{InvalidCredentialException}: Caso a credencial seja rejeitada ao tentar obter o Serviço de Registro.
-  \item \code{IRegistryService connectByCredential(Credential credential)}: Realiza uma tentativa de conexão ao barramento, a partir de uma credencial já existente. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
+  \item \code{IRegistryService connectByCredential(credential)}: Realiza uma tentativa de conexão ao barramento, a partir de uma credencial já existente. Se a tentativa for bem sucedida, um \emph{stub} do Serviço de Registro é retornado. Caso contrário, o retorno é \emph{false}. Uma exceção além das de CORBA pode ser lançada:
     \subitem \code{ACSUnavailableException}: Caso o Serviço de Controle de Acesso não consiga ser contactado.
   \item \code{boolean disconnect()}: Desfaz a conexão atual.
+  \item \code{void setInterceptable(interfaceRepID, method, isInterceptable)}: Define se os métodos de uma determinada interface devem ou não ser interceptados pelo interceptador servidor.
+
+  \item \code{boolean isInterceptable(interfaceRepID, method)}: Consulta se o método está sendo interceptado.
+  \item \code{boolean enableFaultTolerance()}: Habilita o mecanismo de tolerância a falhas.
+  \item \code{boolean isFaultToleranceEnabled()}: Consulta se o mecanismo de tolerância a falhas esta ativado.
 \end{itemize}
 	
 Os outros métodos do \emph{stub} do Serviço de Registro serão explicados em mais detalhes a seguir:
 
 \begin{itemize}
-  \item \code{void register(ServiceOffer serviceOffer, String registryId)}: Registra um serviço no barramento. O serviço é descrito através de uma oferta de serviço. Caso o serviço seja registrado com sucesso, a identificação do mesmo é armazenada no parâmetro de saída registryId.
-  \item \code{void unregister(String registryId)}: Remove uma oferta de serviço do barramento.
-  \item \code{ServiceOfferList find(FacetList facets)}: Busca uma ou mais ofertas de serviço no barramento que implementem todas as facetas discriminadas em \emph{facets}.
-  \item \code{ServiceOfferList findByCriteria(FacetList facets,	PropertyList properties)}: Busca uma ou mais ofertas de serviço no barramento que implementem todas as facetas discriminadas em \emph{facets} e que atendam aos critérios descritos no parâmetro \emph{criteria}, que é uma lista de propriedades descrita através de strings no formato chave = {valor1, valor2, ..., valorN}.
+  \item \code{void register(serviceOffer, registryId)}: Registra um serviço no barramento. O serviço é descrito através de uma oferta de serviço. Caso o serviço seja registrado com sucesso, a identificação do mesmo é armazenada no parâmetro de saída registryId.
+  \item \code{void unregister(registryId)}: Remove uma oferta de serviço do barramento.
+  \item \code{ServiceOfferList find(facets)}: Busca uma ou mais ofertas de serviço no barramento que implementem todas as facetas discriminadas em \emph{facets}.
+  \item \code{ServiceOfferList findByCriteria(facets,	properties)}: Busca uma ou mais ofertas de serviço no barramento que implementem todas as facetas discriminadas em \emph{facets} e que atendam aos critérios descritos no parâmetro \emph{criteria}, que é uma lista de propriedades descrita através de strings no formato chave = {valor1, valor2, ..., valorN}.
 \end{itemize}
 
 A API utiliza o log do Loop, que possui os níveis de log descritos no arquivo
- \emph{openbus.util.Log}. Para alterar o nível de log da API deve-se 
- chamar o método \emph{Log:level()} enviando um número referente ao nível de log
- como parâmetro. Este método se encontra no arquivo \emph{openbus.util.Log}.
+\emph{openbus/util/Log.lua}. Para alterar o nível de log da API deve-se 
+chamar o método \emph{Log:level()} enviando um número referente ao nível de log
+como parâmetro. Este método se encontra no módulo \emph{openbus.util.Log}.
 
 \subsection{Primeiros Passos}
 
@@ -212,7 +227,7 @@ No caso da autenticação via certificado, o responsável pelo serviço deve encamin
 Um exemplo do código necessário para a conexão com o barramento pode ser visto no Código~\ref{lst:conexao}.
 
 \begin{labeledcode}[lua]{conexao}{Conexão com o Barramento}
-local openbus = require "openbus.Openbus"
+local openbus = require ``openbus.Openbus"
 
 -- host e porta apenas para fins de exemplo
 openbus:init("localhost", 2089)
@@ -223,7 +238,7 @@ function main ()
 
   -- Conexão com o barramento
   local registryService = openbus:connect("HelloService", 
-    "HelloService.key", "AccessControlService.crt")
+    ``HelloService.key", ``AccessControlService.crt")
 end
 \end{labeledcode}
 
@@ -231,7 +246,7 @@ end
 
 Um serviço pode ser colocado no barramento através de uma oferta de serviço (\emph{ServiceOffer}), que é uma estrutura que representa o serviço através de uma lista de propriedades (\emph{properties}) e de uma referência a um componente (\emph{member}) SCS. As definições em IDL dessas estruturas podem ser vistas no Código~\ref{lst:offer}.
 
-\begin{labeledcode}[idl]{offer}{Definições de Ofertas de Serviço}
+\begin{labeledcode}[c]{offer}{Definições de Ofertas de Serviço}
 typedef sequence<string> PropertyValue;
 struct Property {
     string name;
@@ -296,8 +311,8 @@ Até este ponto, o servidor basicamente se autenticou ao barramento e registrou o
 Como o servidor, o cliente necessita de se autenticar ao barramento. Portanto, os mesmos passos aplicados ao servidor para a autenticação devem ser repetidos, com exceção de que o cliente geralmente se autentica através do mecanismo de usuário e senha, como no Código~\ref{lst:clientauth}.
 
 \begin{labeledcode}[lua]{clientauth}{Autenticação da Aplicação Cliente}
-// userLogin e userPassword são variáveis String contendo o 
-// nome de usuário e senha.
+-- userLogin e userPassword são variáveis String contendo o 
+-- nome de usuário e senha.
 local registryService = openbus:connect(userLogin, userPassword)
 \end{labeledcode}
 
