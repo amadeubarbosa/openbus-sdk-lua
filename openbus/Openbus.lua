@@ -311,8 +311,8 @@ end
 ---
 -- Consulta se o mecanismo de tolerancia a falhas esta ativo
 --
-function Openbus:isFaultToleranceEnable()
-  return self.isFaultToleranceEnabled
+function Openbus:isFaultToleranceEnabled()
+  return self.isFaultToleranceEnable
 end
 
 ---
