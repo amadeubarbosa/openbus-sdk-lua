@@ -308,6 +308,12 @@ function Openbus:enableFaultTolerance()
   return true
 end
 
+---
+-- Consulta se o mecanismo de tolerancia a falhas esta ativo
+--
+function Openbus:isFaultToleranceEnable()
+  return self.isFaultToleranceEnabled
+end
 
 ---
 -- Retorna o barramento para o seu estado inicial, ou seja, desfaz as
