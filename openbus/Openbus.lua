@@ -538,6 +538,36 @@ function Openbus:getCredentialValidationPolicy()
   return self.credentialValidationPolicy
 end
 
+
+---
+-- Realiza uma tentativa de conexão com o barramento (serviço de controle de
+-- acesso e o serviço de registro), via autenticador.
+--
+-- @param authenticator o autenticador.
+--
+-- @return O serviço de registro. {@code false} caso ocorra algum erro.
+---
+local function connect(self, authenticator)
+  if not self.credentialManager:hasValue() then
+    if not self.acs then
+      if not self:_fetchACS() then
+        Log:error("Não foi possível obter o serviço de controle de acesso")
+        return false
+      end
+    end
+    local credential, lease = authenticator:authenticate(self.acs)
+    if credential then
+      return self:_completeConnection(credential, lease)
+    else
+      Log:error("Não foi possível fazer a autenticação no barramento")
+      return false
+    end
+  else
+    Log:error("A conexão com o barramento já está estabelecida")
+    return false
+  end
+end
+
 ---
 -- Realiza uma tentativa de conexão com o barramento (serviço de controle de
 -- acesso e o serviço de registro), via nome de usuário e senha.
@@ -556,7 +586,7 @@ function Openbus:connectByLoginPassword(user, password)
     return false
   end
   local authenticator = LoginPasswordAuthenticator(user, password)
-  return self:connect(authenticator)
+  return connect(self, authenticator)
 end
 
 ---
@@ -580,28 +610,7 @@ function Openbus:connectByCertificate(name, privateKeyFile, acsCertificateFile)
   end
   local authenticator = CertificateAuthenticator(name, privateKeyFile,
       acsCertificateFile)
-  return self:connect(authenticator)
-end
-
-function Openbus:connect(authenticator)
-  if not self.credentialManager:hasValue() then
-    if not self.acs then
-      if not self:_fetchACS() then
-        Log:error("Não foi possível obter o serviço de controle de acesso")
-        return false
-      end
-    end
-    local credential, lease = authenticator:authenticate(self.acs)
-    if credential then
-      return self:_completeConnection(credential, lease)
-    else
-      Log:error("Não foi possível fazer a autenticação no barramento")
-      return false
-    end
-  else
-    Log:error("A conexão com o barramento já está estabelecida")
-    return false
-  end
+  return connect(self, authenticator)
 end
 
 ---
