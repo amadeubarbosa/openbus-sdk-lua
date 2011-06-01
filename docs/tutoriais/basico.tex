@@ -227,7 +227,7 @@ No caso da autenticação via certificado, o responsável pelo serviço deve encamin
 Um exemplo do código necessário para a conexão com o barramento pode ser visto no Código~\ref{lst:conexao}.
 
 \begin{labeledcode}[lua]{conexao}{Conexão com o Barramento}
-local openbus = require ``openbus.Openbus"
+local openbus = require "openbus.Openbus"
 
 -- host e porta apenas para fins de exemplo
 openbus:init("localhost", 2089)
@@ -238,7 +238,7 @@ function main ()
 
   -- Conexão com o barramento
   local registryService = openbus:connect("HelloService", 
-    ``HelloService.key", ``AccessControlService.crt")
+    "HelloService.key", "AccessControlService.crt")
 end
 \end{labeledcode}
 
