@@ -95,7 +95,7 @@ Suite = {
       Check.assertTrue(Openbus:connectByLoginPassword(user, password))
       local credential = Openbus:getCredential();
       Check.assertNotNil(credential)
-      Check.assertFalse(Openbus:connect(credential))
+      Check.assertTrue(Openbus:connectByCredential(credential))
       Check.assertTrue(Openbus:disconnect())      
     end,
 
