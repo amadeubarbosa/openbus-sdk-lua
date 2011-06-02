@@ -153,6 +153,19 @@ Os outros métodos da API Openbus serão explicados em mais detalhes a seguir:
 clientInterceptorConfig, policy)}: Retorna o barramento para o seu estado
 inicial, ou seja, desfaz as definições de atributos realizadas. Em seguida,
 inicializa o Orb.
+  Os parâmetros são:
+  \begin{description}
+    \item[host:] Endereço do Serviço de Controle de Acesso.
+    \item[port:] Porta do Serviço de Controle de Acesso.
+    \item[props:] Conjunto de propriedades para a criação do ORB.
+    \item[serverInterceptorConfig:] Configuração opcional do interceptador
+    servidor.
+    \item[clientInterceptorConfig:] Configuração opcional do interceptador
+    cliente.
+    \item[policy:] Política de validação de credencial
+  \end{description}  
+  Retorna \code{false} caso ocorra algum erro, e \code{true} caso contrário.
+  
   \item \code{ORB getORB()}: Retorna o ORB utilizado.
   \item \code{void run()}: \emph{Loop} que processa requisições remotas. Execução de \emph{orb.run()}.
   \item \code{void destroy()}: Finaliza a execução do barramento.
@@ -176,8 +189,20 @@ inicializa o Orb.
     \subitem \code{ACSUnavailableException}: Caso o Serviço de Controle de Acesso não consiga ser contactado.
   \item \code{boolean disconnect()}: Desfaz a conexão atual.
   \item \code{void setInterceptable(interfaceRepID, method, isInterceptable)}: Define se os métodos de uma determinada interface devem ou não ser interceptados pelo interceptador servidor.
+  Os parâmetros são:
+  \begin{description}
+    \item[interfaceRepID] Identificador da interface do método.
+    \item[method] Nome do método.
+    \item[isInterceptable] Indica se o método deve ser interceptado ou não.
+  \end{description}
 
   \item \code{boolean isInterceptable(interfaceRepID, method)}: Consulta se o método está sendo interceptado.
+  Os parâmetros são:
+  \begin{description}
+    \item[interfaceRepID] Identificador da interface do método.
+    \item[method] Nome do método.
+  \end{description}
+  
   \item \code{boolean enableFaultTolerance()}: Habilita o mecanismo de tolerância a falhas.
   \item \code{boolean isFaultToleranceEnabled()}: Consulta se o mecanismo de tolerância a falhas esta ativado.
 \end{itemize}
