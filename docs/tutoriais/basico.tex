@@ -175,7 +175,7 @@ inicializa o Orb.
   \item \code{IRegistryService getRegistryService()}: Retorna o \emph{stub} do Serviço de Registro.
   \item \code{void setCredential(credential)}: Configura a credencial da entidade.
   \item \code{Credential getCredential()}: Retorna a credencial de identificação do usuário frente ao barramento.
-  \item \code{Credential getCredentialValidationPolicy()}: Retorna a a política de validação de credencial em uso.
+  \item \code{CredentialValidationPolicy getCredentialValidationPolicy()}: Retorna a política de validação de credencial em uso.
   \item \code{Credential getInterceptedCredential()}: Retorna a credencial interceptada pelo interceptador servidor. Esta operação somente deve ser chamada durante o tratamento de alguma requisição à aplicação do usuário.
   \item \code{void setThreadCredential(credential)}: Define uma credencial a ser utilizada no lugar da credencial corrente. Útil para fornecer uma credencial com o campo delegate preenchido.
   \item \code{void setLeaseExpiredCallback(lec)}: Registra uma callback para a notificação de que o lease da credencial	de identificação do usuário expirou. LeaseExpiredCallback deve ser um objeto que contenha um método de nome \emph{expired()}.
