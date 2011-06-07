@@ -286,8 +286,8 @@ struct ServiceOffer {
 };
 \end{labeledcode}
 
-Através da lista de propriedades, é possível caracterizar o serviço. 
-	
+A lista de propriedades pode ser utilizada para adicionar características para o serviço, a fim de facilitar a identificação por parte dos clientes.
+
 A arquitetura do Openbus é baseada no modelo de componentes SCS. Os serviços são de fato representados por componentes, que podem apresentar distintas facetas (interfaces). Sendo assim, o primeiro passo para o registro de um serviço é criar um componente que represente esse serviço. Maiores informações sobre a criação de componentes SCS podem ser obtidas nos tutoriais desse projeto, mas um exemplo pode ser conferido no Código~\ref{lst:component}. Nesse exemplo, \emph{HelloImpl} é o nome da classe que implementa a faceta \emph{IHello}.
 
 \begin{labeledcode}[lua]{component}{Instanciação de um Componente SCS}
