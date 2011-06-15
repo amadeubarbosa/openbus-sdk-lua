@@ -45,4 +45,3 @@ function existent(self, proxy)
   end
 end
 
-
