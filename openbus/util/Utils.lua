@@ -129,7 +129,6 @@ LEASE_PROVIDER_KEY_PREV = "LP_"..OB_PREV
 FAULT_TOLERANT_ACS_KEY = "FTACS_"..OB_VERSION
 FAULT_TOLERANT_ACS_KEY_PREV = "FTACS_"..OB_PREV
 MANAGEMENT_KEY = "MGM_"..OB_VERSION
-MANAGEMENT_KEY_PREV = "MGM_"..OB_PREV
 
 ---
 --  As chaves CORBALOC para obtenção das interfaces do RS.
@@ -141,7 +140,6 @@ FAULT_TOLERANT_RS_KEY_PREV = "FTRS_"..OB_PREV
 FT_RS_MONITOR_KEY = "FTRSMonitor_"..OB_VERSION
 FT_RS_MONITOR_KEY_PREV = "FTRSMonitor_"..OB_PREV
 MANAGEMENT_RS_KEY = "MGMRS_" .. OB_VERSION
-MANAGEMENT_RS_KEY_PREV = "MGMRS_" .. OB_PREV
 
 ---
 --  A interface ISessionService.
@@ -198,21 +196,9 @@ MANAGEMENT_ACS_INTERFACE =  "IDL:tecgraf/openbus/core/" .. OB_VERSION ..
   "/access_control_service/IManagement:1.0"
 
 ---
---  A interface IManagement do Servico de Controle de Acesso na versão anterior.
----
-MANAGEMENT_ACS_INTERFACE_PREV =  "IDL:tecgraf/openbus/core/" .. OB_PREV ..
-  "/access_control_service/IManagement:1.0"
-
----
 --  A interface IManagement do Servico de Registro.
 ---
 MANAGEMENT_RS_INTERFACE =  "IDL:tecgraf/openbus/core/" .. OB_VERSION ..
-  "/registry_service/IManagement:1.0"
-
----
---  A interface IManagement do Servico de Registro na versão anterior.
----
-MANAGEMENT_RS_INTERFACE_PREV =  "IDL:tecgraf/openbus/core/" .. OB_PREV ..
   "/registry_service/IManagement:1.0"
 
 ---
