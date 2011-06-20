@@ -377,7 +377,7 @@ function equalsOfferEntries(offerEntryA, offerEntryB, orb)
   return offerEntryA.credential.identifier == offerEntryB.credential.identifier and
     containsProperties(offerEntryA.properties, offerEntryB.properties)          and
     containsProperties(offerEntryB.properties, offerEntryA.properties)          and
-    orb:tostring(offerEntryA.offer.member) == orb:tostring(offerEntryB.offer.member)
+    orb:tostring(offerEntryA.offer.fMember) == orb:tostring(offerEntryB.offer.fMember)
 end
 
 ---
@@ -436,7 +436,7 @@ end
 function unmarshalHashFacets(strFacets)
   local facets = {}
   for facetDesc in string.gmatch(strFacets, "[^#]+") do
-    if facetDest then
+    if facetDesc then
        facets[facetDesc] = true
     end
   end

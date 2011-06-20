@@ -73,11 +73,8 @@ function main ()
   end
   registryService = orb:narrow(registryService, "protected")
   local suc, id = registryService:register({
-    member = component.IComponent,
-    properties = {
-      { name = "facets", value = {"IDL:demoidl/hello/IHello:1.0",} }
-    },
-  })
+    { name = "facets", value = {"IDL:demoidl/hello/IHello:1.0",}}},
+    component.IComponent)
   if not suc then
       io.stderr:write("HelloServer: Erro ao registrar ofertas.\n")
       if id[1] == "IDL:tecgraf/openbus/core/v1_05/registry_service/UnauthorizedFacets:1.0" then
