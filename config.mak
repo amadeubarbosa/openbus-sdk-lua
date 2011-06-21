@@ -68,10 +68,17 @@ LIBS= dl
 
 ifeq "$(TEC_SYSNAME)" "SunOS"
   USE_CC=Yes
-  CFLAGS= -g -KPIC -mt -D_REENTRANT
+  NO_LOCAL_LD=Yes
+  AR=CC
+  CFLAGS+= -g -KPIC -mt -D_REENTRANT
+  STDLFLAGS= -xar
+  CPPFLAGS= +p -KPIC -mt -D_REENTRANT
   ifeq ($(TEC_WORDSIZE), TEC_64)
-    CFLAGS+= -m64
+    FLAGS+= -m64
+    LFLAGS+= -m64
+    STDLFLAGS+= -m64
   endif
+  STDLFLAGS+= -o
 endif
 
 .PHONY: clean-custom 
