@@ -73,11 +73,14 @@ function main ()
   end
   registryService = orb:narrow(registryService, "protected")
   local suc, id = registryService:register({
-    { name = "facets", value = {"IDL:demoidl/hello/IHello:1.0",}}},
-    component.IComponent)
+    member = component.IComponent,
+    properties = {
+      { name = "facets", value = {"IDL:demoidl/hello/IHello:1.0",} }
+    },
+  })
   if not suc then
       io.stderr:write("HelloServer: Erro ao registrar ofertas.\n")
-      if id[1] == "IDL:tecgraf/openbus/core/v1_05/registry_service/UnauthorizedFacets:1.0" then
+      if id[1] == "IDL:tecgraf/openbus/core/v1_05/registry_service/UnathorizedFacets:1.0" then
         for _, facet in ipairs(id.facets) do
           io.stderr:write(string.format("Registro da faceta '%s' não autorizado\n", facet))
         end

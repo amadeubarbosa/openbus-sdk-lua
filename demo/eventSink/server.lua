@@ -101,10 +101,14 @@ local function main ()
   local sink = orb:narrow(comp:getFacet(sinkFacet), sinkFacet)
   -- Registro do componente
   local registryService = orb:newproxy(rs, "protected") 
-  local succ, registryId = registryService:register (
-    {{name = "sessionName", value = {"HelloSession"}}}, comp)
+  local succ, registryId = registryService:register {
+    properties = { 
+      {name = "sessionName", value = {"HelloSession"}},
+    },
+    member = comp,
+  }
   if not succ then
-    if registryId[1] == "IDL:tecgraf/openbus/core/v1_05/registry_service/UnauthorizedFacets:1.0" then
+    if registryId[1] == "IDL:tecgraf/openbus/core/v1_05/registry_service/UnathorizedFacets:1.0" then
       io.stderr:write("[ERRO] Não foi possível registrar a oferta.\n")
       for _, facet in ipairs(registryId.facets) do
         io.stderr:write(string.format("[ERRO] Faceta '%s' não autorizada.\n", facet))

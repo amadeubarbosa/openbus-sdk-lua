@@ -377,7 +377,7 @@ function equalsOfferEntries(offerEntryA, offerEntryB, orb)
   return offerEntryA.credential.identifier == offerEntryB.credential.identifier and
     containsProperties(offerEntryA.properties, offerEntryB.properties)          and
     containsProperties(offerEntryB.properties, offerEntryA.properties)          and
-    orb:tostring(offerEntryA.offer.fMember) == orb:tostring(offerEntryB.offer.fMember)
+    orb:tostring(offerEntryA.offer.member) == orb:tostring(offerEntryB.offer.member)
 end
 
 ---
