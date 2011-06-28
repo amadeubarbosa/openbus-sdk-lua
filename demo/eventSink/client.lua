@@ -69,7 +69,7 @@ local componentId = {
 function main ()
   -- Carga da IDL do Serviço de Sessão
   local IDLPATH_DIR = os.getenv("IDLPATH_DIR")
-  local idlfile = IDLPATH_DIR .. "/".. OBUtils.OB_VERSION.."/session_service.idl"
+  local idlfile = IDLPATH_DIR .. "/".. OBUtils.IDL_VERSION.."/session_service.idl"
   orb:loadidlfile(idlfile)
 
   -- Permite que o ORB comece a aguardar requisições
@@ -83,8 +83,8 @@ function main ()
     os.exit(1)
   end
   -- Assume que há só uma sessão cadastrada no registro
-  -- local offers = registryService:find({"ISession_v" .. OBUtils.OB_VERSION})
-  local offers = registryService:findByCriteria({"ISession_" .. OBUtils.OB_VERSION}, 
+  -- local offers = registryService:find({"ISession_v" .. OBUtils.IDL_VERSION})
+  local offers = registryService:findByCriteria({"ISession_" .. OBUtils.IDL_VERSION}, 
                                                 { {name = "sessionName", value = {"HelloSession"}} })
   for _, offer in ipairs(offers) do
     local member = orb:newproxy(offer.member, "protected")

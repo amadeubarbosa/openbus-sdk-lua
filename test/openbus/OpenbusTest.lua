@@ -8,10 +8,9 @@ local Log = require "openbus.util.Log"
 
 local iConfig = {
   contextID = 1234,
-  credential_type = "IDL:tecgraf/openbus/core/"..Utils.OB_VERSION..
+  credential_type = "IDL:tecgraf/openbus/core/"..Utils.IDL_VERSION..
       "/access_control_service/Credential:1.0",
-  credential_type_prev = "IDL:tecgraf/openbus/core/"..Utils.OB_PREV..
-      "/access_control_service/Credential:1.0",
+  credential_type_prev = "IDL:openbusidl/acs/Credential:1.0",
 }
 
 local host = "localhost"
@@ -283,7 +282,7 @@ Suite = {
           self.testKeyFile, self.acsCertFile))
       Check.assertTrue(Openbus:disconnect())
     end,
-    
+
     testConnectByCertificateNullKey = function(self)
       Check.assertFalse(Openbus:connectByCertificate(self.deploymentId, nil, 
           self.acsCertFile))
@@ -306,6 +305,5 @@ Suite = {
           self.testKeyFile, self.acsCertFile))
       Check.assertTrue(Openbus:disconnect())
     end,
-    
   },
 }

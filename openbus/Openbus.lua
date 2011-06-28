@@ -226,25 +226,23 @@ function Openbus:_loadIDLs()
     return false
   end
 
-  local idlfile = IDLPATH_DIR .. "/"..Utils.OB_VERSION.."/scs.idl"
+  local idlfile = IDLPATH_DIR .. "/"..Utils.IDL_VERSION.."/scs.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/"..Utils.OB_VERSION.."/access_control_service.idl"
+  idlfile = IDLPATH_DIR .. "/"..Utils.IDL_VERSION.."/access_control_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/"..Utils.OB_VERSION.."/registry_service.idl"
+  idlfile = IDLPATH_DIR .. "/"..Utils.IDL_VERSION.."/registry_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/"..Utils.OB_VERSION.."/fault_tolerance.idl"
+  idlfile = IDLPATH_DIR .. "/"..Utils.IDL_VERSION.."/fault_tolerance.idl"
   self.orb:loadidlfile(idlfile)
 
   -- Carrega IDLs para clientes do barramento que ainda utilizam o SDK da versão
   -- anterior
-  idlfile = IDLPATH_DIR .. "/"..Utils.OB_PREV.."/access_control_service.idl"
+  idlfile = IDLPATH_DIR .. "/"..Utils.IDL_PREV.."/access_control_service.idl"
   self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/"..Utils.OB_PREV.."/registry_service.idl"
-  self.orb:loadidlfile(idlfile)
-  idlfile = IDLPATH_DIR .. "/"..Utils.OB_PREV.."/fault_tolerance.idl"
+  idlfile = IDLPATH_DIR .. "/"..Utils.IDL_PREV.."/registry_service.idl"
   self.orb:loadidlfile(idlfile)
 
-   return true
+  return true
 end
 
 ---
@@ -474,7 +472,7 @@ function Openbus:getRegistryService()
                                      self.orb,
                                      acsIC,
                                      "RegistryServiceReceptacle",
-                                     "IRegistryService_" .. Utils.OB_VERSION,
+                                     "IRegistryService_" .. Utils.IDL_VERSION,
                                      Utils.REGISTRY_SERVICE_INTERFACE)
   if not status then
         --erro ja foi logado

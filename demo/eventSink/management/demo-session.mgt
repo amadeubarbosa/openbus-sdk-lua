@@ -11,27 +11,27 @@ SystemDeployment {
 }
 
 Interface {
-  id = "IDL:tecgraf/openbus/session_service/v1_06/ISession:1.0"
-}
-
-Interface {
   id = "IDL:tecgraf/openbus/session_service/v1_05/ISession:1.0"
 }
 
 Interface {
-  id = "IDL:tecgraf/openbus/session_service/v1_06/SessionEventSink:1.0"
+  id = "IDL:openbusidl/ss/ISession:1.0"
 }
 
 Interface {
   id = "IDL:tecgraf/openbus/session_service/v1_05/SessionEventSink:1.0"
 }
 
+Interface {
+  id = "IDL:openbusidl/ss/SessionEventSink:1.0"
+}
+
 Grant {
   id = "HelloSession",
   interfaces = {
-    "IDL:tecgraf/openbus/session_service/v1_06/ISession:1.0",
     "IDL:tecgraf/openbus/session_service/v1_05/ISession:1.0",
-    "IDL:tecgraf/openbus/session_service/v1_06/SessionEventSink:1.0",
+    "IDL:openbusidl/ss/ISession:1.0"
     "IDL:tecgraf/openbus/session_service/v1_05/SessionEventSink:1.0",
+    "IDL:openbusidl/ss/SessionEventSink:1.0"
   }
 }

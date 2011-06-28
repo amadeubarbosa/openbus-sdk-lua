@@ -62,7 +62,7 @@ end
 local function main ()
   -- Carga da IDL do Serviço de Sessão
   local IDLPATH_DIR = os.getenv("IDLPATH_DIR")
-  local idlfile = IDLPATH_DIR .. "/".. obUtils.OB_VERSION.."/session_service.idl"
+  local idlfile = IDLPATH_DIR .. "/".. obUtils.IDL_VERSION.."/session_service.idl"
   orb:loadidlfile(idlfile)
 
   -- Permite que o ORB comece a aguardar requisições
