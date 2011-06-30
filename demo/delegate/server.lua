@@ -6,7 +6,8 @@
 local oil = require "oil"
 local oop = require "loop.base"
 local openbus = require "openbus.Openbus"
-local scsutils = require ("scs.core.utils").Utils()
+local ComponentContext = require "scs.core.ComponentContext"
+local scsutils = require ("scs.core.utils")()
 
 -- Inicialização do barramento
 local props = {}
@@ -17,8 +18,6 @@ openbus:init(host, tonumber(port))
 --openbus:enableFaultTolerance()
 local orb = openbus:getORB()
 
-local scs = require "scs.core.base"
-
 -- Implementação da Faceta IHello
 local Hello = oop.class {}
 function Hello:sayHello()
@@ -26,21 +25,6 @@ function Hello:sayHello()
   print "HELLO!\n\n"
   print("[Thread " .. intCred.delegate .. "]: Hello " .. intCred.owner .. " !")
 end
-
--- Descrições do componente HelloComponent
-local facetDescriptions = {}
-facetDescriptions.IHello = {
-  name = "IHello",
-  interface_name = "IDL:demoidl/demoDelegate/IHello:1.0",
-  class = Hello
-}
-local componentId = {
-  name = "DelegateService",
-  major_version = 1,
-  minor_version = 0,
-  patch_version = 0,
-  platform_spec = ""
-}
 
 -- Execução
 function main ()
@@ -51,7 +35,16 @@ function main ()
   openbus:run()
 
   -- Instanciação do componente HelloComponent
-  local component = scs.newComponent(facetDescriptions, {}, componentId)
+  local componentId = {
+    name = "DelegateService",
+    major_version = 1,
+    minor_version = 0,
+    patch_version = 0,
+    platform_spec = ""
+  }
+
+  local component = ComponentContext(orb, componentId)
+  component:putFacet("IHello", "IDL:demoidl/demoDelegate/IHello:1.0", Hello())
 
   -- Conexão com o barramento e registro do componente
   local entityName = props["entity.name"].value
