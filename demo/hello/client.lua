@@ -6,7 +6,7 @@
 local oil = require "oil"
 --oil.verbose:level(3)
 local openbus = require "openbus.Openbus"
-local scsutils = require ("scs.core.utils").Utils()
+local scsutils = require ("scs.core.utils")()
 local log = require "openbus.util.Log"
 
 -- Inicializacao do barramento
