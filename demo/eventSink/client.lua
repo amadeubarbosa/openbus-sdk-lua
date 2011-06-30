@@ -5,10 +5,10 @@
 
 local oo      = require "loop.base"
 local oil     = require "oil"
-local utils   = require ("scs.core.utils").Utils()
+local utils   = require ("scs.core.utils")()
 local openbus = require "openbus.Openbus"
 local OBUtils = require "openbus.util.Utils"
-
+local ComponentContext = require "scs.core.ComponentContext"
 --oil.verbose:level(3)
 
 -- Carrega as propriedades
@@ -24,8 +24,6 @@ local acsCertificateFile = props["acs.certificate"].value
 
 -- Inicialização
 openbus:init(host, port)
--- ORB deve estar inicializado antes de carregar o SCS
-local scs = require "scs.core.base"
 
 -- Auxiliares
 local orb = openbus:getORB()
@@ -48,34 +46,27 @@ function Sink:push(identifier, event)
 end
 
 -------------------------------------------------------------------------------
--- Descrições do componente
-local facetDescriptions = {}
-
-facetDescriptions.SessionEventSink = {
-  name = "SessionEventSink",
-  interface_name = sinkFacet,
-  class = Sink,
-}
-
-local componentId = {
-  name = "HelloSink",
-  major_version = 1,
-  minor_version = 0,
-  patch_version = 0,
-  platform_spec = ""
-}
-
--------------------------------------------------------------------------------
 function main ()
-  -- Carga da IDL do Serviço de Sessão
+  -- Carga da DL do Serviço de Sessão
   local IDLPATH_DIR = os.getenv("IDLPATH_DIR")
   local idlfile = IDLPATH_DIR .. "/".. OBUtils.IDL_VERSION.."/session_service.idl"
   orb:loadidlfile(idlfile)
 
   -- Permite que o ORB comece a aguardar requisições
   openbus:run()
+
   -- Instanciação do componente
-  context = scs.newComponent(facetDescriptions, {}, componentId)
+  local componentId = {
+    name = "HelloSink",
+    major_version = 1,
+    minor_version = 0,
+    patch_version = 0,
+    platform_spec = ""
+  }
+
+  context = ComponentContext(orb, componentId)
+  context:putFacet("SessionEventSink", sinkFacet, Sink())
+
   -- Conexão com o barramento e obtenção do componente de sessão
   local registryService = openbus:connectByLoginPassword(login, password)
   if not registryService then
@@ -99,7 +90,7 @@ function main ()
   io.stderr:write("[ERRO] Não foi possível localizar sessão.\n")
   openbus:disconnect()
   openbus:destroy()
-  os.exit(1)  
+  os.exit(1)
 end
 
 oil.main(function()

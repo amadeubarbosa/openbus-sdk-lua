@@ -4,10 +4,11 @@
 --
 
 local oo      = require "loop.base"
-local utils   = require ("scs.core.utils").Utils()
+local utils   = require ("scs.core.utils")()
 local oil     = require "oil"
 local openbus = require "openbus.Openbus"
 local obUtils = require "openbus.util.Utils"
+local ComponentContext = require "scs.core.ComponentContext"
 --oil.verbose:level(5)
 
 -- Carrega as propriedades
@@ -22,26 +23,12 @@ local acsCertificateFile = props["acs.certificate"].value
 
 -- Inicialização
 openbus:init(host, port)
--- ORB deve estar inicializado antes de carregar o SCS
-local scs = require "scs.core.base"
 
 -- Auxiliares
 local orb = openbus:getORB()
 local compFacet = obUtils.COMPONENT_INTERFACE
 local sinkFacet = obUtils.SESSION_ES_INTERFACE
 local context
-
--------------------------------------------------------------------------------
--- Descrições do componente
-local facetDescriptions = {}
-
-local componentId = {
-  name = "HelloSource",
-  major_version = 1,
-  minor_version = 0,
-  patch_version = 0,
-  platform_spec = ""
-}
 
 -------------------------------------------------------------------------------
 -- Publica os eventos no canal
@@ -68,7 +55,16 @@ local function main ()
   -- Permite que o ORB comece a aguardar requisições
   openbus:run()
   -- Instanciação do componente
-  context = scs.newComponent(facetDescriptions, {}, componentId)
+  local componentId = {
+    name = "HelloSource",
+    major_version = 1,
+    minor_version = 0,
+    patch_version = 0,
+    platform_spec = ""
+  }
+
+  context = ComponentContext(orb, componentId)
+
   -- Conexão com o barramento
   local rs = openbus:connectByCertificate(entityName,
     privateKeyFile, acsCertificateFile)
@@ -100,7 +96,7 @@ local function main ()
   local comp = orb:narrow(session:_component(), compFacet)
   local sink = orb:narrow(comp:getFacet(sinkFacet), sinkFacet)
   -- Registro do componente
-  local registryService = orb:newproxy(rs, "protected") 
+  local registryService = orb:newproxy(rs, "protected")
   local succ, registryId = registryService:register {
     properties = { 
       {name = "sessionName", value = {"HelloSession"}},
