@@ -179,7 +179,7 @@ function Openbus:_fetchACS()
     if not self.serverInterceptor or not self.clientInterceptor then
       local status, err = oil.pcall(self._setInterceptors, self)
       if not status then
-        log:error("Erro ao cadastrar interceptadores no ORB. Erro: " .. err)
+        Log:error("Erro ao cadastrar interceptadores no ORB. Erro: " .. err)
         return false
       end
     end
