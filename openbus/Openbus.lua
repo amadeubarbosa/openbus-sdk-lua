@@ -263,7 +263,7 @@ function Openbus:enableFaultTolerance()
     local DATA_DIR = os.getenv("OPENBUS_DATADIR")
     local loadConfig, err = loadfile(DATA_DIR .."/conf/ACSFaultToleranceConfiguration.lua")
     if not loadConfig then
-      Log:error("O arquivo 'ACSFaultToleranceConfiguration' não pode ser " ..
+      log:error("O arquivo 'ACSFaultToleranceConfiguration' não pode ser " ..
           "carregado ou não existe.",err)
       os.exit(1)
     end
