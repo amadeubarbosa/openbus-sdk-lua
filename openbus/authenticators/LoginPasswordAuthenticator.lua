@@ -14,8 +14,8 @@ oop.class(_M, Authenticator)
 
 function __init(self, name, password)
   return oop.rawnew(self, {
-	  name = name,
-	  password = password,
+    name = name,
+    password = password,
   })
 end
 
