@@ -48,7 +48,7 @@ function main ()
   }
 
   local component = ComponentContext(orb, componentId)
-  component:putFacet("IHello", "IDL:demoidl/hello/IHello:1.0", Hello())
+  component:addFacet("IHello", "IDL:demoidl/hello/IHello:1.0", Hello())
 
   -- Conexão com o barramento e registro do componente
   local entityName = props["entity.name"].value

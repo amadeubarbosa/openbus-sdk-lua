@@ -65,7 +65,7 @@ function main ()
   }
 
   context = ComponentContext(orb, componentId)
-  context:putFacet("SessionEventSink", sinkFacet, Sink())
+  context:addFacet("SessionEventSink", sinkFacet, Sink())
 
   -- Conexão com o barramento e obtenção do componente de sessão
   local registryService = openbus:connectByLoginPassword(login, password)
