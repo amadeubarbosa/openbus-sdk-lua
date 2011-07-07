@@ -6,6 +6,7 @@
 local oil = require "oil"
 local oop = require "loop.base"
 local openbus = require "openbus.Openbus"
+local Utils = require "openbus.util.Utils"
 local ComponentContext = require "scs.core.ComponentContext"
 local scsutils = require ("scs.core.utils")()
 
@@ -64,7 +65,7 @@ function main ()
     io.stderr:write("HelloServer: Erro ao conectar ao barramento.\n")
     os.exit(1)
   end
-  registryService = orb:narrow(registryService, "protected")
+  registryService = orb:newproxy(registryService, "protected")
   local suc, id = registryService:register({
     member = component.IComponent,
     properties = {
@@ -73,7 +74,7 @@ function main ()
   })
   if not suc then
       io.stderr:write("HelloServer: Erro ao registrar ofertas.\n")
-      if id[1] == "IDL:tecgraf/openbus/core/v1_05/registry_service/UnathorizedFacets:1.0" then
+      if id[1] == "IDL:tecgraf/openbus/core/"..Utils.IDL_VERSION.."/registry_service/UnathorizedFacets:1.0" then
         for _, facet in ipairs(id.facets) do
           io.stderr:write(string.format("Registro da faceta '%s' não autorizado\n", facet))
         end
