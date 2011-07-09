@@ -27,14 +27,14 @@ function existent(self, proxy)
         else
           executedOK, not_exists = oil.pcall(proxy._non_existent, proxy)
         end
-        oil.tasks:resume(parent)
+        if parent ~= nil then oil.tasks:resume(parent) end
   end)
 
   oil.tasks:resume(thread)
   if executedOK == nil then
     oil.tasks:suspend(threadTime*MAX_TIMES)
     if executedOK == nil then
-      oil.tasks:remove(thread)
+      parent = nil
       return false, "call timeout"
     end
   end

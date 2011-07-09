@@ -60,5 +60,4 @@ end
 ---
 function stopCheck(self)
   self.timer:disable()
-  self.timer.scheduler:remove(self.timer.thread)
 end

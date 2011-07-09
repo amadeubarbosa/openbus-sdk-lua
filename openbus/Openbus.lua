@@ -426,7 +426,6 @@ function Openbus:finish()
     -- desabilita o timer em caso de política de cache. O interceptador é o próprio objeto de timer.
     if self.credentialValidationPolicy == Utils.CredentialValidationPolicy[2] then
       self.serverInterceptor.myTimer:disable()
-      self.serverInterceptor.myTimer.scheduler:remove(self.serverInterceptor.myTimer.thread)
     end
   end
   local status, err = oil.pcall(self.orb.shutdown, self.orb)
