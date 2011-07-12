@@ -56,18 +56,15 @@ Suite = {
   },
 
   Test2 = {
-    beforeTestCase = function(self)
+    beforeEachTest = function(self)
       Openbus:init(host, port, nil, iConfig)
-    end,
-
-    afterTestCase = function(self)
-      Openbus:destroy()
     end,
 
     afterEachTest = function(self)
       if Openbus:isConnected() then
         Openbus:disconnect()
       end
+      Openbus:destroy()
     end,
 
     testConnectByPassword = function(self)
