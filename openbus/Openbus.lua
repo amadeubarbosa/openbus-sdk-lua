@@ -446,7 +446,7 @@ function Openbus:getAccessControlService()
   if not self.acs and self.isFaultToleranceEnable then
       if not self:_fetchACS() then
         Log:error("OpenBus: Não foi possível acessar o servico de controle de acesso.")
-        return false
+        return nil
       end
   end
   return self.acs
@@ -542,14 +542,14 @@ end
 --
 -- @param authenticator o autenticador.
 --
--- @return O serviço de registro. {@code false} caso ocorra algum erro.
+-- @return O serviço de registro. {@code nil} caso ocorra algum erro.
 ---
 local function connect(self, authenticator)
   if not self.credentialManager:hasValue() then
     if not self.acs then
       if not self:_fetchACS() then
         Log:error("Não foi possível obter o serviço de controle de acesso")
-        return false
+        return nil
       end
     end
     local credential, lease = authenticator:authenticate(self.acs)
@@ -557,11 +557,11 @@ local function connect(self, authenticator)
       return self:_completeConnection(credential, lease)
     else
       Log:error("Não foi possível fazer a autenticação no barramento")
-      return false
+      return nil
     end
   else
     Log:error("A conexão com o barramento já está estabelecida")
-    return false
+    return nil
   end
 end
 
@@ -572,7 +572,7 @@ end
 -- @param user Nome do usuário.
 -- @param password Senha do usuário.
 --
--- @return O serviço de registro. {@code false} caso ocorra algum erro.
+-- @return O serviço de registro. {@code nil} caso ocorra algum erro.
 --
 -- @throws InvalidCredentialException Caso a credencial seja rejeitada ao
 --         tentar obter o Serviço de Registro.
@@ -580,7 +580,7 @@ end
 function Openbus:connectByLoginPassword(user, password)
   if not user or not password then
     Log:error("OpenBus: Os parâmetros 'user' e 'password' não podem ser nil.")
-    return false
+    return nil
   end
   local authenticator = LoginPasswordAuthenticator(user, password)
   return connect(self, authenticator)
@@ -595,7 +595,7 @@ end
 -- @param acsCertificate Certificado a ser fornecido ao Serviço de Controle de
 --        Acesso.
 --
--- @return O Serviço de Registro. {@code false} caso ocorra algum erro.
+-- @return O Serviço de Registro. {@code nil} caso ocorra algum erro.
 --
 -- @throws InvalidCredentialException Caso a credencial seja rejeitada ao
 --         tentar obter o Serviço de Registro.
@@ -603,7 +603,7 @@ end
 function Openbus:connectByCertificate(name, privateKeyFile, acsCertificateFile)
   if not name or not privateKeyFile or not acsCertificateFile then
     Log:error("OpenBus: Nenhum parâmetro pode ser nil.")
-    return false
+    return nil
   end
   local authenticator = CertificateAuthenticator(name, privateKeyFile,
       acsCertificateFile)
@@ -616,7 +616,7 @@ end
 --
 -- @param credential A credencial.
 --
--- @return O serviço de registro. {@code false} caso ocorra algum erro.
+-- @return O serviço de registro. {@code nil} caso ocorra algum erro.
 --
 -- @throws ACSUnavailableException Caso o Serviço de Controle de Acesso não
 --         consiga ser contactado.
@@ -624,25 +624,28 @@ end
 function Openbus:connectByCredential(credential)
   if not credential then
     Log:error("OpenBus: O parâmetro 'credential' não pode ser nil.")
-    return false
+    return nil
   end
   if not self.acs then
     if not self:_fetchACS() then
       Log:error("OpenBus: Não foi possível acessar o barramento.")
-      return false
+      return nil
     end
   end
   if self.acs:isValid(credential) then
     self.credentialManager:setValue(credential)
     if not self.rgs then
-        local registryService = self:getRegistryService()
-            self.rgs = self.orb:narrow(registryService,
-                    Utils.REGISTRY_SERVICE_INTERFACE)
+      local registryService = self:getRegistryService()
+      if not registryService then
+        return nil
+      end
+      self.rgs = self.orb:narrow(registryService,
+              Utils.REGISTRY_SERVICE_INTERFACE)
     end
     return self.rgs
   end
   Log:error("OpenBus: Credencial inválida.")
-  return false
+  return nil
 end
 
 ---
