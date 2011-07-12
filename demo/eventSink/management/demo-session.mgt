@@ -30,7 +30,7 @@ Grant {
   id = "HelloSession",
   interfaces = {
     "IDL:tecgraf/openbus/session_service/v1_05/ISession:1.0",
-    "IDL:openbusidl/ss/ISession:1.0"
+    "IDL:openbusidl/ss/ISession:1.0",
     "IDL:tecgraf/openbus/session_service/v1_05/SessionEventSink:1.0",
     "IDL:openbusidl/ss/SessionEventSink:1.0"
   }
