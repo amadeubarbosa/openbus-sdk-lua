@@ -13,18 +13,38 @@ local iConfig = {
   credential_type_prev = "IDL:openbusidl/acs/Credential:1.0",
 }
 
+local host = "localhost"
+local port = 2089
+local user = "tester"
+local password = "tester"
+local oilLogLevel = 0
+local sdkLogLevel = 3
+
+-- alterando as propriedades se preciso
 local scsutils = require ("scs.core.utils")()
 local props = {}
 scsutils:readProperties(props, "Test.properties")
-local host = props["host.name"].value or "localhost"
-local port = tonumber(props["host.port"].value) or 2089
 scsutils = nil
 
-local user = props["user"].value or "tester"
-local password = props["password"].value or "tester"
+if props["host.name"] then
+  host = props["host.name"].value
+end
+if props["host.port"] and tonumber(props["host.port"].value) then
+  port = tonumber(props["host.port"].value)
+end
+if props["user"] then
+  user = props["user"].value
+end
+if props["password"] then
+  password = props["password"].value
+end
+if props["oil.verbose"] and tonumber(props["oil.verbose"].value) then
+  oilLogLevel = tonumber(props["oil.verbose"].value)
+end
+if props["openbus.verbose"] and tonumber(props["openbus.verbose"].value) then
+  sdkLogLevel = tonumber(props["openbus.verbose"].value)
+end
 
-local oilLogLevel = tonumber(props["oil.verbose"].value) or 0
-local sdkLogLevel = tonumber(props["openbus.verbose"].value) or 3
 oil.verbose:level(oilLogLevel)
 Log:level(sdkLogLevel)
 
