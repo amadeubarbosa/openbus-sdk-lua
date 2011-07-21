@@ -13,15 +13,20 @@ local iConfig = {
   credential_type_prev = "IDL:openbusidl/acs/Credential:1.0",
 }
 
-local host = "localhost"
-local port = 2089
+local scsutils = require ("scs.core.utils")()
 local props = {}
+scsutils:readProperties(props, "Test.properties")
+local host = props["host.name"].value or "localhost"
+local port = tonumber(props["host.port"].value) or 2089
+scsutils = nil
 
-local user = "tester"
-local password = "tester"
+local user = props["user"].value or "tester"
+local password = props["password"].value or "tester"
 
-oil.verbose:level(0)
-Log:level(3)
+local oilLogLevel = tonumber(props["oil.verbose"].value) or 0
+local sdkLogLevel = tonumber(props["openbus.verbose"].value) or 3
+oil.verbose:level(oilLogLevel)
+Log:level(sdkLogLevel)
 
 Suite = {
   Test1 = { --Testa o método de inicialização
