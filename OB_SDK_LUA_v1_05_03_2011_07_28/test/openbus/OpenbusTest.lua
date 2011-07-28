@@ -254,7 +254,7 @@ Suite = {
 
       os.execute(OPENBUS_HOME.."/specs/shell/openssl-generate.ksh -n " .. self.systemId .. " -c "..OPENBUS_HOME.."/openssl/openssl.cnf <TesteBarramentoCertificado_input.txt  2> genkey-err.txt >genkeyT.txt ")
 
-      os.execute(OPENBUS_HOME.."/core/bin/run_management.sh --acs-host=" .. host ..
+      os.execute(OPENBUS_HOME.."/bin/run_management.sh --acs-host=" .. host ..
                                                                         " --acs-port=" .. port  ..
                                                                         " --login=tester" ..
                                                                         " --password=tester" ..
@@ -262,7 +262,7 @@ Suite = {
                                                                         " --description=Teste_do_OpenBus" ..
                                                                         " 2>> management-err.txt >>management.txt ")
 
-      os.execute(OPENBUS_HOME.."/core/bin/run_management.sh --acs-host=" .. host ..
+      os.execute(OPENBUS_HOME.."/bin/run_management.sh --acs-host=" .. host ..
                                                                         " --acs-port=" .. port  ..
                                                                         " --login=tester" ..
                                                                         " --password=tester" ..
@@ -278,14 +278,14 @@ Suite = {
     afterTestCase = function(self)
       Openbus:destroy()
       local OPENBUS_HOME = os.getenv("OPENBUS_HOME")
-      os.execute(OPENBUS_HOME.."/core/bin/run_management.sh --acs-host=" .. host ..
+      os.execute(OPENBUS_HOME.."/bin/run_management.sh --acs-host=" .. host ..
                                                                         " --acs-port=" .. port ..
                                                                         " --login=tester" ..
                                                                         " --password=tester" ..
                                                                         " --del-deployment="..self.deploymentId..
                                                                         " 2>> management-err.txt >>management.txt ")
 
-      os.execute(OPENBUS_HOME.."/core/bin/run_management.sh --acs-host=" .. host ..
+      os.execute(OPENBUS_HOME.."/bin/run_management.sh --acs-host=" .. host ..
                                                                         " --acs-port=" .. port ..
                                                                         " --login=tester" ..
                                                                         " --password=tester" ..
