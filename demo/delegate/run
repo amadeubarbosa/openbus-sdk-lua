@@ -1,6 +1,6 @@
 #!/bin/sh
 
-${OPENBUS_HOME}/core/bin/servicelauncher server.lua&
+${OPENBUS_HOME}/bin/lua5.1 server.lua&
 
 pid=$!
 #echo "PID: $pid"
@@ -8,5 +8,5 @@ trap "kill $pid > /dev/null 2> /dev/null" 0
 
 sleep 6
 
-${OPENBUS_HOME}/core/bin/servicelauncher client.lua
+${OPENBUS_HOME}/bin/lua5.1 client.lua
 
