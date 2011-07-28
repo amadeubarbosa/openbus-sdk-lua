@@ -1,0 +1,12 @@
+#!/bin/sh
+
+${OPENBUS_HOME}/core/bin/servicelauncher server.lua&
+
+pid=$!
+#echo "PID: $pid"
+trap "kill $pid > /dev/null 2> /dev/null" 0
+
+sleep 6
+
+${OPENBUS_HOME}/core/bin/servicelauncher client.lua
+
