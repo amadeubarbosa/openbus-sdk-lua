@@ -1,4 +1,13 @@
-#!/bin/sh
+#!/bin/ksh
+
+OPENBUS_DATADIR=${OPENBUS_DATADIR:=$OPENBUS_HOME/data}
+export OPENBUS_DATADIR
+
+CONFIG=${OPENBUS_DATADIR}/conf/config
+
+if [ -f "${CONFIG}" ]; then
+  source ${CONFIG}
+fi
 
 ${OPENBUS_HOME}/bin/lua5.1 server.lua&
 
