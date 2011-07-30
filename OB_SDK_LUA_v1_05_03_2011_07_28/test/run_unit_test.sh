@@ -6,7 +6,7 @@ export OPENBUS_DATADIR
 CONFIG=${OPENBUS_DATADIR}/conf/config
 
 if [ -f "${CONFIG}" ]; then
-  source ${CONFIG}
+  . ${CONFIG}
 fi
 
 PARAMS=$*
