@@ -96,6 +96,15 @@ Naturalmente a execução da demo necessita de um barramento em operação. A demo p
 
 Após a execução do cliente, no terminal a seguinte mensagem deve ser exibida pelo processo servidor, entre outras: "HELLO!"
 
+Caso seja obtido algum erro, pode não ser fácil identificar a causa corretamente para quem não está acostumado ainda ao uso do barramento. No entanto, é bastante comum que o usuário esqueça de algum dos passos iniciais que devem ser informados pelo administrador do barramento, tais como:
+\begin{itemize}
+  \item Definir a variável de ambiente OPENBUS\_HOME .
+  \item Carregar as configurações do barramento no \emph{shell}.
+  \item Passar pelo processo de implantação, que incluio cadastro e autorização, e também pode incluir a geração de certificados.
+\end{itemize}
+
+Para descrever melhor esses passos, mantemos uma página com explicações em \url{https://jira.tecgraf.puc-rio.br/confluence/display/OpenBus/Como+instalar+o+SDK+Lua+e+o+executar+o+HelloService+(v+1.5.2)}.
+
 \section{Desenvolvimento}
 
 \subsection{API}\label{api}
