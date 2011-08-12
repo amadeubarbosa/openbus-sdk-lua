@@ -6,16 +6,16 @@ OBJROOT= obj
 TARGETROOT= lib
 
 LUABIN= ${LUA51}/bin/${TEC_UNAME}/lua5.1
-LUAPATH = '${OPENBUS_HOME}/libpath/lua/5.1/?.lua;./?.lua;../../?.lua;'
+LUAPATH = '${OPENBUS_HOME}/lib/lua/5.1/?.lua;./?.lua;../../?.lua;'
 
-OPENBUSLIB= ${OPENBUS_HOME}/libpath/${TEC_UNAME} 
-OPENBUSINC= ${OPENBUS_HOME}/incpath
+OPENBUSLIB= ${OPENBUS_HOME}/lib
+OPENBUSINC= ${OPENBUS_HOME}/include
 
 PRECMP_DIR= obj/${TEC_UNAME}
-PRECMP_LUA= ${OPENBUS_HOME}/libpath/lua/5.1/precompiler.lua
+PRECMP_LUA= ${OPENBUS_HOME}/lib/lua/5.1/precompiler.lua
 PRECMP_FLAGS= -p OPENBUS_API -o openbusprecompiled -l ${LUAPATH} -d ${PRECMP_DIR} -n
 
-PRELOAD_LUA= ${OPENBUS_HOME}/libpath/lua/5.1/preloader.lua
+PRELOAD_LUA= ${OPENBUS_HOME}/lib/lua/5.1/preloader.lua
 PRELOAD_FLAGS= -p OPENBUS_API -o openbus -d ${PRECMP_DIR}
 
 OPENBUS_MODULES=$(addprefix openbus.,\
@@ -29,9 +29,9 @@ OPENBUS_MODULES=$(addprefix openbus.,\
 	interceptors.ClientInterceptor \
 	interceptors.PICurrent \
 	interceptors.ServerInterceptor \
-        interceptors.SameProcessServerInterceptor \
+  interceptors.SameProcessServerInterceptor \
 	lease.LeaseRenewer \
-        lease.LeaseProvider \
+  lease.LeaseProvider \
 	util.CredentialManager \
 	util.Log \
 	util.OilUtilities \

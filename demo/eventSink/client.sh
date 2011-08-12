@@ -1,3 +1,3 @@
 #!/bin/sh
 
-${OPENBUS_HOME}/core/bin/servicelauncher client.lua $1
+${OPENBUS_HOME}/bin/lua5.1 client.lua $1

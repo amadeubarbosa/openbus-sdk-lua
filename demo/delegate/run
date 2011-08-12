@@ -1,6 +1,15 @@
-#!/bin/sh
+#!/bin/ksh
 
-${OPENBUS_HOME}/core/bin/servicelauncher server.lua&
+OPENBUS_DATADIR=${OPENBUS_DATADIR:=$OPENBUS_HOME/data}
+export OPENBUS_DATADIR
+
+CONFIG=${OPENBUS_DATADIR}/conf/config
+
+if [ -f "${CONFIG}" ]; then
+  . ${CONFIG}
+fi
+
+${OPENBUS_HOME}/bin/lua5.1 server.lua&
 
 pid=$!
 #echo "PID: $pid"
@@ -8,5 +17,5 @@ trap "kill $pid > /dev/null 2> /dev/null" 0
 
 sleep 6
 
-${OPENBUS_HOME}/core/bin/servicelauncher client.lua
+${OPENBUS_HOME}/bin/lua5.1 client.lua
 
