@@ -408,7 +408,17 @@ end
 -- Executa o ORB.
 ---
 function Openbus:run()
-  oil.newthread(self.orb.run, self.orb)
+  local run = function()
+    while true do
+      local status, errMsg = oil.pcall(self.orb.run, self.orb)
+      if not status then
+        Log:error(format("Ocorreu um erro inesperado no ORB: %s.",
+            tostring(errMsg)))
+      end
+      Log:info("Reiniciando o ORB.")
+    end
+  end
+  oil.newthread(run)
 end
 
 ---
