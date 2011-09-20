@@ -18,6 +18,22 @@ local table = require "loop.table"
 local memoize = table.memoize
 
 local BiCyclicSets = require "loop.collection.BiCyclicSets"
+local Wrapper = require "loop.object.Wrapper"
+
+local Mutex = require "cothread.Mutex"
+
+local msg = require "openbus.util.messages"
+local oo = require "openbus.util.oo"
+local class = oo.class
+
+local idl = require "openbus.core.idl"
+local loginconst = idl.const.services.access_control
+local logintypes = idl.types.services.access_control
+local offerconst = idl.const.services.offer_registry
+local offertypes = idl.types.services.offer_registry
+local BusObjectKey = idl.const.BusObjectKey
+local Access = require "openbus.core.Access"
+local neworb = Access.initORB
 
 local cothread = require "cothread"
 local schedule = cothread.schedule
@@ -26,55 +42,42 @@ local deferuntil = cothread.defer
 local time = cothread.now
 local threadtrap = cothread.trap
 
-local Mutex = require "cothread.Mutex"
-
-local log = require "openbus.util.logger"
-local msg = require "openbus.util.messages"
-
-local oo = require "openbus.util.oo"
-local class = oo.class
-
-local idl = require "openbus.core.idl"
-local types = idl.types.services.access_control
-local const = idl.values.services.access_control
-
-local Access = require "openbus.core.Access"
-
 
 
 local function getpublickey(certificate)
-	local result, errmsg = readcertificate(path)
+	local result, errmsg = readcertificate(certificate)
 	if result then
 		result, errmsg = result:getpublickey()
 		if result then
 			return result
 		end
 	end
-	return nil, msg.UnableToReadPublicKey:tag{ path = path, errmsg = errmsg }
+	return nil, msg.UnableToReadPublicKey:tag{ errmsg = errmsg }
 end
 
 
 
 local function getEntryFromCache(self, loginId)
+	local log = self.connection.log
 	local usage = self.usage
 	local ids = self.ids
 	local validity = self.validity
 	local id2entry = self.id2entry
 	local leastused = self.leastused
-	local logins = self.logins
+	local logins = self.__object
 	-- add crendential to cache if it is not there
 	local entry = id2entry[loginId]
 	if entry == nil then
 		local ok
 		ok, entry = pcall(logins.getLoginInfo, logins, loginId)
 		if not ok then
-			if entry[1] ~= types.InvalidLogins then
+			if entry[1] ~= logintypes.InvalidLogins then
 				error(entry)
 			end
 			entry = { id = loginId }
 		end
 		local size = #ids
-		if size < self.maxsize then
+		if size < self.maxcachesize then
 			size = size+1
 			entry.index = size
 			ids[size] = entry
@@ -129,22 +132,7 @@ local function getEntryFromCache(self, loginId)
 	end
 end
 
-
-
-local CachedValiditor = class{
-	maxsize = 128,
-	timeupdated = 0,
-}
-
-function CachedValiditor:__init()
-	self.usage = BiCyclicSets()
-	self.ids = {}
-	self.validity = {}
-	self.id2entry = {}
-	self.mutex = Mutex()
-end
-
-function CachedValiditor:getLoginEntry(loginId)
+local function getLoginEntry(self, loginId)
 	local mutex = self.mutex
 	repeat until mutex:try() -- get exclusive access to this cache
 	local ok, entity = pcall(getEntryFromCache, self, loginId)
@@ -153,14 +141,47 @@ function CachedValiditor:getLoginEntry(loginId)
 	return entity
 end
 
-
-
-local function getFacet(cmp, facet, type)
-	local obj = cmp:getFacetByName(facet)
-	if obj ~= nil then
-		return obj:__narrow(type)
+local function getLoginInfo(self, loginId)
+	local login = self:getLoginEntry(loginId)
+	if login ~= nil then
+		return login
 	end
+	throw.InvalidLogins{loginsIds={id}}
 end
+
+
+
+local function newrenewer(self, lease)
+	local manager = self.AccessControl
+	local renewer = newthread(function()
+		repeat
+			self.log:action(msg.RenewCredential:tag{self.login})
+			local ok, result = pcall(manager.renew, manager)
+			if ok then
+				lease = result
+			elseif result[1] == sysex.NO_PERMISSION then
+				self.renewer = nil -- logout
+				self:onExpiration()
+				return
+			end
+			self.renewersuspended = true
+			deferuntil(time()+lease)
+			self.renewersuspended = false
+		until self.renewer == nil
+	end)
+	schedule(renewer, "defer", lease)
+	self.renewer = renewer
+end
+
+local LoginServiceNames = {
+	"AccessControl",
+	"CertificateRegistry",
+	"LoginRegistry",
+}
+local OfferServiceNames = {
+	"EntityRegistry",
+	"OfferRegistry",
+}
 
 
 
@@ -169,70 +190,53 @@ local Connection = class({}, Access)
 function Connection:__init()
 	-- setup core access object
 	local bus = self.bus
-	self.orb = bus.orb
-	self.validator = CachedValiditor{
-		logins = getFacet(bus.component,
-		                  const.LoginRegistryFacet,
-		                  types.LoginRegistry),
-	}
-	-- create renewer thread
-	local renewer = newthread(function()
-		local manager = self.manager
-		repeat
-			log:action(msg.RenewCredential:tag{???})
-			local leasetime = manager:renew()
-			self.renewersuspended = true
-			deferuntil(time()+leasetime)
-			self.renewersuspended = false
-		until self.renewer == nil
-	end)
-	threadtrap[renewer] = function()
-		self.renewer = nil
-		self:shutdown()
+	local orb = self.orb
+	-- retrieve core service references
+	for _, name in ipairs(LoginServiceNames) do
+		local facetname = assert(loginconst[name.."Facet"], name)
+		local typerepid = assert(logintypes[name], name)
+		self[name] = orb:narrow(bus:getFacetByName(facetname), typerepid)
 	end
-	schedule(renewer, "defer", self.lease)
-	self.renewer = renewer
-end
-
-function Connection:disconnect()
-	local renewer = self.renewer
-	if renewer ~= nil then
-		if self.renewersuspended then unschedule(renewer) end
-		self.renewer = nil
+	for _, name in ipairs(OfferServiceNames) do
+		local facetname = assert(offerconst[name.."Facet"], name)
+		local typerepid = assert(offertypes[name], name)
+		self[name] = orb:narrow(bus:getFacetByName(facetname), typerepid)
 	end
-	self.manager:logout()
-	self:shutdown()
-end
-
-function Connection:isConnected()
-	return self.renewer ~= nil
-end
-
-function Connection:onNoPermission()
-	-- does nothing by default
-end
-
-
-
-local OpenBus = class()
-
-function OpenBus:connectByPassword(entity, password)
-	local manager = getFacet(self.component,
-	                         const.LoginManagerFacet,
-	                         types.LoginManager)
-	local login, lease = manager:loginByPassword(entity, password)
-	return Connection{
-		bus = self,
-		lease = lease,
-		login = login,
-		manager = manager,
+	self.LoginRegistry = Wrapper{
+		connection = self,
+		__object = self.LoginRegistry,
+		maxcachesize = 128,
+		timeupdated = 0,
+		usage = BiCyclicSets(),
+		ids = {},
+		validity = {},
+		id2entry = {},
+		mutex = Mutex(),
+		getLoginEntry = getLoginEntry,
+		getLoginInfo = getLoginInfo,
 	}
 end
 
-function OpenBus:connectByCertificate(entity, privatekey)
-	local manager = getFacet(self.component,
-	                         const.LoginManagerFacet,
-	                         types.LoginManager)
+function Connection:loginByPassword(entity, password)
+	if self:isLogged() then error(msg.ConnectionAlreadyLogged) end
+	local manager = self.AccessControl
+	local buskey = assert(getpublickey(manager:_get_certificate()))
+	local encoded, errmsg = encrypt(buskey, password)
+	if encoded == nil then
+		error(msg.CorruptedBusCertificate:tag{
+			certificate = buscert,
+			errmsg = errmsg,
+		})
+	end
+	local lease
+	self.login, lease = manager:loginByPassword(entity, encoded)
+	newrenewer(self, lease)
+	return true
+end
+
+function Connection:loginByCertificate(entity, privatekey)
+	if self:isLogged() then error(msg.ConnectionAlreadyLogged) end
+	local manager = self.AccessControl
 	local buskey = assert(getpublickey(manager:_get_certificate()))
 	local attempt, challenge = manager:startLoginByCertificate(entity)
 	local secret, errmsg = decrypt(privatekey, challenge)
@@ -251,68 +255,63 @@ function OpenBus:connectByCertificate(entity, privatekey)
 			errmsg = errmsg,
 		})
 	end
-	local login, lease = attempt:login(answer)
-	return Connection{
-		bus = self,
-		lease = lease,
-		login = login,
-		manager = manager,
-	}
+	local lease
+	self.login, lease = attempt:login(answer)
+	newrenewer(self, lease)
+	return true
 end
 
-function OpenBus:connectBySharedLogin(logindata)
-	local logins = getFacet(self.component,
-	                        const.LoginRegistryFacet,
-	                        types.LoginRegistry)
+function Connection:shareLogin(logindata)
+	if self:isLogged() then error(msg.ConnectionAlreadyLogged) end
+	local logins = self.LoginRegistry
 	local login = decodelogin(logindata)
-	local lease = logins:getLoginValitidy({login.id})[1]
-	if lease == 0 then
+	if logins:getLoginEntry(login.id) == nil then
 		error(msg.InvalidLogin:tag{
 			login = login.id,
 			entity = login.entity,
 		})
 	end
-	return Connection{
-		bus = self,
-		lease = lease,
-		login = login,
-		manager = getFacet(self.component,
-		                   const.LoginManagerFacet,
-		                   types.LoginManager)
-	}
+	self.login = login
+	return true
 end
 
-
-
-local function initORB(configs)
-	if configs == nil then configs = {} end
-	if configs.tcpoptions == nil then
-		configs.tcpoptions = {reuseaddr = true}
+function Connection:logout()
+	local renewer = self.renewer
+	if renewer ~= nil then
+		if self.renewersuspended then unschedule(renewer) end
+		self.renewer = nil
 	end
-	configs.flavor = "cooperative;corba.intercepted"
-	local orb = neworb(configs)
-	loadidl(orb)
-	return orb
+	self.manager:logout()
 end
 
-local function getBusByComponent(component, orb)
-	return OpenBus{
+function Connection:isLogged()
+	return self.renewer ~= nil
+end
+
+function Connection:onExpiration()
+	-- does nothing by default
+end
+
+
+
+local function connectByComponent(component, orb, log)
+	return Connection{
+		log = log,
 		orb = orb,
-		component = component,
+		bus = component,
 	}
 end
 
 local openbus = {
-	OpenBus = OpenBus,
-	initORB = initORB,
-	getBusByComponent = getBusByComponent,
+	initORB = neworb,
+	connectByComponent = connectByComponent,
 }
 
-function openbus.getBusByAddress(host, port, orb)
-	if orb == nil then orb = initORB() end
-	local ref = "corbaloc::"..host..":"..port.."/"..idl.values.BusObjectKey
+function openbus.connectByAddress(host, port, orb, log)
+	local ref = "corbaloc::"..host..":"..port.."/"..BusObjectKey
+	if orb == nil then orb = neworb() end
 	local component = orb:newproxy(ref, nil, "scs::core::IComponent")
-	return getBusByComponent(component, orb)
+	return connectByComponent(component, orb, log)
 end
 
 return openbus
