@@ -1,4 +1,4 @@
---require("oil.verbose"):level(3)
+--require("oil.verbose"):level(2)
 
 local hello = { count = 0, quiet = true }
 function hello:say_hello_to(name)
@@ -8,11 +8,8 @@ function hello:say_hello_to(name)
 	return msg
 end
 
-local log = require("openbus.util.logger")()
-log:level(4)
-
 local openbus = require "openbus"
-local conn = openbus.connectByAddress("localhost", 2089, nil, log)
+local conn = openbus.connectByAddress("localhost", 2089)
 conn:loginByPassword("tester", "tester")
 
 local orb = conn.orb
@@ -31,7 +28,7 @@ local component = ComponentContext(orb, {
 	patch_version = 0,
 	platform_spec = "",
 })
-component:addFacet("hello", "Hello", hello)
+component:addFacet("hello", "IDL:Hello:1.0", hello)
 
-conn.OfferRegistry:registerService(component, {})
-orb:run()
+oil.newthread(orb.run, orb)
+conn.OfferRegistry:registerService(component.IComponent, {})
