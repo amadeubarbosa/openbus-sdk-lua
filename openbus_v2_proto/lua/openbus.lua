@@ -23,6 +23,9 @@ local Wrapper = require "loop.object.Wrapper"
 
 local Mutex = require "cothread.Mutex"
 
+local giop = require "oil.corba.giop"
+local sysex = giop.SystemExceptionIDs
+
 local log = require "openbus.util.logger"
 local msg = require "openbus.util.messages"
 local oo = require "openbus.util.oo"
@@ -154,24 +157,26 @@ end
 
 local function newrenewer(self, lease)
 	local manager = self.AccessControl
-	local renewer = newthread(function()
+	local thread
+	thread = newthread(function()
 		repeat
 			log:action(msg.RenewLogin:tag(self.login))
 			local ok, result = pcall(manager.renew, manager)
 			if ok then
 				lease = result
-			elseif result[1] == sysex.NO_PERMISSION then
-				self.renewer = nil -- logout
-				self:onExpiration()
+			elseif result._repid == sysex.NO_PERMISSION then
+				if self.login ~= nil then
+					self.login = nil
+					self:onExpiration()
+				end
 				return
 			end
-			self.renewersuspended = true
+			self.renewer = thread
 			deferuntil(time()+lease)
-			self.renewersuspended = false
-		until self.renewer == nil
+			self.renewer = nil
+		until self.login == nil
 	end)
-	schedule(renewer, "defer", lease)
-	self.renewer = renewer
+	schedule(thread, "defer", lease)
 end
 
 local LoginServiceNames = {
@@ -279,14 +284,16 @@ end
 function Connection:logout()
 	local renewer = self.renewer
 	if renewer ~= nil then
-		if self.renewersuspended then unschedule(renewer) end
-		self.renewer = nil
+		unschedule(renewer)
 	end
-	self.AccessControl:logout()
+	if self.login ~= nil then
+		self.AccessControl:logout()
+		self.login = nil
+	end
 end
 
 function Connection:isLogged()
-	return self.renewer ~= nil
+	return self.login ~= nil
 end
 
 function Connection:onExpiration()
