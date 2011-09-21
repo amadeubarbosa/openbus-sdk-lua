@@ -1,5 +1,6 @@
 local _G = require "_G"
 local assert = _G.assert
+local error = _G.error
 local ipairs = _G.ipairs
 local next = _G.next
 local pairs = _G.pairs
@@ -22,6 +23,7 @@ local Wrapper = require "loop.object.Wrapper"
 
 local Mutex = require "cothread.Mutex"
 
+local log = require "openbus.util.logger"
 local msg = require "openbus.util.messages"
 local oo = require "openbus.util.oo"
 local class = oo.class
@@ -58,7 +60,6 @@ end
 
 
 local function getEntryFromCache(self, loginId)
-	local log = self.connection.log
 	local usage = self.usage
 	local ids = self.ids
 	local validity = self.validity
@@ -80,12 +81,12 @@ local function getEntryFromCache(self, loginId)
 		if size < self.maxcachesize then
 			size = size+1
 			entry.index = size
-			ids[size] = entry
+			ids[size] = loginId
 			usage:add(entry, leastused)
 			leastused = entry
 			log:action(msg.LoginAddedToValidityCache:tag{
-				login = login.id,
-				entity = login.entity,
+				login = entry.id,
+				entity = entry.entity,
 			})
 		else
 			log:action(msg.LoginReplacedInValidityCache:tag{
@@ -104,7 +105,7 @@ local function getEntryFromCache(self, loginId)
 	end
 	-- update login usage in the cache
 	if entry == leastused then
-		self.leastused = usage:previous(entry)
+		self.leastused = usage:predecessor(entry)
 	else
 		usage:move(entry, leastused)
 	end
@@ -124,7 +125,7 @@ local function getEntryFromCache(self, loginId)
 	else -- update validity cache
 		log:action(msg.UpdateLoginValidityCache:tag{count=#ids})
 		self.timeupdated = time()
-		local validity = logins:getLoginValidity(ids)
+		local validity = logins:getValidity(ids)
 		self.validity = validity
 		if validity[entry.index] > 0 then
 			return entry -- valid login
@@ -137,7 +138,7 @@ local function getLoginEntry(self, loginId)
 	repeat until mutex:try() -- get exclusive access to this cache
 	local ok, entity = pcall(getEntryFromCache, self, loginId)
 	mutex:free() -- release exclusive access so other threads can access
-	assert(ok, entity)
+	if not ok then error(entity) end
 	return entity
 end
 
@@ -155,7 +156,7 @@ local function newrenewer(self, lease)
 	local manager = self.AccessControl
 	local renewer = newthread(function()
 		repeat
-			self.log:action(msg.RenewCredential:tag{self.login})
+			log:action(msg.RenewLogin:tag(self.login))
 			local ok, result = pcall(manager.renew, manager)
 			if ok then
 				lease = result
@@ -281,7 +282,7 @@ function Connection:logout()
 		if self.renewersuspended then unschedule(renewer) end
 		self.renewer = nil
 	end
-	self.manager:logout()
+	self.AccessControl:logout()
 end
 
 function Connection:isLogged()
