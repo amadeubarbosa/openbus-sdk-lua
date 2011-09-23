@@ -1,29 +1,31 @@
 local coroutine = require "coroutine"
 local cothread = require "cothread"
 local openbus = require "openbus"
+local ComponentContext = require "scs.core.ComponentContext"
+
+-- connect to the bus
+local conn = openbus.connectByAddress("localhost", 2089)
 
 -- create service implementation
-local hello = { count = 0, quiet = true }
-function hello:say_hello_to(name)
-	self.count = self.count + 1
-	local msg = "Hello " .. name .. "! ("..self.count.." times)"
-	if not self.quiet then print(msg) end
-	return msg
+local hello = {}
+function hello:sayHello()
+	local chain = conn:getCallerChain()
+	print("Hello from "..chain[1].entity.."!")
 end
 
 -- setup ORB
-local orb = openbus.initORB()
-orb:loadidl [[
-	interface Hello {
-		attribute boolean quiet;
-		readonly attribute long count;
-		string say_hello_to(in string name);
-	};
-]]
+local orb = conn.orb
+orb:loadidl "interface Hello { void sayHello(); };"
 cothread.next(coroutine.create(orb.run), orb)
 
+-- setup action on login termination
+function conn:onLoginTerminated()
+	print("OpenBus login terminated, shuting down the server")
+	conn:shutdown() -- free connection resources permanently
+	orb:shutdown() -- stops the ORB and frees all its resources
+end
+
 -- create service SCS component
-local ComponentContext = require "scs.core.ComponentContext"
 local component = ComponentContext(orb, {
 	name = "Hello",
 	major_version = 1,
@@ -31,15 +33,12 @@ local component = ComponentContext(orb, {
 	patch_version = 0,
 	platform_spec = "",
 })
-component:addFacet("hello", "IDL:Hello:1.0", hello)
+component:addFacet("hello", orb.types:lookup("Hello").repID, hello)
 
--- connect to the bus, login as 'hello' and offer the service
-local conn = openbus.connectByAddress("localhost", 2089)
-function conn:onExpiration()
-	assert(not self:isLogged())
-	self:loginByPassword("tester", "tester")
-	self.OfferRegistry:registerService(component.IComponent, {
-		{name="offer.domain",value="OpenBus Demos"},
-	})
-end
-conn:onExpiration()
+-- login to the bus
+conn:loginByPassword("HelloServer", "HelloServer")
+
+-- offer the service
+conn.OfferRegistry:registerService(component.IComponent, {
+	{name="offer.domain",value="OpenBus Demos"}, -- provided property
+})

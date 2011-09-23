@@ -38,7 +38,7 @@ local offerconst = idl.const.services.offer_registry
 local offertypes = idl.types.services.offer_registry
 local BusObjectKey = idl.const.BusObjectKey
 local Access = require "openbus.core.Access"
-local neworb = Access.initORB
+local neworb = Access.createORB
 
 local cothread = require "cothread"
 local schedule = cothread.schedule
@@ -167,7 +167,7 @@ local function newrenewer(self, lease)
 			elseif result._repid == sysex.NO_PERMISSION then
 				if self.login ~= nil then
 					self.login = nil
-					self:onExpiration()
+					self:onLoginTerminated()
 				end
 				return
 			end
@@ -224,7 +224,7 @@ function Connection:__init()
 end
 
 function Connection:loginByPassword(entity, password)
-	if self:isLogged() then error(msg.ConnectionAlreadyLogged) end
+	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
 	local manager = self.AccessControl
 	local buskey = assert(getpublickey(manager:_get_certificate()))
 	local encoded, errmsg = encrypt(buskey, password)
@@ -241,7 +241,7 @@ function Connection:loginByPassword(entity, password)
 end
 
 function Connection:loginByCertificate(entity, privatekey)
-	if self:isLogged() then error(msg.ConnectionAlreadyLogged) end
+	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
 	local manager = self.AccessControl
 	local buskey = assert(getpublickey(manager:_get_certificate()))
 	local attempt, challenge = manager:startLoginByCertificate(entity)
@@ -268,7 +268,7 @@ function Connection:loginByCertificate(entity, privatekey)
 end
 
 function Connection:shareLogin(logindata)
-	if self:isLogged() then error(msg.ConnectionAlreadyLogged) end
+	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
 	local logins = self.LoginRegistry
 	local login = decodelogin(logindata)
 	if logins:getLoginEntry(login.id) == nil then
@@ -292,11 +292,11 @@ function Connection:logout()
 	end
 end
 
-function Connection:isLogged()
+function Connection:isLoggedIn()
 	return self.login ~= nil
 end
 
-function Connection:onExpiration()
+function Connection:onLoginTerminated()
 	-- does nothing by default
 end
 
@@ -311,7 +311,7 @@ local function connectByComponent(component, orb, log)
 end
 
 local openbus = {
-	initORB = neworb,
+	createORB = neworb,
 	connectByComponent = connectByComponent,
 }
 
