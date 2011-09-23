@@ -1,17 +1,25 @@
 local openbus = require "openbus"
-local conn = openbus.connectByAddress("localhost", 2089)
-conn:loginByPassword("tester", "tester")
 
+-- connect to the bus
+local conn = openbus.connectByAddress("localhost", 2089)
+
+-- login to the bus
+conn:loginByPassword("HelloCaller", "HelloCaller")
+
+-- find the offered service
 local offers = conn.OfferRegistry:findServices({
-	{name="openbus.offer.entity",value="tester"},
-	{name="openbus.component.facet",value="hello"},
-	{name="offer.domain",value="OpenBus Demos"},
+	{name="openbus.offer.entity",value="HelloServer"}, -- automatic property
+	{name="openbus.component.facet",value="hello"}, -- automatic property
+	{name="offer.domain",value="OpenBus Demos"}, -- provided property
 })
 assert(#offers > 0, "unable to find offered service")
 local hello = offers[1].service_ref:getFacetByName("hello"):__narrow()
 
-hello:_set_quiet(false)
-for i = 1, 3 do print(hello:say_hello_to("world")) end
-print("Object already said hello "..hello:_get_count().." times till now.")
+-- call the service
+hello:sayHello()
 
+-- logout from the bus
 conn:logout() -- stops the login renewer thread and allow the process to end
+
+-- free connection resources permanently
+conn:shutdown()
