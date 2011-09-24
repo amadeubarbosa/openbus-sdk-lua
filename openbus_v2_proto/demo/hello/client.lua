@@ -4,11 +4,11 @@ local openbus = require "openbus"
 local conn = openbus.connectByAddress("localhost", 2089)
 
 -- login to the bus
-conn:loginByPassword("HelloCaller", "HelloCaller")
+conn:loginByPassword("demo", "demo")
 
 -- find the offered service
-local offers = conn.OfferRegistry:findServices({
-	{name="openbus.offer.entity",value="HelloServer"}, -- automatic property
+local offers = conn.offers:findServices({
+	{name="openbus.offer.entity",value="demo"}, -- automatic property
 	{name="openbus.component.facet",value="hello"}, -- automatic property
 	{name="offer.domain",value="OpenBus Demos"}, -- provided property
 })

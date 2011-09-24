@@ -1,0 +1,44 @@
+module tecgraf {
+
+module openbus {
+
+module demo {
+
+module delegation {
+	
+	typedef string Identifier;
+	typedef sequence<Identifier> IdentifierSeq;
+	
+	
+	struct PostDesc {
+		Identifier from;
+		string message;
+	};
+	typedef sequence<PostDesc> PostDescSeq;
+
+	interface Messenger {
+		void post(in Identifier to, in string message);
+		PostDescSeq receivePosts();
+	};
+	
+	
+	interface Broadcaster {
+		void post(in string message);
+		void subscribe();
+		void unsubscribe();
+	};
+	
+	
+	interface Forwarder {
+		void addForward(in Identifier to);
+		void removeForward(in Identifier to);
+		IdentifierSeq getMyForwards();
+	};
+
+}; // delegation
+
+}; // demo
+
+}; // openbus
+
+}; // tecgraf
