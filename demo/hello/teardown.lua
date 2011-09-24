@@ -7,19 +7,19 @@ local conn = openbus.connectByAddress("localhost", 2089)
 conn:loginByPassword("admin", "admin")
 
 -- remove offer authorizations
-local EntityRegistry = conn.EntityRegistry
-local entity = EntityRegistry:getEntity("HelloServer")
+local offAuths = conn.offAuths
+local entity = offAuths:getEntity("demo")
 if entity ~= nil then
 	entity:remove()
-	local category = EntityRegistry:getEntityCategory("HelloDemo")
+	local category = offAuths:getEntityCategory("OpenBusDemos")
 	if category ~= nil then
 		category:remove()
 	end
 end
 
 -- terminate logins
-local LoginRegistry = conn.LoginRegistry
-local logins = LoginRegistry:getEntityLogins("HelloServer")
+local LoginRegistry = conn.logins
+local logins = LoginRegistry:getEntityLogins("demo")
 for _, login in ipairs(logins) do
 	LoginRegistry:terminateLogin(login.id)
 end

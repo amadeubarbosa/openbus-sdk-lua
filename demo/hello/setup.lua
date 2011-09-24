@@ -7,14 +7,14 @@ local conn = openbus.connectByAddress("localhost", 2089)
 conn:loginByPassword("admin", "admin")
 
 -- add offer authorizations
-local EntityRegistry = conn.EntityRegistry
-local entity = EntityRegistry:getEntity("HelloServer")
+local offAuths = conn.offAuths
+local entity = offAuths:getEntity("demo")
 if entity == nil then
-	local category = EntityRegistry:getEntityCategory("HelloDemo")
+	local category = offAuths:getEntityCategory("OpenBusDemos")
 	if category == nil then
-		category = EntityRegistry:createEntityCategory("HelloDemo", "OpenBus Hello Demo")
+		category = offAuths:createEntityCategory("OpenBusDemos", "OpenBus Demo Entities")
 	end
-	entity = category:registerEntity("HelloServer", "entity used in OpenBus tests and demos")
+	entity = category:registerEntity("demo", "entity used in OpenBus demos")
 end
 entity:addAuthorization("IDL:Hello:1.0")
 

@@ -75,7 +75,7 @@ local function getEntryFromCache(self, loginId)
 		local ok
 		ok, entry = pcall(logins.getLoginInfo, logins, loginId)
 		if not ok then
-			if entry[1] ~= logintypes.InvalidLogins then
+			if entry._repid ~= logintypes.InvalidLogins then
 				error(entry)
 			end
 			entry = { id = loginId }
@@ -150,7 +150,7 @@ local function getLoginInfo(self, loginId)
 	if login ~= nil then
 		return login
 	end
-	throw.InvalidLogins{loginsIds={id}}
+	throw.InvalidLogins{loginsId={id}}
 end
 
 
@@ -180,13 +180,13 @@ local function newrenewer(self, lease)
 end
 
 local LoginServiceNames = {
-	"AccessControl",
-	"CertificateRegistry",
-	"LoginRegistry",
+	AccessControl = "AccessControl",
+	certificates = "CertificateRegistry",
+	logins = "LoginRegistry",
 }
 local OfferServiceNames = {
-	"EntityRegistry",
-	"OfferRegistry",
+	offAuths = "EntityRegistry",
+	offers = "OfferRegistry",
 }
 
 
@@ -198,19 +198,19 @@ function Connection:__init()
 	local bus = self.bus
 	local orb = self.orb
 	-- retrieve core service references
-	for _, name in ipairs(LoginServiceNames) do
+	for field, name in pairs(LoginServiceNames) do
 		local facetname = assert(loginconst[name.."Facet"], name)
 		local typerepid = assert(logintypes[name], name)
-		self[name] = orb:narrow(bus:getFacetByName(facetname), typerepid)
+		self[field] = orb:narrow(bus:getFacetByName(facetname), typerepid)
 	end
-	for _, name in ipairs(OfferServiceNames) do
+	for field, name in pairs(OfferServiceNames) do
 		local facetname = assert(offerconst[name.."Facet"], name)
 		local typerepid = assert(offertypes[name], name)
-		self[name] = orb:narrow(bus:getFacetByName(facetname), typerepid)
+		self[field] = orb:narrow(bus:getFacetByName(facetname), typerepid)
 	end
-	self.LoginRegistry = Wrapper{
+	self.logins = Wrapper{
 		connection = self,
-		__object = self.LoginRegistry,
+		__object = self.logins,
 		maxcachesize = 128,
 		timeupdated = 0,
 		usage = BiCyclicSets(),
@@ -269,7 +269,7 @@ end
 
 function Connection:shareLogin(logindata)
 	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
-	local logins = self.LoginRegistry
+	local logins = self.logins
 	local login = decodelogin(logindata)
 	if logins:getLoginEntry(login.id) == nil then
 		error(msg.InvalidLogin:tag{
