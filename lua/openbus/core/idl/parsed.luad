@@ -1,0 +1,15 @@
+local _G = require "_G"
+local assert = _G.assert
+
+local luaidl = require "luaidl"
+local parse = luaidl.parse
+
+local idlspec = [[
+#include "access_control.idl"
+#include "offer_registry.idl"
+]]
+
+local Compiler = require "oil.corba.idl.Compiler"
+local options = Compiler().defaults
+options.incpath = {"idl"}
+return { assert(parse(idlspec, options)) }
