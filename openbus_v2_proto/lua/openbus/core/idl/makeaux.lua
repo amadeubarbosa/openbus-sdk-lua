@@ -3,7 +3,10 @@ local assert = _G.assert
 local error = _G.error
 local ipairs = _G.ipairs
 
-local Exception = require "loop.object.Exception"
+local array = require "table"
+local concat = array.concat
+
+local Exception = require "oil.corba.giop.Exception"
 
 local function makeaux(def, types, consts, excepts)
 	local name = def.name
@@ -18,10 +21,17 @@ local function makeaux(def, types, consts, excepts)
 			end
 		end
 	elseif def._type == "except" then
+		local msg = { "$_repid:" }
+		for _, member in ipairs(def.members) do
+			local name = member.name
+			msg[#msg+1] = name..": $"..name
+		end
+		msg = concat(msg, " ")
 		local repID = def.repID
 		types[name] = repID
 		excepts[name] = function(fields)
 			if fields == nil then fields = {} end
+			fields[1] = msg
 			fields._repid = repID
 			error(Exception(fields))
 		end
