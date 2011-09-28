@@ -11,5 +11,8 @@ local idlspec = [[
 
 local Compiler = require "oil.corba.idl.Compiler"
 local options = Compiler().defaults
-options.incpath = {"idl"}
+options.incpath = {
+  os.getenv("OPENBUS_IDLPATH") or "idl/core",
+  os.getenv("OPENBUS_SCSIDL") or "idl/scs",
+}
 return { assert(parse(idlspec, options)) }
