@@ -43,8 +43,8 @@ ifeq "$(TEC_SYSNAME)" "SunOS"
 	LIBS += rt
 endif
 
-$(LUADIR)/openbus/core/idl/parsed.lua: 
-	$(LUABIN) ${OIL_HOME}/lua/idl2lua.lua -o $@ $^
+$(LUADIR)/openbus/core/idl/parsed.lua: $(IDL)
+	$(LUABIN) ${OIL_HOME}/lua/idl2lua.lua -I $(OPENBUSIDL) -o $@ $^
 
 openbuslibs.h: $(LUA)
 	$(LUABIN) ${LOOP_HOME}/lua/precompiler.lua -l $(LUADIR)/?.lua -o $(basename $@) $^

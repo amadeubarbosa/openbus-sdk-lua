@@ -7,9 +7,16 @@ local conn = openbus.connectByAddress("localhost", 2089)
 conn:loginByPassword("admin", "admin")
 
 -- remove the whole category
-local category = conn.offAuths:getEntityCategory("OpenBusDemos")
+local category = conn.entities:getEntityCategory("OpenBusDemos")
 if category ~= nil then
 	category:removeAll()
+end
+
+-- remove interfaces
+local interfaces = conn.interfaces
+for _, name in ipairs{"Messenger","Broadcaster","Forwarder"} do
+	local ifaceId = "IDL:tecgraf/openbus/demo/delegation/"..name..":1.0"
+	interfaces:removeInterface(ifaceId)
 end
 
 -- terminate logins

@@ -29,12 +29,13 @@ do
 	const.BusId = "OpenBus"
 	const.BusObjectKey = "OpenBus"
 	local const = idl.const.services.access_control
-	const.CertificateRegistryFacet = "CertificateRegistry_2_00"
 	const.AccessControlFacet = "AccessControl_2_00"
 	const.LoginRegistryFacet = "LoginRegistry_2_00"
+	const.CertificateRegistryFacet = "CertificateRegistry_2_00"
 	local const = idl.const.services.offer_registry
 	const.OfferRegistryFacet = "OfferRegistry_2_00"
 	const.EntityRegistryFacet = "EntityRegistry_2_00"
+	const.InterfaceRegistryFacet = "InterfaceRegistry_2_00"
 end
 
 local ServiceFailure = idl.throw.services.ServiceFailure
