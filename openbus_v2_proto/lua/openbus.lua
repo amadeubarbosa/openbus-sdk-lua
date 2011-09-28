@@ -185,7 +185,8 @@ local LoginServiceNames = {
 	logins = "LoginRegistry",
 }
 local OfferServiceNames = {
-	offAuths = "EntityRegistry",
+	interfaces = "InterfaceRegistry",
+	entities = "EntityRegistry",
 	offers = "OfferRegistry",
 }
 
