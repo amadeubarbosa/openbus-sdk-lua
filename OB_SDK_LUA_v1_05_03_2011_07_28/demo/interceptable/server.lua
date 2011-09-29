@@ -65,7 +65,7 @@ function main ()
     io.stderr:write("HelloServer: Erro ao conectar ao barramento.\n")
     os.exit(1)
   end
-  registryService = orb:newproxy(registryService, "protected")
+  registryService = orb:newproxy(registryService, "protected", Utils.REGISTRY_SERVICE_INTERFACE)
   local suc, id = registryService:register({
     member = component.IComponent,
     properties = {

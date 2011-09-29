@@ -6,6 +6,7 @@
 local oil = require "oil"
 local oop = require "loop.base"
 local openbus = require "openbus.Openbus"
+local OBUtils = require "openbus.util.Utils"
 local ComponentContext = require "scs.core.ComponentContext"
 local scsutils = require ("scs.core.utils")()
 
@@ -55,7 +56,7 @@ function main ()
     io.stderr:write("HelloServer: Erro ao conectar ao barramento.\n")
     os.exit(1)
   end
-  registryService = orb:newproxy(registryService, "protected")
+  registryService = orb:newproxy(registryService, "protected", OBUtils.REGISTRY_SERVICE_INTERFACE)
   local suc, id = registryService:register({ properties = {}, member = component.IComponent})
   if not suc then
     io.stderr:write("HelloServer: Erro ao registrar ofertas.\n")
