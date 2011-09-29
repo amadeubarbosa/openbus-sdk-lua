@@ -1,6 +1,8 @@
 local _G = require "_G"
 local assert = _G.assert
-
+local io = require "io"
+local stderr = io.stderr
+ 
 local luaidl = require "luaidl"
 local parse = luaidl.parse
 
@@ -9,10 +11,16 @@ local idlspec = [[
 #include "offer_registry.idl"
 ]]
 
+local idlpath = os.getenv("OPENBUS_IDLPATH")
+if idlpath == nil then
+  stderr:write("OPENBUS_IDLPATH is not defined! Using '.' as default.")
+  idlpath = "."
+end
+
 local Compiler = require "oil.corba.idl.Compiler"
 local options = Compiler().defaults
 options.incpath = {
-  os.getenv("OPENBUS_IDLPATH") or "idl/core",
-  os.getenv("OPENBUS_SCSIDL") or "idl/scs",
+  idlpath.."/core",
+  idlpath.."/scs",
 }
 return { assert(parse(idlspec, options)) }
