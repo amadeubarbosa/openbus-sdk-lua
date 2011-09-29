@@ -96,9 +96,9 @@ local function main ()
   local comp = orb:narrow(session:_component(), compFacet)
   local sink = orb:narrow(comp:getFacet(sinkFacet), sinkFacet)
   -- Registro do componente
-  local registryService = orb:newproxy(rs, "protected")
+  local registryService = orb:newproxy(rs, "protected", obUtils.REGISTRY_SERVICE_INTERFACE)
   local succ, registryId = registryService:register {
-    properties = { 
+    properties = {
       {name = "sessionName", value = {"HelloSession"}},
     },
     member = comp,
