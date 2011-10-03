@@ -7,7 +7,8 @@ module demo {
 module delegation {
 	
 	typedef string Identifier;
-	typedef sequence<Identifier> IdentifierSeq;
+	
+	exception NoForward {};
 	
 	
 	struct PostDesc {
@@ -30,9 +31,9 @@ module delegation {
 	
 	
 	interface Forwarder {
-		void addForward(in Identifier to);
-		void removeForward(in Identifier to);
-		IdentifierSeq getMyForwards();
+		void setForward(in Identifier to);
+		void cancelForward(in Identifier to);
+		Identifier getForward() raises (NoForward);
 	};
 
 }; // delegation

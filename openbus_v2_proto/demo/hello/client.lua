@@ -18,8 +18,5 @@ local hello = offers[1].service_ref:getFacetByName("hello"):__narrow()
 -- call the service
 hello:sayHello()
 
--- logout from the bus
-conn:logout() -- stops the login renewer thread and allow the process to end
-
--- free connection resources permanently
-conn:shutdown()
+-- logout from the bus and free connection resources permanently
+conn:close()

@@ -16,7 +16,7 @@ cothread.next(coroutine.create(orb.run), orb)
 -- setup action on login termination
 function conn:onLoginTerminated()
 	print("login terminated, shuting the server down")
-	conn:shutdown() -- free connection resources
+	conn:close() -- free connection resources
 	orb:shutdown() -- stop the ORB and free all its resources
 end
 
