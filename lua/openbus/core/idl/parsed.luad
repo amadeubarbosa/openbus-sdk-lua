@@ -13,7 +13,7 @@ local idlspec = [[
 
 local idlpath = os.getenv("OPENBUS_IDLPATH")
 if idlpath == nil then
-  stderr:write("OPENBUS_IDLPATH is not defined! Using '.' as default.")
+  stderr:write("OPENBUS_IDLPATH is not defined! Using '.' as default.\n")
   idlpath = "."
 end
 
