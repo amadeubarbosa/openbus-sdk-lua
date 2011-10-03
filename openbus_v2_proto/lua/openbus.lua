@@ -9,6 +9,7 @@ local tostring = _G.tostring
 
 local coroutine = require "coroutine"
 local newthread = coroutine.create
+local running = coroutine.running
 
 local lce = require "lce"
 local encrypt = lce.cipher.encrypt
@@ -39,6 +40,9 @@ local offertypes = idl.types.services.offer_registry
 local BusObjectKey = idl.const.BusObjectKey
 local Access = require "openbus.core.Access"
 local neworb = Access.createORB
+local closeAccess = Access.close
+local sendBusRequest = Access.sendrequest
+local receiveBusRequest = Access.receiverequest
 
 local cothread = require "cothread"
 local schedule = cothread.schedule
@@ -59,8 +63,6 @@ local function getpublickey(certificate)
 	end
 	return nil, msg.UnableToReadPublicKey:tag{ errmsg = errmsg }
 end
-
-
 
 local function getEntryFromCache(self, loginId)
 	local usage = self.usage
@@ -153,8 +155,6 @@ local function getLoginInfo(self, loginId)
 	throw.InvalidLogins{loginsId={id}}
 end
 
-
-
 local function newrenewer(self, lease)
 	local manager = self.AccessControl
 	local thread
@@ -195,10 +195,14 @@ local OfferServiceNames = {
 local Connection = class({}, Access)
 
 function Connection:__init()
+	self.ignoredThreads = {}
 	-- setup core access object
 	local bus = self.bus
 	local orb = self.orb
 	-- retrieve core service references
+	local ignoredThreads = self.ignoredThreads
+	local thread = running()
+	ignoredThreads[thread] = true -- perform these calls without credential
 	for field, name in pairs(LoginServiceNames) do
 		local facetname = assert(loginconst[name.."Facet"], name)
 		local typerepid = assert(logintypes[name], name)
@@ -209,6 +213,7 @@ function Connection:__init()
 		local typerepid = assert(offertypes[name], name)
 		self[field] = orb:narrow(bus:getFacetByName(facetname), typerepid)
 	end
+	ignoredThreads[thread] = nil -- restore only calls with credentials
 	self.logins = Wrapper{
 		connection = self,
 		__object = self.logins,
@@ -223,6 +228,52 @@ function Connection:__init()
 		getLoginInfo = getLoginInfo,
 	}
 end
+
+
+function Connection:sendrequest(request)
+	local opName = request.operation_name
+	if opName:find("_", 1, true) ~= 1 then -- not CORBA obj op
+		if self.login ~= nil or self.ignoredThreads[running()] ~= nil then
+			sendBusRequest(self, request)
+		else
+			request.success = false
+			request.results = {self.orb:newexcept{
+				_repid = "CORBA::NO_PERMISSION",
+				completed = "COMPLETED_NO",
+				minor = const.NoLoginCode,
+			}}
+		end
+	end
+end
+
+function Connection:receiverequest(request)
+	if request.servant ~= nil then -- servant object does exist
+		local opName = request.operation_name
+		if opName:find("_", 1, true) ~= 1 then -- not CORBA obj op
+			receiveBusRequest(self, request)
+			local callers = self:getCallerChain()
+			if callers ~= nil then
+				local login = callers[#callers]
+				log:access(msg.GrantedBusCall:tag{
+					operation = request.operation.name,
+					login = login.id,
+					entity = login.entity,
+				})
+			else
+				request.success = false
+				request.results = {self.orb:newexcept{
+					_repid = "CORBA::NO_PERMISSION",
+					completed = "COMPLETED_NO",
+					minor = const.InvalidLoginCode,
+				}}
+				log:access(msg.DeniedCallWithoutCredential:tag{
+					operation = request.operation.name,
+				})
+			end
+		end
+	end
+end
+
 
 function Connection:loginByPassword(entity, password)
 	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
@@ -270,16 +321,7 @@ end
 
 function Connection:shareLogin(logindata)
 	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
-	local logins = self.logins
-	local login = decodelogin(logindata)
-	if logins:getLoginEntry(login.id) == nil then
-		error(msg.InvalidLogin:tag{
-			login = login.id,
-			entity = login.entity,
-		})
-	end
-	self.login = login
-	return true
+	self.login = decodelogin(logindata)
 end
 
 function Connection:logout()
@@ -290,7 +332,16 @@ function Connection:logout()
 	if self.login ~= nil then
 		self.AccessControl:logout()
 		self.login = nil
+		return true
 	end
+	return false
+end
+
+function Connection:close()
+	if self.login ~= nil then
+		self:logout()
+	end
+	closeAccess(self)
 end
 
 function Connection:isLoggedIn()
@@ -300,6 +351,22 @@ end
 function Connection:onLoginTerminated()
 	-- does nothing by default
 end
+
+
+
+-- allow login operations to be performed without credentials
+for _, loginOpName in ipairs{ "loginByPassword", "loginByCertificate" } do
+	local loginOp = Connection[loginOpName]
+	Connection[loginOpName] = function(self, ...)
+		local ignoredThreads = self.ignoredThreads
+		local thread = running()
+		ignoredThreads[thread] = true 
+		local ok, errmsg = pcall(loginOp, self, ...)
+		ignoredThreads[thread] = nil
+		if not ok then error(errmsg) end
+	end
+end
+
 
 
 
