@@ -17,43 +17,44 @@ cothread.next(coroutine.create(orb.run), orb)
 -- create service implementation
 Forwarder = {
 	__type = orb.types:lookup("tecgraf::openbus::demo::delegation::Forwarder"),
-	forwardsOf = memoize(function() return {} end),
+	forwardsOf = {},
 }
-function Forwarder:addForward(to)
+function Forwarder:setForward(to)
 	local chain = conn:getCallerChain()
 	local user = chain[1].entity
 	print("setup forward to "..to.." by "..chain2str(chain))
-	self.forwardsOf[user][to] = chain
+	self.forwardsOf[user] = {chain=chain, to=to}
 end
-function Forwarder:removeForward(to)
+function Forwarder:cancelForward()
 	local chain = conn:getCallerChain()
 	local user = chain[1].entity
-	print("cancel forward to "..to.." by "..chain2str(chain))
-	self.forwardsOf[user][to] = nil
-end
-function Forwarder:getMyForwards()
-	local chain = conn:getCallerChain()
-	local user = chain[1].entity
-	local forwards = self.forwardsOf[user]
-	local result = {}
-	for to in pairs(forwards) do
-		result[#result+1] = to
+	local forward = self.forwardsOf[user]
+	if forward ~= nil then
+		print("cancel forward to "..forward.to.." by "..chain2str(chain))
+		self.forwardsOf[user] = nil
 	end
-	return result
+end
+function Forwarder:getForward()
+	local chain = conn:getCallerChain()
+	local user = chain[1].entity
+	local forward = self.forwardsOf[user]
+	if forward == nil then
+		error(orb:newexcept{"tecgraf::openbus::demo::delegation::NoForward"})
+	end
+	return forward.to
 end
 
 -- create timer to forward messages from time to time
 timer = Timer{ rate = 5 }
 function timer:action()
-	for user, forwards in pairs(Forwarder.forwardsOf) do
-		for to, chain in pairs(forwards) do
-			print("checking messages of "..to)
-			conn:joinChain(chain)
-			local posts = Messenger:receivePosts()
-			conn:exitChain()
-			for _, post in ipairs(posts) do
-				Messenger:post(to, "forwared from "..post.from..": "..post.message)
-			end
+	for user, forward in pairs(Forwarder.forwardsOf) do
+		local to = forward.to
+		print("checking messages of "..to)
+		conn:joinChain(forward.chain)
+		local posts = Messenger:receivePosts()
+		conn:exitChain()
+		for _, post in ipairs(posts) do
+			Messenger:post(to, "forwared from "..post.from..": "..post.message)
 		end
 	end
 end
@@ -63,7 +64,7 @@ timer:enable()
 function conn:onLoginTerminated()
 	print("login terminated, shuting the server down")
 	timer:disable() -- stop the timer
-	conn:shutdown() -- free connection resources
+	conn:close() -- free connection resources
 	orb:shutdown() -- stop the ORB and free all its resources
 end
 

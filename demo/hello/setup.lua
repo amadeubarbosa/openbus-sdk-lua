@@ -21,8 +21,5 @@ if entity == nil then
 end
 entity:grantInterface("IDL:Hello:1.0")
 
--- logout from the bus
-conn:logout() -- stops the login renewer thread and allow the process to end
-
--- free connection resources permanently
-conn:shutdown()
+-- logout from the bus and free connection resources permanently
+conn:close()

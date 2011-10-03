@@ -34,7 +34,7 @@ end
 conn:logout()
 
 conn:loginByPassword("willian", "willian")
-forwarder:addForward("bill")
+forwarder:setForward("bill")
 broadcaster:subscribe()
 conn:logout()
 
@@ -71,8 +71,7 @@ for _, user in ipairs{"willian", "bill", "paul", "mary", "steve"} do
 end
 
 conn:loginByPassword("willian", "willian")
-forwarder:removeForward("bill")
+forwarder:cancelForward("bill")
 conn:logout()
 
--- free connection resources permanently
-conn:shutdown()
+conn:close()
