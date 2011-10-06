@@ -369,6 +369,30 @@ end
 
 
 
+local DenyAll = {}
+function DenyAll:sendrequest(request)
+	request.success = false
+	request.results = {self.orb:newexcept{
+		_repid = "CORBA::NO_PERMISSION",
+		completed = "COMPLETED_NO",
+		minor = const.NoLoginCode,
+	}}
+	log:access(msg.AttemptToCallBeforeBusConnection:tag{
+		operation = request.operation.name,
+	})
+end
+function DenyAll:receiverequest(request)
+	request.success = false
+	request.results = {self.orb:newexcept{
+		_repid = "CORBA::NO_PERMISSION",
+		completed = "COMPLETED_NO",
+		minor = const.DeniedLoginCode, -- TODO:[maia] is this the right code here?
+	}}
+	log:access(msg.GotCallBeforeBusConnection:tag{
+		operation = request.operation.name,
+	})
+end
+
 
 local function connectByComponent(component, orb, log)
 	return Connection{
@@ -382,6 +406,12 @@ local openbus = {
 	createORB = neworb,
 	connectByComponent = connectByComponent,
 }
+
+function openbus.createORB(configs)
+	local orb = neworb(configs)
+	orb:setinterceptor(DenyAll, "corba")
+	return orb
+end
 
 function openbus.connectByAddress(host, port, orb, log)
 	local ref = "corbaloc::"..host..":"..port.."/"..BusObjectKey
