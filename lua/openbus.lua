@@ -287,6 +287,7 @@ function Connection:loginByPassword(entity, password)
 		})
 	end
 	local lease
+	self.busid = manager:_get_busid()
 	self.login, lease = manager:loginByPassword(entity, encoded)
 	newrenewer(self, lease)
 	return true
@@ -314,6 +315,7 @@ function Connection:loginByCertificate(entity, privatekey)
 		})
 	end
 	local lease
+	self.busid = manager:_get_busid()
 	self.login, lease = attempt:login(answer)
 	newrenewer(self, lease)
 	return true
@@ -321,7 +323,7 @@ end
 
 function Connection:shareLogin(logindata)
 	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
-	self.login = decodelogin(logindata)
+	self.login, self.busid = decodelogin(logindata)
 end
 
 function Connection:logout()
