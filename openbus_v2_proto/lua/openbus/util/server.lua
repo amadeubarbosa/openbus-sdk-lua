@@ -60,7 +60,9 @@ end
 function module.readfilecontents(path)
 	local result, errmsg = openfile(path, "rb")
 	if result then
-		result, errmsg = result:read("*a")
+		local file = result
+		result, errmsg = file:read("*a")
+		file:close()
 		if result then
 			return result
 		end
