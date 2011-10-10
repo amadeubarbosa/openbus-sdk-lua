@@ -21,6 +21,7 @@ local msg = require "openbus.core.messages"
 local idl = require "openbus.core.idl"
 local loadidl = idl.loadto
 local const = idl.const.services.access_control
+local Identifier = idl.types.Identifier
 local LoginInfoSeq = idl.types.services.access_control.LoginInfoSeq
 
 local CredentialContextId = 0x42555300 -- "BUS\0"
@@ -28,11 +29,12 @@ local CredentialContextId = 0x42555300 -- "BUS\0"
 
 
 local function getCallers(self, contexts)
-	local callers
 	for _, context in ipairs(contexts) do
 		if context.context_id == CredentialContextId then
 			local decoder = self.orb:newdecoder(context.context_data)
-			return decoder:get(self.credentialType)
+			local busid = decoder:get(self.identifierType)
+			local callers = decoder:get(self.credentialType)
+			return callers, busid
 		end
 	end
 	if self.legacy then
@@ -79,6 +81,7 @@ function Access:__init()
 		orb = createORB()
 		self.orb = orb
 	end
+	self.identifierType = orb.types:lookup_id(Identifier)
 	self.credentialType = orb.types:lookup_id(LoginInfoSeq)
 	orb:setinterceptor(self, "corba")
 end
@@ -114,6 +117,7 @@ function Access:sendrequest(request)
 	local login = self.login
 	if login ~= nil then
 		local encoder = self.orb:newencoder()
+		encoder:put(self.busid, self.identifierType)
 		local chain = self.joinedChainOf[running()] or EmptyChain
 		local index = #chain+1
 		chain.n = nil
