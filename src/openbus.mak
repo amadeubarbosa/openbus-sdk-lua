@@ -1,11 +1,31 @@
-PROJNAME= OpenBus
-LIBNAME= openbus
+PROJNAME= luaopenbus
+LIBNAME= $(PROJNAME)
+
+ifeq "$(TEC_SYSNAME)" "SunOS"
+  USE_CC=Yes
+  NO_LOCAL_LD=Yes
+  AR=CC
+  CFLAGS+= -KPIC
+  STDLFLAGS= -xar
+  CPPFLAGS= +p -KPIC -mt -D_REENTRANT
+  ifeq ($(TEC_WORDSIZE), TEC_64)
+    FLAGS+= -m64
+    LFLAGS+= -m64
+    STDLFLAGS+= -m64
+  endif
+  STDLFLAGS+= -o
+endif
 
 USE_LUA51= YES
+NO_LUALINK=YES
+USE_NODEPEND=YES
 
-OPENBUSIDL= ${OPENBUS_HOME}/idlpath/v2_00
+PRELOAD_DIR= ../obj/${TEC_UNAME}
+INCLUDES= $(PRELOAD_DIR)
 
-SRC= openbus.c
+SRC= $(PRELOAD_DIR)/openbus.c
+
+OPENBUSIDL= ${OPENBUS_HOME}/idl/v2_00
 
 LUADIR= ../lua
 LUAPCK= $(addprefix $(LUADIR)/, \
@@ -28,7 +48,7 @@ IDL= $(addprefix $(OPENBUSIDL)/, \
 	offer_registry.idl )
 
 $(LUADIR)/openbus/core/idl/parsed.lua: ${OIL_HOME}/lua/idl2lua.lua $(IDL)
-	$(LUABIN) $< -o $@ $(filter-out $<,$^)
+	$(LUABIN) -e "package.path=[[${LOOP_HOME}/lua/?.lua]]" $< -o $@ $(filter-out $<,$^)
 
-openbus.c: ${LOOP_HOME}/lua/preloader.lua $(LUAPCK)
-	$(LUABIN) $< -l "$(LUADIR)/?.lua" -h $(@:.c=.h) -o $@ $(filter-out $<,$^)
+$(PRELOAD_DIR)/openbus.c: ${LOOP_HOME}/lua/preloader.lua $(LUAPCK)
+	$(LUABIN) -e "package.path=[[${LOOP_HOME}/lua/?.lua]]" $< -l "$(LUADIR)/?.lua" -d $(PRELOAD_DIR) -h openbus.h -o openbus.c $(LUAPCK)
