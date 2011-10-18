@@ -48,7 +48,7 @@ IDL= $(addprefix $(OPENBUSIDL)/, \
 	offer_registry.idl )
 
 $(LUADIR)/openbus/core/idl/parsed.lua: ${OIL_HOME}/lua/idl2lua.lua $(IDL)
-	$(LUABIN) -e "package.path=[[${LOOP_HOME}/lua/?.lua]]" $< -o $@ $(filter-out $<,$^)
+	$(LUABIN) $< -o $@ $(filter-out $<,$^)
 
 $(PRELOAD_DIR)/openbus.c: ${LOOP_HOME}/lua/preloader.lua $(LUAPCK)
-	$(LUABIN) -e "package.path=[[${LOOP_HOME}/lua/?.lua]]" $< -l "$(LUADIR)/?.lua" -d $(PRELOAD_DIR) -h openbus.h -o openbus.c $(LUAPCK)
+	$(LUABIN) $< -l "$(LUADIR)/?.lua" -d $(PRELOAD_DIR) -h openbus.h -o openbus.c $(LUAPCK)
