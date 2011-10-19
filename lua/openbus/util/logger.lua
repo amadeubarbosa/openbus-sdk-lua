@@ -24,7 +24,7 @@ local log = Verbose{
 		warn = { "exception", "misconfig" },
 		info = { "config", "admin", "uptime" },
 		debug = { "request", "action" },
-		extra = { "access", "multiplexed" },
+		extra = { "access", "badaccess", "multiplexed" },
 	},
 }
 log:settimeformat("%d/%m/%Y %H:%M:%S") -- inclui data e hora no log

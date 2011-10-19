@@ -124,7 +124,7 @@ function Access:sendrequest(request)
 			bus = self.busid,
 		})
 	else
-		log:exception(msg.CallWithoutCredential:tag{
+		log:badaccess(msg.CallWithoutCredential:tag{
 			operation = request.operation.name,
 			bus = self.busid,
 		})
@@ -146,7 +146,7 @@ function Access:receiverequest(request)
 					bus = self.busid,
 				})
 			else
-				log:exception(msg.GotCallWithInvalidCredential:tag{
+				log:badaccess(msg.GotCallWithInvalidCredential:tag{
 					operation = request.operation.name,
 					login = last.id,
 					entity = last.entity,
@@ -154,7 +154,7 @@ function Access:receiverequest(request)
 				})
 			end
 		else
-			log:exception(msg.GotCallWithoutCredential:tag{
+			log:badaccess(msg.GotCallWithoutCredential:tag{
 				operation = request.operation.name,
 				bus = self.busid,
 			})
@@ -162,7 +162,7 @@ function Access:receiverequest(request)
 	else
 		request.success = false
 		request.results = { callers } -- TODO[maia]: Is a good CORBA SysEx to throw here?
-		log:exception(msg.UnableToDecodeCredential:tag{errmsg=callers})
+		log:badaccess(msg.UnableToDecodeCredential:tag{errmsg=callers})
 	end
 end
 

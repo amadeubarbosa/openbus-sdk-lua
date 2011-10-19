@@ -8,6 +8,8 @@ local concat = array.concat
 
 local Exception = require "oil.corba.giop.Exception"
 
+local log = require "openbus.util.logger"
+
 local function makeaux(def, types, consts, excepts)
 	local name = def.name
 	if def._type == "module" then
@@ -30,6 +32,10 @@ local function makeaux(def, types, consts, excepts)
 		local repID = def.repID
 		types[name] = repID
 		excepts[name] = function(fields)
+			log:exception(msg.ExceptionRaised:tag{
+				repid = repID,
+				fields = fields == nil and "none" or log.viewer:tostring(fields),
+			})
 			if fields == nil then fields = {} end
 			fields[1] = msg
 			fields._repid = repID
