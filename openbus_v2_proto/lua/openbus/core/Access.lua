@@ -34,7 +34,8 @@ local function getCallers(self, contexts)
 			local decoder = self.orb:newdecoder(context.context_data)
 			local busid = decoder:get(self.identifierType)
 			local callers = decoder:get(self.credentialType)
-			return callers, busid
+			callers.busid = busid
+			return callers
 		end
 	end
 	if self.legacy then
@@ -68,31 +69,26 @@ local function createORB(configs)
 end
 
 
+local WeakKeys = {__mode = "k"}
 
-local Access = class{
-	createORB = createORB,
-}
+local CallerChainOf = setmetatable({}, WeakKeys)
+
+local Access = class{ createORB = createORB }
 
 function Access:__init()
-	self.callerChainOf = {}
-	self.joinedChainOf = {}
+	self.joinedChainOf = setmetatable({}, WeakKeys)
 	local orb = self.orb
-	if orb == nil then
-		orb = createORB()
-		self.orb = orb
-	end
 	self.identifierType = orb.types:lookup_id(Identifier)
 	self.credentialType = orb.types:lookup_id(LoginInfoSeq)
-	orb:setinterceptor(self, "corba")
 end
 
 function Access:getCallerChain()
-	return self.callerChainOf[running()]
+	return CallerChainOf[running()]
 end
 
 function Access:joinChain(chain)
 	local thread = running()
-	self.joinedChainOf[thread] = chain or self.callerChainOf[thread]
+	self.joinedChainOf[thread] = chain or CallerChainOf[thread]
 end
 
 function Access:exitChain()
@@ -101,13 +97,6 @@ end
 
 function Access:getJoinedChain()
 	return self.joinedChainOf[running()]
-end
-
-function Access:close()
-	local orb = self.orb
-	orb:setinterceptor(nil, "corba")
-	clear(self.callerChainOf)
-	clear(self.joinedChainOf)
 end
 
 
@@ -132,10 +121,12 @@ function Access:sendrequest(request)
 			operation = request.operation.name,
 			login = login.id,
 			entity = login.entity,
+			bus = self.busid,
 		})
 	else
 		log:exception(msg.CallWithoutCredential:tag{
 			operation = request.operation.name,
+			bus = self.busid,
 		})
 	end
 end
@@ -147,22 +138,25 @@ function Access:receiverequest(request)
 			local last = callers[#callers]
 			local login = self.logins:getLoginEntry(last.id)
 			if login ~= nil and login.entity == last.entity then
-				self.callerChainOf[running()] = callers
+				CallerChainOf[running()] = callers
 				log:access(msg.GotBusCall:tag{
 					operation = request.operation.name,
 					login = login.id,
 					entity = login.entity,
+					bus = self.busid,
 				})
 			else
 				log:exception(msg.GotCallWithInvalidCredential:tag{
 					operation = request.operation.name,
 					login = last.id,
 					entity = last.entity,
+					bus = self.busid,
 				})
 			end
 		else
 			log:exception(msg.GotCallWithoutCredential:tag{
 				operation = request.operation.name,
+				bus = self.busid,
 			})
 		end
 	else
@@ -173,7 +167,7 @@ function Access:receiverequest(request)
 end
 
 function Access:sendreply()
-	self.callerChainOf[running()] = nil
+	CallerChainOf[running()] = nil
 end
 
 

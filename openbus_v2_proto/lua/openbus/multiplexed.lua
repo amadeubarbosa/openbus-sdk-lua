@@ -1,5 +1,7 @@
 local _G = require "_G"
+local next = _G.next
 local pairs = _G.pairs
+local pcall = _G.pcall
 local setmetatable = _G.setmetatable
 
 local coroutine = require "coroutine"
@@ -7,6 +9,9 @@ local newthread = coroutine.create
 
 local table = require "loop.table"
 local copy = table.copy
+local memoize = table.memoize
+
+local ArrayedSet = require "loop.collection.ArrayedSet"
 
 local cothread = require "cothread"
 local running = cothread.running
@@ -17,125 +22,174 @@ local class = oo.class
 local log = require "openbus.util.logger"
 local msg = require "openbus.util.messages"
 
-local baseAPI = require "openbus"
+local idl = require "openbus.core.idl"
+local const = idl.const.services.access_control
+local Identifier = idl.types.Identifier
+local BusObjectKey = idl.const.BusObjectKey
 
+local Access = require "openbus.core.Access"
+local getCallerChain = Access.getCallerChain
+local neworb = Access.neworb
 
+local openbus = require "openbus"
+local basicORB = openbus.createORB
+local connectByAddress = openbus.connectByAddress
+
+local CredentialContextId = 0x42555300 -- "BUS\0"
 
 local WeakKeyMeta = { __mode = "k" }
 
-local AccessOf = setmetatable({}, WeakKeyMeta) -- [thread]=access
+local ConnectionOf = setmetatable({}, WeakKeyMeta) -- [thread]=connection
 
-local MultiplexedAccess = class()
 
-local MultiplexerOf = memoize(function(orb)
-	return MultiplexedAccess{ orb = orb }
-end)
 
-function MultiplexedAccess:__init()
-	self.accesses = {}
-end
-
-function MultiplexedAccess:addAccess(access)
-	local accesses = self.multiplexer.accesses
-	accesses[access] = true
-	local backup = access.shutdown
-	function access.shutdown(...)
-		accesses[access] = nil
-		if next(accesses) == nil then
-			local orb = self.orb
-			MultiplexerOf[orb] = nil
-			orb:setinterceptor(nil, "corba")
-		end
-		return backup(...)
-	end
-end
-
-function MultiplexedAccess:sendrequest(...)
-	local access = AccessOf[running()]
-	if access ~= nil then
-		access:sendrequest(...)
-	end
-end
-
-function MultiplexedAccess:receiverequest(...)
-	for access in pairs(self.accesses) do
-		if access.validator:isValid(credential) then
-			AccessOf[running()] = access
-			access:receiverequest(...)
-			break
+local function getBusId(self, contexts)
+	for _, context in ipairs(contexts) do
+		if context.context_id == CredentialContextId then
+			local decoder = self.orb:newdecoder(context.context_data)
+			return decoder:get(self.identifierType)
 		end
 	end
 end
 
-function MultiplexedAccess:sendreply(...)
-	local thread = running()
-	local access = AccessOf[thread]
-	if access ~= nil then
-		access:sendreply(...)
-		AccessOf[thread] = nil
+
+
+local Multiplexer = class()
+
+function Multiplexer:__init()
+	self.connections = memoize(function() return ArrayedSet() end)
+	local orb = self.orb
+	self.identifierType = orb.types:lookup_id(Identifier)
+end
+
+function Multiplexer:addConnection(conn)
+	self.connections[conn.busid]:add(conn)
+end
+
+function Multiplexer:removeConnection(conn)
+	local busid = conn.busid
+	local connections = self.connections
+	local list = connections[busid]
+	list:remove(conn)
+	if #list == 0 then
+		connections[busid] = nil
 	end
+end
+
+function Multiplexer:sendrequest(request, ...)
+	local conn = ConnectionOf[running()]
+	if conn == nil then
+		request.success = false
+		request.results = {self.orb:newexcept{
+			"CORBA::NO_PERMISSION",
+			completed = "COMPLETED_NO",
+			minor = const.NoLoginCode,
+		}}
+		log:exception(msg.CallInThreadWithoutConnection:tag{
+			operation = request.operation.name,
+		})
+	else
+		conn:sendrequest(request, ...)
+	end
+end
+
+function Multiplexer:receiverequest(request, ...)
+	local ok, busid = pcall(getBusId, self, request.service_context)
+	if ok then
+		local conn = self.connections[busid][1]
+		if conn ~= nil then
+			request.multiplexedConnection = conn
+			ConnectionOf[running()] = conn
+			conn:receiverequest(request, ...)
+		else
+			request.success = false
+			request.results = {self.orb:newexcept{
+				"CORBA::NO_PERMISSION",
+				completed = "COMPLETED_NO",
+				minor = const.UnknownBusCode,
+			}}
+			log:exception(msg.DeniedCallFromUnknownBus:tag{
+				operation = request.operation.name,
+				bus = busid,
+			})
+		end
+	else
+		request.success = false
+		request.results = { callers } -- TODO[maia]: Is a good CORBA SysEx to throw here?
+		log:exception(msg.UnableToDecodeCredential:tag{errmsg=callers})
+	end
+end
+
+function Multiplexer:sendreply(request, ...)
+	request.multiplexedConnection:sendreply(request, ...)
+	ConnectionOf[running()] = nil
 end
 
 
 
-local function multiplexedConnect(orb, connect, ...)
-	if orb ~= nil then
-		local access = orb:getinterceptor("corba")
-		if access ~= nil then
-			local multiplexer = MultiplexerOf[orb]
-			if access ~= multiplexer then
-				multiplexer:addAccess(access)
+local function createORB(...)
+	local orb = basicORB(...)
+	local multiplexer = Multiplexer{ orb = orb }
+	-- redefine interceptor operations
+	local iceptor = orb.OpenBusInterceptor
+	function iceptor:addConnection(conn)
+		local current = self.connection
+		if current == nil then
+			self.connection = conn
+		else
+			if current ~= multiplexer then
+				multiplexer:addConnection(current)
+				self.connection = multiplexer
+				log:multiplexed(msg.MultiplexingEnabled)
 			end
-			local conn = connect(...) -- this sets the ORB's interceptor
-			multiplexer:addAccess(conn.access)
-			orb:setinterceptor(multiplexer, "corba") -- restore interceptor
-			return conn
+			multiplexer:addConnection(conn)
 		end
 	end
-	return connect(...)
-end
-
-
-
-local OpenBus = class({}, baseAPI.OpenBus)
-
-local connectByPassword = OpenBus.connectByPassword
-function OpenBus:connectByPassword(entity, password)
-	local orb = self.orb
-	return multiplexedConnect(orb, connectByPassword, self,
-	                          entity, password)
-end
-
-local connectByCertificate = OpenBus.connectByCertificate
-function OpenBus:connectByCertificate(entity, privatekey)
-	local orb = self.orb
-	return multiplexedConnect(orb, connectByCertificate, self,
-	                          entity, privatekey)
-end
-
-local connectBySharedLogin = OpenBus.connectBySharedLogin
-function OpenBus:connectBySharedLogin(logindata, bus, orb)
-	local orb = self.orb
-	return multiplexedConnect(orb, connectBySharedLogin, self, logindata)
-end
-
-
-
-local openbus = copy(baseAPI, { OpenBus = OpenBus })
-
-function openbus.getThreadCallerChain()
-	local access = AccessOf[running()]
-	if access ~= nil then
-		return access:getCallerChain()
+	local removeConnection = iceptor.removeConnection
+	function iceptor:removeConnection(conn)
+		local current = self.connection
+		if self.connection ~= multiplexer then
+			removeConnection(self, conn)
+		else
+			multiplexer:removeConnection(conn)
+			local connections = multiplexer.connections
+			local busid, list = next(connections)
+			if busid ~= nil and next(connections, busid) == nil and #list == 1 then
+				local single = list[1]
+				multiplexer:removeConnection(single)
+				self.connection = single
+				log:multiplexed(msg.MultiplexingDisabled)
+			end
+		end
 	end
+	return orb
 end
 
-function openbus.setThreadConnection(access)
-	AccessOf[running()] = access
+
+
+local openbus = {
+	createORB = createORB,
+	getCallerChain = getCallerChain,
+}
+
+function openbus.connectByAddress(host, port, orb)
+	if orb == nil then orb = createORB() end
+	local conn = connectByAddress(host, port, orb)
+	local renewer = conn.newrenewer
+	function conn:newrenewer(lease)
+		local thread = renewer(self, lease)
+		ConnectionOf[thread] = conn
+		return thread
+	end
+	return conn
 end
 
-function openbus.getThreadConnection()
-	return AccessOf[running()]
+function openbus.setCurrentConnection(conn)
+	ConnectionOf[running()] = conn
+end
+
+function openbus.getCurrentConnection()
+	return ConnectionOf[running()]
 end
 
 return openbus
