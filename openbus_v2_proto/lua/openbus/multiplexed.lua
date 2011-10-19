@@ -85,7 +85,7 @@ function Multiplexer:sendrequest(request, ...)
 			completed = "COMPLETED_NO",
 			minor = const.NoLoginCode,
 		}}
-		log:exception(msg.CallInThreadWithoutConnection:tag{
+		log:badaccess(msg.CallInThreadWithoutConnection:tag{
 			operation = request.operation.name,
 		})
 	else
@@ -108,7 +108,7 @@ function Multiplexer:receiverequest(request, ...)
 				completed = "COMPLETED_NO",
 				minor = const.UnknownBusCode,
 			}}
-			log:exception(msg.DeniedCallFromUnknownBus:tag{
+			log:badaccess(msg.DeniedCallFromUnknownBus:tag{
 				operation = request.operation.name,
 				bus = busid,
 			})
@@ -116,7 +116,7 @@ function Multiplexer:receiverequest(request, ...)
 	else
 		request.success = false
 		request.results = { callers } -- TODO[maia]: Is a good CORBA SysEx to throw here?
-		log:exception(msg.UnableToDecodeCredential:tag{errmsg=callers})
+		log:badaccess(msg.UnableToDecodeCredential:tag{errmsg=callers})
 	end
 end
 

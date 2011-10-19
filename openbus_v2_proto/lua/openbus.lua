@@ -204,7 +204,7 @@ function Interceptor:sendrequest(request)
 				completed = "COMPLETED_NO",
 				minor = loginconst.NoLoginCode,
 			}}
-			log:exception(msg.AttemptToCallBeforeBusConnection:tag{
+			log:badaccess(msg.AttemptToCallBeforeBusConnection:tag{
 				operation = request.operation.name,
 			})
 		end
@@ -224,7 +224,7 @@ function Interceptor:receiverequest(request)
 				completed = "COMPLETED_NO",
 				minor = loginconst.UnverifiedLoginCode,
 			}}
-			log:exception(msg.GotCallBeforeBusConnection:tag{
+			log:badaccess(msg.GotCallBeforeBusConnection:tag{
 				operation = request.operation.name,
 			})
 		end
@@ -317,7 +317,7 @@ function Connection:sendrequest(request)
 			completed = "COMPLETED_NO",
 			minor = loginconst.NoLoginCode,
 		}}
-		log:exception(msg.AttemptToCallBeforeLogin:tag{
+		log:badaccess(msg.AttemptToCallBeforeLogin:tag{
 			operation = request.operation.name,
 			bus = self.busid,
 		})
