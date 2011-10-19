@@ -18,12 +18,15 @@ local log = Verbose{
 		{"warn"},   -- condições adversas encontradas, mas que são ignoradas
 		{"info"},   -- informações de depuração para o adminstrador
 		{"debug"},  -- informações de depuração para usuários do serviço
+		{"extra"},
 		
 		error = { "unexpected", "failure" },
 		warn = { "exception", "misconfig" },
 		info = { "config", "admin", "uptime" },
 		debug = { "request", "action" },
+		extra = { "access", "multiplexed" },
 	},
 }
 log:settimeformat("%d/%m/%Y %H:%M:%S") -- inclui data e hora no log
+log:flag("print", true)
 return log
