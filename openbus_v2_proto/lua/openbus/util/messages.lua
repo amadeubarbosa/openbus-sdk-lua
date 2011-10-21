@@ -1,11 +1,10 @@
 local string = require "string"
 
+local array = require "table"
+local concat = array.concat
+
 local table = require "loop.table"
 local memoize = table.memoize
-
-local function toword(camelcase)
-	return camelcase:lower().." "
-end
 
 function string:tag(values)
 	if self:match(' $') then
@@ -15,7 +14,7 @@ function string:tag(values)
 			i = i+1
 			fields[i] = name..'=$'..name
 		end
-		self = self..'('..table.concat(fields, ';')..')'
+		self = self..'('..concat(fields, ';')..')'
 	end
 	return (self:gsub(
 		'(%$+)([_%a][_%w]*)',
@@ -27,6 +26,10 @@ function string:tag(values)
 			return prefix:sub(1, size/2)..field
 		end
 	))
+end
+
+local function toword(camelcase)
+	return camelcase:lower().." "
 end
 
 return memoize(function(message)
