@@ -113,8 +113,13 @@ static int report (lua_State *L, int status) {
 
 
 static int traceback (lua_State *L) {
-  if (!lua_isstring(L, 1))  /* 'message' not a string? */
-    return 1;  /* keep it intact */
+	lua_getfield(L, LUA_GLOBALSINDEX, "tostring");
+	if (lua_isfunction(L, -1)) {
+		lua_insert(L, 1);  /* place below the message */
+		lua_call(L, 1, 1);  /* call tostring */
+	} else {
+		lua_pop(L, 1);
+	}
   lua_getfield(L, LUA_GLOBALSINDEX, "debug");
   if (!lua_istable(L, -1)) {
     lua_pop(L, 1);
