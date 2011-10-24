@@ -45,8 +45,9 @@ static const char *callerchunk =
 " _G.lua51_xpcall = _G.xpcall"
 " require 'coroutine.pcall'"
 
-" local _loadfile = loadfile"
-" function loadfile(path, mode, env)"
+" local _loadfile = _G.loadfile"
+" _G.lua51_loadfile = _loadfile"
+" function _G.loadfile(path, mode, env)"
 " 	local result, errmsg = _loadfile(path)"
 " 	if result ~= nil and env ~= nil then"
 " 		setfenv(result, env)"
@@ -300,6 +301,13 @@ static int handle_script (lua_State *L, char **argv, int n) {
 }
 
 
+static int enable_dynload (lua_State *L) {
+  int status = luaL_dostring(L,
+    "table.insert(package.loaders, (table.remove(package.loaders, 1)))");
+  return report(L, status);
+}
+
+
 /* check that argument has no extra characters at the end */
 #define notail(x)	{if ((x)[2] != '\0') return -1;}
 
@@ -315,6 +323,10 @@ static int collectargs (char **argv, int *pi, int *pv, int *pe, int *pd) {
         return (argv[i+1] != NULL ? i+1 : 0);
       case '\0':
         return i;
+      case 'd':
+        notail(argv[i]);
+        *pd = 1;
+        break;
       case 'i':
         notail(argv[i]);
         *pi = 1;  /* go through */
@@ -324,9 +336,6 @@ static int collectargs (char **argv, int *pi, int *pv, int *pe, int *pd) {
         break;
       case 'e':
         *pe = 1;  /* go through */
-      case 'd':
-        notail(argv[i]);
-        *pd = 1;  /* go through */
       case 'l':
         if (argv[i][2] == '\0') {
           i++;
@@ -429,6 +438,9 @@ static int pmain (lua_State *L) {
     return 0;
   }
   if (has_v) print_version();
+  if (has_d)
+    s->status = enable_dynload(L);
+  if (s->status != 0) return 0;
   s->status = runargs(L, argv, (script > 0) ? script : s->argc);
   if (s->status != 0) return 0;
   if (script)
