@@ -71,11 +71,10 @@ end
 
 local WeakKeys = {__mode = "k"}
 
-local CallerChainOf = setmetatable({}, WeakKeys)
-
 local Access = class{ createORB = createORB }
 
 function Access:__init()
+	self.callerChainOf = setmetatable({}, WeakKeys)
 	self.joinedChainOf = setmetatable({}, WeakKeys)
 	local orb = self.orb
 	self.identifierType = orb.types:lookup_id(Identifier)
@@ -83,12 +82,12 @@ function Access:__init()
 end
 
 function Access:getCallerChain()
-	return CallerChainOf[running()]
+	return self.callerChainOf[running()]
 end
 
 function Access:joinChain(chain)
 	local thread = running()
-	self.joinedChainOf[thread] = chain or CallerChainOf[thread]
+	self.joinedChainOf[thread] = chain or self.callerChainOf[thread]
 end
 
 function Access:exitChain()
@@ -138,7 +137,7 @@ function Access:receiverequest(request)
 			local last = callers[#callers]
 			local login = self.logins:getLoginEntry(last.id)
 			if login ~= nil and login.entity == last.entity then
-				CallerChainOf[running()] = callers
+				self.callerChainOf[running()] = callers
 				log:access(msg.GotBusCall:tag{
 					operation = request.operation.name,
 					login = login.id,
@@ -167,7 +166,7 @@ function Access:receiverequest(request)
 end
 
 function Access:sendreply()
-	CallerChainOf[running()] = nil
+	self.callerChainOf[running()] = nil
 end
 
 
