@@ -11,8 +11,6 @@ local table = require "loop.table"
 local copy = table.copy
 local memoize = table.memoize
 
-local ArrayedSet = require "loop.collection.ArrayedSet"
-
 local cothread = require "cothread"
 local running = cothread.running
 
@@ -28,7 +26,6 @@ local Identifier = idl.types.Identifier
 local BusObjectKey = idl.const.BusObjectKey
 
 local Access = require "openbus.core.Access"
-local getCallerChain = Access.getCallerChain
 local neworb = Access.neworb
 
 local openbus = require "openbus"
@@ -38,8 +35,6 @@ local connectByAddress = openbus.connectByAddress
 local CredentialContextId = 0x42555300 -- "BUS\0"
 
 local WeakKeyMeta = { __mode = "k" }
-
-local ConnectionOf = setmetatable({}, WeakKeyMeta) -- [thread]=connection
 
 
 
@@ -57,27 +52,31 @@ end
 local Multiplexer = class()
 
 function Multiplexer:__init()
-	self.connections = memoize(function() return ArrayedSet() end)
+	self.connections = {} -- [conn] = { [thread]=true, ... }
+	self.connectionOf = setmetatable({}, WeakKeyMeta) -- [thread]=connection
 	local orb = self.orb
 	self.identifierType = orb.types:lookup_id(Identifier)
 end
 
 function Multiplexer:addConnection(conn)
-	self.connections[conn.busid]:add(conn)
+	self.connections[conn] = {}
 end
 
 function Multiplexer:removeConnection(conn)
-	local busid = conn.busid
 	local connections = self.connections
-	local list = connections[busid]
-	list:remove(conn)
-	if #list == 0 then
-		connections[busid] = nil
+	local threads = connections[conn]
+	if threads then
+		local connectionOf = self.connectionOf
+		connectionOf[conn.busid] = nil
+		for thread in pairs(threads) do
+			connectionOf[thread] = nil
+		end
+		connections[conn] = nil
 	end
 end
 
 function Multiplexer:sendrequest(request, ...)
-	local conn = ConnectionOf[running()]
+	local conn = self.connectionOf[running()]
 	if conn == nil then
 		request.success = false
 		request.results = {self.orb:newexcept{
@@ -96,10 +95,10 @@ end
 function Multiplexer:receiverequest(request, ...)
 	local ok, busid = pcall(getBusId, self, request.service_context)
 	if ok then
-		local conn = self.connections[busid][1]
+		local conn = self.connectionOf[busid]
 		if conn ~= nil then
 			request.multiplexedConnection = conn
-			ConnectionOf[running()] = conn
+			self.connectionOf[running()] = conn
 			conn:receiverequest(request, ...)
 		else
 			request.success = false
@@ -122,7 +121,30 @@ end
 
 function Multiplexer:sendreply(request, ...)
 	request.multiplexedConnection:sendreply(request, ...)
-	ConnectionOf[running()] = nil
+	self.connectionOf[running()] = nil
+end
+
+function Multiplexer:setCurrentConnection(conn)
+	local set = self.connections[conn]
+	if set == nil then error("invalid connection") end
+	local thread = running()
+	self.connectionOf[thread] = conn
+	set[thread] = true
+end
+
+function Multiplexer:getCurrentConnection()
+	return self.connectionOf[running()]
+end
+
+function Multiplexer:setIncommingConnection(busid, conn)
+	if self.connections[conn] == nil or conn.busid ~= busid then
+		error("invalid connection")
+	end
+	self.connectionOf[busid] = conn
+end
+
+function Multiplexer:getIncommingConnection(busid)
+	return self.connectionOf[busid]
 end
 
 
@@ -130,6 +152,7 @@ end
 local function createORB(...)
 	local orb = basicORB(...)
 	local multiplexer = Multiplexer{ orb = orb }
+	orb.OpenBusConnectionMultiplexer = multiplexer
 	-- redefine interceptor operations
 	local iceptor = orb.OpenBusInterceptor
 	function iceptor:addConnection(conn)
@@ -153,9 +176,8 @@ local function createORB(...)
 		else
 			multiplexer:removeConnection(conn)
 			local connections = multiplexer.connections
-			local busid, list = next(connections)
-			if busid ~= nil and next(connections, busid) == nil and #list == 1 then
-				local single = list[1]
+			local single = next(connections)
+			if single ~= nil and next(connections, single) == nil then
 				multiplexer:removeConnection(single)
 				self.connection = single
 				log:multiplexed(msg.MultiplexingDisabled)
@@ -167,29 +189,19 @@ end
 
 
 
-local openbus = {
-	createORB = createORB,
-	getCallerChain = getCallerChain,
-}
+local openbus = { createORB = createORB }
 
 function openbus.connectByAddress(host, port, orb)
 	if orb == nil then orb = createORB() end
 	local conn = connectByAddress(host, port, orb)
+	local multiplexer = orb.OpenBusConnectionMultiplexer
 	local renewer = conn.newrenewer
 	function conn:newrenewer(lease)
 		local thread = renewer(self, lease)
-		ConnectionOf[thread] = conn
+		multiplexer.connectionOf[thread] = conn
 		return thread
 	end
 	return conn
-end
-
-function openbus.setCurrentConnection(conn)
-	ConnectionOf[running()] = conn
-end
-
-function openbus.getCurrentConnection()
-	return ConnectionOf[running()]
 end
 
 return openbus

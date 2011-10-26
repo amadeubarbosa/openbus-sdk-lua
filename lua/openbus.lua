@@ -40,7 +40,6 @@ local offertypes = idl.types.services.offer_registry
 local BusObjectKey = idl.const.BusObjectKey
 local Access = require "openbus.core.Access"
 local neworb = Access.createORB
-local getCallerChain = Access.getCallerChain
 local sendBusRequest = Access.sendrequest
 local receiveBusRequest = Access.receiverequest
 
@@ -326,7 +325,7 @@ end
 
 function Connection:receiverequest(request)
 	receiveBusRequest(self, request)
-	local callers = getCallerChain()
+	local callers = self:getCallerChain()
 	if callers == nil then
 		request.success = false
 		request.results = {self.orb:newexcept{
@@ -438,11 +437,7 @@ local function createORB(configs)
 	return orb
 end
 
-local openbus = {
-	Interceptor = Interceptor,
-	createORB = createORB,
-	getCallerChain = getCallerChain,
-}
+local openbus = { createORB = createORB }
 
 function openbus.connectByAddress(host, port, orb)
 	local ref = "corbaloc::"..host..":"..port.."/"..BusObjectKey
