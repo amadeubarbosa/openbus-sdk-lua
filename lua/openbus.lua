@@ -44,7 +44,7 @@ local sendBusRequest = Access.sendrequest
 local receiveBusRequest = Access.receiverequest
 
 local cothread = require "cothread"
-local schedule = cothread.schedule
+local resume = cothread.next
 local unschedule = cothread.unschedule
 local deferuntil = cothread.defer
 local time = cothread.now
@@ -283,7 +283,10 @@ function Connection:newrenewer(lease)
 	local manager = self.AccessControl
 	local thread
 	thread = newthread(function()
-		repeat
+		while self.login ~= nil do
+			self.renewer = thread
+			deferuntil(time()+lease)
+			self.renewer = nil
 			log:action(msg.RenewLogin:tag(self.login))
 			local ok, result = pcall(manager.renew, manager)
 			if ok then
@@ -293,17 +296,12 @@ function Connection:newrenewer(lease)
 					self.login = nil
 					self:onLoginTerminated()
 				end
-				return
 			end
-			self.renewer = thread
-			deferuntil(time()+lease)
-			self.renewer = nil
-		until self.login == nil
+		end
 	end)
-	schedule(thread, "defer", lease)
+	resume(thread)
 	return thread
 end
-
 
 
 function Connection:sendrequest(request)
@@ -388,13 +386,13 @@ function Connection:shareLogin(logindata)
 end
 
 function Connection:logout()
-	local renewer = self.renewer
-	if renewer ~= nil then
-		unschedule(renewer)
-	end
 	if self.login ~= nil then
 		self.AccessControl:logout()
 		self.login = nil
+		local renewer = self.renewer
+		if renewer ~= nil then
+			unschedule(renewer)
+		end
 		return true
 	end
 	return false
