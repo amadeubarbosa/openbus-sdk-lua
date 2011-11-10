@@ -1,3 +1,7 @@
+local _G = require "_G"
+local pairs = _G.pairs
+local tostring = _G.tostring
+
 local string = require "string"
 
 local array = require "table"
