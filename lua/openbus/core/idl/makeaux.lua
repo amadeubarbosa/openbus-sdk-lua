@@ -9,6 +9,7 @@ local concat = array.concat
 local Exception = require "oil.corba.giop.Exception"
 
 local log = require "openbus.util.logger"
+local msg = require "openbus.util.messages"
 
 local function makeaux(def, types, consts, excepts)
 	local name = def.name
@@ -23,12 +24,12 @@ local function makeaux(def, types, consts, excepts)
 			end
 		end
 	elseif def._type == "except" then
-		local msg = { "$_repid:" }
+		local message = { "$_repid:" }
 		for _, member in ipairs(def.members) do
 			local name = member.name
-			msg[#msg+1] = name..": $"..name
+			message[#message+1] = name..": $"..name
 		end
-		msg = concat(msg, " ")
+		message = concat(message, " ")
 		local repID = def.repID
 		types[name] = repID
 		excepts[name] = function(fields)
@@ -37,7 +38,7 @@ local function makeaux(def, types, consts, excepts)
 				fields = fields == nil and "none" or log.viewer:tostring(fields),
 			})
 			if fields == nil then fields = {} end
-			fields[1] = msg
+			fields[1] = message
 			fields._repid = repID
 			error(Exception(fields))
 		end
