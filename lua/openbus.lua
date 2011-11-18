@@ -17,6 +17,7 @@ local decrypt = lce.cipher.decrypt
 local readcertificate = lce.x509.readfromderstring
 
 local table = require "loop.table"
+local copy = table.copy
 local memoize = table.memoize
 
 local BiCyclicSets = require "loop.collection.BiCyclicSets"
@@ -426,7 +427,7 @@ end
 
 
 local function createORB(configs)
-	local orb = neworb(configs)
+	local orb = neworb(copy(configs))
 	orb.OpenBusInterceptor = Interceptor{ orb = orb }
 	orb:setinterceptor(orb.OpenBusInterceptor, "corba")
 	return orb
