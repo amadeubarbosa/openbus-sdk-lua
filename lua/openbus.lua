@@ -349,7 +349,6 @@ function Connection:loginByPassword(entity, password)
 	local lease
 	self.login, lease = manager:loginByPassword(entity, encoded)
 	self:newrenewer(lease)
-	return true
 end
 
 function Connection:loginByCertificate(entity, privatekey)
@@ -376,13 +375,11 @@ function Connection:loginByCertificate(entity, privatekey)
 	local lease
 	self.login, lease = attempt:login(answer)
 	self:newrenewer(lease)
-	return true
 end
 
 function Connection:shareLogin(logindata)
 	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
 	self.login = decodelogin(logindata)
-	return true
 end
 
 function Connection:logout()
