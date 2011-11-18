@@ -436,6 +436,7 @@ end
 local openbus = { createORB = createORB }
 
 function openbus.connectByAddress(host, port, orb)
+  if not host or not port then return nil end
   local ref = "corbaloc::"..host..":"..port.."/"..BusObjectKey
   if orb == nil then orb = createORB() end
   return Connection{
