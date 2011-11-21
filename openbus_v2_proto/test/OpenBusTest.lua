@@ -1,3 +1,13 @@
+local _G = require "_G"
+local os = _G.os
+local io = _G.io
+local pairs = _G.pairs
+local socket = _G.socket
+local string = _G.string
+local assert = _G.assert
+local tonumber = _G.tonumber
+local tostring = _G.tostring
+
 local oil = require "oil"
 local lce = require "lce"
 local Check = require "latt.Check"
