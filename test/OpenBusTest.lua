@@ -256,13 +256,8 @@ Suite = {
       
       os.execute(busadmin.." --add-entity="..self.entityId ..
           " --category="..self.categoryId .. " --name=Teste_do_Barramento" ..
---        " --certificate="..self.entityId..".crt"..
-          logoutput)
-
---TODO: remover o os.execute abaixo quando o acima funcionar com --certificate
-      os.execute(busadmin.." --add-certificate="..self.entityId ..
           " --certificate="..self.entityId..".crt"..logoutput)
-
+      
       self.testKeyFile = self.categoryId .. ".key"
       local keyFile = assert(io.open(self.testKeyFile))
       self.testKey = keyFile:read("*a")
