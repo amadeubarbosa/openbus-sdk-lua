@@ -42,6 +42,11 @@ end
 oil.verbose:level(oilLogLevel)
 Log:level(sdkLogLevel)
 
+local busadmin = "busadmin --host="..host.." --port="..port..
+    " --login="..user.." --password=".. password
+local logoutput = " 2>>management-err.txt >>management.txt "
+
+
 Suite = {
   Test1 = { --Testa o método de inicialização
     testConnect = function(self)
@@ -226,41 +231,26 @@ Suite = {
 
   Test3 = { -- Testa loginByCertificate
     beforeTestCase = function(self)
-      local OPENBUS_HOME = os.getenv("OPENBUS_HOME")
       local ltime = tostring(socket.gettime())
       ltime = string.gsub(ltime, "%.", "")
 
       self.categoryId = "TesteBarramento".. ltime
       self.entityId = self.categoryId
 
-      os.execute("./openssl-generate.ksh -n " .. self.categoryId .. " -c openssl.cnf <TesteBarramentoCertificado_input.txt  2> genkey-err.txt >genkeyT.txt ")
-
-      os.execute(OPENBUS_HOME.."/bin/busadmin --host=" .. host ..
-                                            " --port=" .. port  ..
-                                            " --login=" .. user ..
-                                            " --password=" .. password ..
-                                            " --add-category=".. self.categoryId ..
-                                            " --name=Teste_do_OpenBus" ..
-                                            " 2>>management-err.txt >>management.txt ")
-
-      os.execute(OPENBUS_HOME.."/bin/busadmin --host=" .. host ..
-                                            " --port=" .. port  ..
-                                            " --login=" .. user ..
-                                            " --password=" .. password ..
-                                            " --add-entity="..self.entityId ..
-                                            " --category="..self.categoryId ..
-                                            " --name=Teste_do_Barramento" ..
---                                            " --certificate="..self.entityId..".crt"..
-                                            " 2>>management-err.txt >>management.txt ")
+      os.execute("echo -e '\n\n\n\n\n\n\n' | openssl-generate.ksh -n " 
+          .. self.categoryId .. " 2> genkey-err.txt >genkeyT.txt ")
+      
+      os.execute(busadmin.." --add-category=".. self.categoryId ..
+          " --name=Teste_do_OpenBus" .. logoutput)
+      
+      os.execute(busadmin.." --add-entity="..self.entityId ..
+          " --category="..self.categoryId .. " --name=Teste_do_Barramento" ..
+--        " --certificate="..self.entityId..".crt"..
+          logoutput)
 
 --TODO: remover o os.execute abaixo quando o acima funcionar com --certificate
-      os.execute(OPENBUS_HOME.."/bin/busadmin --host=" .. host ..
-                                            " --port=" .. port  ..
-                                            " --login=" .. user ..
-                                            " --password=" .. password ..
-                                            " --add-certificate="..self.entityId ..
-                                            " --certificate="..self.entityId..".crt"..
-                                            " 2>>management-err.txt >>management.txt ")
+      os.execute(busadmin.." --add-certificate="..self.entityId ..
+          " --certificate="..self.entityId..".crt"..logoutput)
 
       self.testKeyFile = self.categoryId .. ".key"
       local keyFile = assert(io.open(self.testKeyFile))
@@ -274,19 +264,8 @@ Suite = {
 
     afterTestCase = function(self)
       local OPENBUS_HOME = os.getenv("OPENBUS_HOME")
-      os.execute(OPENBUS_HOME.."/bin/busadmin --host=" .. host ..
-                                            " --port=" .. port ..
-                                            " --login=" .. user ..
-                                            " --password=" .. password ..
-                                            " --del-entity="..self.entityId..
-                                            " 2>> management-err.txt >>management.txt ")
-
-      os.execute(OPENBUS_HOME.."/bin/busadmin --host=" .. host ..
-                                            " --port=" .. port ..
-                                            " --login=" .. user ..
-                                            " --password=" .. password ..
-                                            " --del-category="..self.categoryId..
-                                            " 2>> management-err.txt >>management.txt ")
+      os.execute(busadmin.." --del-entity="..self.entityId..logoutput)
+      os.execute(busadmin.." --del-category="..self.categoryId..logoutput)
 
       --Apaga as chaves e certificados gerados
       os.execute("rm -f " .. self.categoryId .. ".key")
