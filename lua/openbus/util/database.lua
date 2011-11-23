@@ -82,7 +82,11 @@ local function loadfrom(path)
 end
 
 local function saveto(path, ...)
-	local temp = tmpname() -- was 'path.."-"..uuid.new("time")..".tmp"'
+	local temp = path.."-"..uuid.new("time")..".tmp" -- must be in the same path
+	                                                 -- of the final file because
+	                                                 -- 'os.rename' can only
+	                                                 -- rename files in the same
+	                                                 -- file system.
 	local result, errmsg = open(temp, "w")
 	if result == nil then
 		errmsg = "unable to create temporary file '"..temp.."' ("..errmsg..")"
@@ -98,8 +102,8 @@ local function saveto(path, ...)
 				errmsg = "unable to replace file '"..path.."' (with file "..errmsg..")"
 			end
 		end
+		removefile(temp)
 	end
-	removefile(temp) -- on some systems (POSIX) 'tmpname' creates a file
 	return result, errmsg
 end
 
