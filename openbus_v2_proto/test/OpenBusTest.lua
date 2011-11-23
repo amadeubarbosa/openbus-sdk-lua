@@ -7,11 +7,10 @@ local assert = _G.assert
 local tonumber = _G.tonumber
 local tostring = _G.tostring
 
+local socket = require "socket.core"
 local oil = require "oil"
 local lce = require "lce"
 local Check = require "latt.Check"
--- TODO: confirmar o porque dessa modificação com o Maia
-local socket = _G.socket
 
 local Openbus = require "openbus"
 local Log = require "openbus.util.logger"
