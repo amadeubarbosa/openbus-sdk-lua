@@ -14,17 +14,42 @@ local iConfig = {
 
 local host = "localhost"
 local port = 2089
-local props = {}
-
 local user = "tester"
 local password = "tester"
+local oilLogLevel = 0
+local sdkLogLevel = 3
 
 local entityName = "TesteBarramento"
-local privateKey = "resources/Teste.ke"
-local acsCertificate = "resources/AccessControlService.crt"
+local privateKey = "resources/TesteBarramento.key"
+local acsCertificate = "AccessControlService.crt"
 
-oil.verbose:level(0)
-Log:level(0)
+-- alterando as propriedades se preciso
+local scsutils = require ("scs.core.utils").Utils()
+local props = {}
+scsutils:readProperties(props, "Test.properties")
+scsutils = nil
+
+if props["host.name"] then
+  host = props["host.name"].value
+end
+if props["host.port"] and tonumber(props["host.port"].value) then
+  port = tonumber(props["host.port"].value)
+end
+if props["user"] then
+  user = props["user"].value
+end
+if props["password"] then
+  password = props["password"].value
+end
+if props["oil.verbose"] and tonumber(props["oil.verbose"].value) then
+  oilLogLevel = tonumber(props["oil.verbose"].value)
+end
+if props["openbus.verbose"] and tonumber(props["openbus.verbose"].value) then
+  sdkLogLevel = tonumber(props["openbus.verbose"].value)
+end
+
+oil.verbose:level(oilLogLevel)
+Log:level(sdkLogLevel)
 
 Suite = {
   Test1 = {
