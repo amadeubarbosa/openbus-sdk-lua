@@ -204,4 +204,21 @@ function openbus.connectByAddress(host, port, orb)
 	return conn
 end
 
+
+
+-- insert function argument typing
+local argcheck = require "openbus.util.argcheck"
+argcheck.convertclass(Multiplexer, {
+	setCurrentConnection = { --[[Connection]] },
+	getCurrentConnection = {},
+	setIncommingConnection = { "string", --[[Connection]] },
+	getIncommingConnection = { "string" },
+})
+argcheck.convertmodule(openbus, {
+	createORB = { "nil|table" },
+	connectByAddress = { "string", "number" },
+})
+
+
+
 return openbus
