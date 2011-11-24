@@ -101,7 +101,7 @@ function module.newSCS(params)
 		IComponent = params.objkey,
 	})
 
-	-- adiciona as facetas e recept√°culos do componente
+	-- adiciona as facetas e recept·culos do componente
 	local facets = params.facets
 	for name, obj in pairs(facets) do
 		component:addFacet(obj.__objkey, obj.__type, obj, obj.__objkey)
@@ -164,10 +164,10 @@ end
 module.ConfigArgs = class({
 	__call = Arguments.__call, -- no metamethod inheritance
 	-- mensagens de erro nos argumentos de linha de comando
-	_badnumber = "valor do par√¢metro '%s' √© inv√°lido (n√∫mero esperado ao inv√©s de '%s')",
-	_missing = "nenhum valor definido para o par√¢metro '%s'",
-	_unknown = "par√¢metro inv√°lido '%s'",
-	_norepeat = "par√¢metro '%s' s√≥ pode ser definido uma vez",
+	_badnumber = "valor do par‚metro '%s' È inv·lido (n˙mero esperado ao invÈs de '%s')",
+	_missing = "nenhum valor definido para o par‚metro '%s'",
+	_unknown = "par‚metro inv·lido '%s'",
+	_norepeat = "par‚metro '%s' sÛ pode ser definido uma vez",
 }, Arguments)
 
 function module.ConfigArgs:configs(_, path)
