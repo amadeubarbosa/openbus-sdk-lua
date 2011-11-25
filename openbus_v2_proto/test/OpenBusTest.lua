@@ -255,6 +255,9 @@ Suite = {
       
       os.execute(busadmin.." --add-entity="..self.entityId ..
           " --category="..self.categoryId .. " --name=Teste_do_Barramento" ..
+          logoutput)
+      
+      os.execute(busadmin.." --add-certificate="..self.entityId ..
           " --certificate="..self.entityId..".crt"..logoutput)
       
       self.testKeyFile = self.categoryId .. ".key"
