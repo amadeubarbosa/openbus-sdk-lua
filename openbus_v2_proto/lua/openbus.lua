@@ -155,6 +155,14 @@ local function getLoginInfo(self, loginId)
 	throw.InvalidLogins{loginsId={id}}
 end
 
+local function localLogout(self)
+	self.login = nil
+	local renewer = self.renewer
+	if renewer ~= nil then
+		unschedule(renewer)
+	end
+end
+
 local LoginServiceNames = {
 	AccessControl = "AccessControl",
 	certificates = "CertificateRegistry",
@@ -196,6 +204,7 @@ function Interceptor:sendrequest(request)
 	if self.ignoredThreads[running()] == nil then
 		local conn = self.connection
 		if conn ~= nil then
+			request.connection = conn
 			conn:sendrequest(request)
 		else
 			request.success = false
@@ -208,6 +217,14 @@ function Interceptor:sendrequest(request)
 				operation = request.operation.name,
 			})
 		end
+	end
+end
+
+function Interceptor:receivereply(request)
+	local conn = self.connection
+	if conn ~= nil and conn.receivereply ~= nil then
+		request.connection = nil
+		conn:receivereply(request)
 	end
 end
 
@@ -293,10 +310,7 @@ function Connection:newrenewer(lease)
 			if ok then
 				lease = result
 			elseif result._repid == sysex.NO_PERMISSION then
-				if self.login ~= nil then
-					self.login = nil
-					self:onLoginTerminated()
-				end
+				self.login = nil -- flag connection is logged out
 			end
 		end
 	end)
@@ -319,6 +333,29 @@ function Connection:sendrequest(request)
 			operation = request.operation.name,
 			bus = self.busid,
 		})
+	end
+end
+
+function Connection:receivereply(request)
+	if request.success == false then
+		local except = request.results[1]
+		if except._repid == sysex.NO_PERMISSION
+		and except.completed == "COMPLETED_NO"
+		and except.minor == loginconst.InvalidLoginCode then
+			log:badaccess(msg.GotInvalidLoginException:tag{
+				operation = request.operation.name,
+				bus = self.busid,
+			})
+			localLogout(self)
+			if self:onInvalidLogin() then
+				request.success = nil -- reissue request to the same reference
+				sendBusRequest(self, request)
+				log:badaccess(msg.ReissuingCallAfterCallback:tag{
+					operation = request.operation.name,
+					bus = self.busid,
+				})
+			end
+		end
 	end
 end
 
@@ -385,13 +422,13 @@ end
 
 function Connection:logout()
 	if self.login ~= nil then
-		self.AccessControl:logout()
-		self.login = nil
-		local renewer = self.renewer
-		if renewer ~= nil then
-			unschedule(renewer)
-		end
-		return true
+		local access = self.AccessControl
+		local result, except = pcall(access.logout, access)
+		if not result and(except._repid ~= sysex.NO_PERMISSION
+		               or except.minor ~= loginconst.InvalidLoginCode
+		               or except.completed ~= "COMPLETED_NO") then error(except) end
+		localLogout(self)
+		return result
 	end
 	return false
 end
@@ -405,7 +442,7 @@ function Connection:isLoggedIn()
 	return self.login ~= nil
 end
 
-function Connection:onLoginTerminated()
+function Connection:onInvalidLogin()
 	-- does nothing by default
 end
 
@@ -451,7 +488,7 @@ local argcheck = require "openbus.util.argcheck"
 argcheck.convertclass(Connection, {
 	--encodeLogin = {},
 	loginByPassword = { "string", "string" },
-	loginByCertificate = { "string", "string" },
+	loginByCertificate = { "string", "table" },
 	shareLogin = { "string" },
 	logout = {},
 	getCallerChain = {},

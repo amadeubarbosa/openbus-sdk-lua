@@ -12,7 +12,7 @@ local oil = require "oil"
 local lce = require "lce"
 local Check = require "latt.Check"
 
-local Openbus = require "openbus"
+local openbus = require "openbus"
 local Log = require "openbus.util.logger"
 
 local orb = oil.init {flavor = "cooperative;corba.intercepted",}
@@ -60,31 +60,31 @@ local logoutput = " 2>>management-err.txt >>management.txt "
 Suite = {
   Test1 = { --Testa o método de inicialização
     testConnect = function(self)
-      local connection = Openbus.connectByAddress(host, port, nil)
+      local connection = openbus.connectByAddress(host, port, nil)
       Check.assertNotNil(connection)
       connection:close()
-      local orb = Openbus.createORB(props)
-      connection = Openbus.connectByAddress(host, port, orb)
+      local orb = openbus.createORB(props)
+      connection = openbus.connectByAddress(host, port, orb)
       Check.assertNotNil(connection)
       connection:close()
     end,
 
     testConnectNullHost = function(self)
-      Check.assertNil(Openbus.connectByAddress(nil, port, nil))
+      Check.assertError(openbus.connectByAddress, nil, port, nil)
     end,
 
     testConnectNegativePort = function(self)
-      Check.assertError(Openbus.connectByAddress, Openbus, host, -1, nil)
+      Check.assertError(openbus.connectByAddress, openbus, host, -1, nil)
     end,
 
     testConnectInvalidPort = function(self)
-      Check.assertError(Openbus.connectByAddress, Openbus, host, "INVALID", nil)
+      Check.assertError(openbus.connectByAddress, openbus, host, "INVALID", nil)
     end,
 
     testConnectTwice = function(self)
-      local connection = Openbus.connectByAddress(host, port, nil)
+      local connection = openbus.connectByAddress(host, port, nil)
       Check.assertNotNil(connection)
-      local connection2 = Openbus.connectByAddress(host, port, nil)
+      local connection2 = openbus.connectByAddress(host, port, nil)
       Check.assertNotNil(connection2)
       connection:close()
       connection2:close()
@@ -93,8 +93,8 @@ Suite = {
 
   Test2 = {
     beforeEachTest = function(self)
-      local orb = Openbus.createORB(props)
-      self.connection = Openbus.connectByAddress(host, port, orb)
+      local orb = openbus.createORB(props)
+      self.connection = openbus.connectByAddress(host, port, orb)
     end,
 
     afterEachTest = function(self)
@@ -125,25 +125,24 @@ Suite = {
     testShareLogin = function(self)
       Check.assertFalse(self.connection:isLoggedIn())
       Check.assertTrue(self.connection:loginByPassword(user, password))
-      local credential = Openbus:getCredential()
+      local credential = openbus:getCredential()
       Check.assertNotNil(credential)
-      Check.assertNotNil(Openbus:connectByCredential(credential))
-      Check.assertTrue(Openbus:disconnect())
+      Check.assertNotNil(openbus:connectByCredential(credential))
+      Check.assertTrue(openbus:disconnect())
     end,
 
     testLoginByCredentialNullCredential = function(self)
-      Check.assertNil(Openbus:connectByCredential(nil))
+      Check.assertNil(openbus:connectByCredential(nil))
     end,
 
     testLoginByCredentialInvalidCredential = function(self)
-      Check.assertNotNil(Openbus:connectByLoginPassword(user, password))
-      local credential = Openbus:getCredential()
+      Check.assertNotNil(openbus:connectByLoginPassword(user, password))
+      local credential = openbus:getCredential()
       Check.assertNotNil(credential)
-      Check.assertTrue(Openbus:disconnect())
-      Check.assertNil(Openbus:connectByCredential(credential))
+      Check.assertTrue(openbus:disconnect())
+      Check.assertNil(openbus:connectByCredential(credential))
     end,
 --]]
-
     testIsLoggedIn = function(self)
       Check.assertFalse(self.connection:isLoggedIn())
       Check.assertNil(self.connection:loginByPassword(user, password))
@@ -181,62 +180,58 @@ Suite = {
       end
     end,
 
---TODO: testes abaixo nao estao passando pois onLoginTerminated nao esta sendo chamado.
---[[
-    testCredentialExpired = function(self)
-      Check.assertNotNil(self.connection.orb)
+    testLoginBecameInvalid = function(self)
+      local conn = self.connection
       Log:action("<< Teste da validade do lease >>")
 
-      Check.assertNil(self.connection:loginByPassword(user, password))
-      self.connection.onLoginTerminated = function(self) self.wasExpired = true end
-      self.connection.isExpired = function(self) return self.wasExpired end
-      Check.assertTrue(self.connection:isLoggedIn())
-      self.connection:logout()
-      while (not (self.connection:isExpired())) do
-        Log:uptime("Lease não expirou: esperando 30 segundos...")
-        oil.sleep(30)
+      conn:loginByPassword(user, password)
+      local wasExpired = false
+      function self.connection:onInvalidLogin()
+        wasExpired = true
       end
-      Check.assertFalse(self.connection:logout())
+      Check.assertTrue(conn:isLoggedIn())
+      conn.logins:invalidateLogin(conn.login.id) -- force login to become invalid
+      Check.assertFalse(conn:logout())
+      Check.assertTrue(wasExpired)
     end,
 
-    testAddOnLoginTerminatedCbAfterConnect = function(self)
-      Check.assertNotNil(self.connection.orb)
+    testReconnectOnLoginTerminatedDefinedAfterLogin = function(self)
+      local conn = self.connection
       Log:action("<< Teste da reconexão após a lease não ser mais válida [Callback cadastrada depois do connect] >>")
+      conn:loginByPassword(user, password)
 
-      Check.assertNil(self.connection:loginByPassword(user, password))
-      self.connection.onLoginTerminated = function(self)
-          Check.assertNil(self.connection:loginByPassword(user, password))
-          self.wasReconnected = true
-        end
-      self.connection.isReconnected = function(self) return self.wasReconnected end
-      Check.assertTrue(self.connection:isLoggedIn())
-      self.connection:logout()
-      while (not (self.connection:isReconnected())) do
-        Log:uptime("Lease não expirou: esperando 30 segundos...")
-        oil.sleep(30)
+      local wasReconnected = false
+      function conn:onInvalidLogin()
+        self:loginByPassword(user, password)
+        wasReconnected = true
+        return true -- retry invocation
       end
-      Check.assertTrue(self.connection:logout())
+
+      Check.assertTrue(conn:isLoggedIn())
+      conn.logins:invalidateLogin(conn.login.id) -- force login to become invalid
+      conn.offers:getServices()
+      Check.assertTrue(wasReconnected)
+      Check.assertTrue(conn:logout())
     end,
 
-    testAddOnLoginTerminatedCbBeforeConnect = function(self)
-      Check.assertNotNil(self.connection.orb)
+    testReconnectOnLoginTerminatedDefinedBeforeLogin = function(self)
+      local conn = self.connection
       Log:action("<< Teste da reconexão após a lease não ser mais válida [Callback cadastrada antes do connect] >>")
 
-      self.connection.onLoginTerminated = function(self)
-          Check.assertNil(self.connection:loginByPassword(user, password))
-          self.wasReconnected = true
-        end
-      self.connection.isReconnected = function(self) return self.wasReconnected end
-      Check.assertNil(self.connection:loginByPassword(user, password))
-      Check.assertTrue(self.connection:isLoggedIn())
-      self.connection:logout()
-      while (not (self.connection:isReconnected())) do
-        Log:uptime("Lease não expirou: esperando 30 segundos...")
-        oil.sleep(30)
+      local wasReconnected = false
+      function conn:onInvalidLogin()
+        self:loginByPassword(user, password)
+        wasReconnected = true
+        return true -- retry invocation
       end
+
+      conn:loginByPassword(user, password)
+      Check.assertTrue(self.connection:isLoggedIn())
+      conn.logins:invalidateLogin(conn.login.id) -- force login to become invalid
+      conn.offers:getServices()
+      Check.assertTrue(wasReconnected)
       Check.assertTrue(self.connection:logout())
     end,
---]]
   },
 
   Test3 = { -- Testa loginByCertificate
@@ -266,8 +261,8 @@ Suite = {
       self.testKey = lce.key.readprivatefrompemstring(self.testKey)
       keyFile:close()
 
-      local orb = Openbus.createORB(props)
-      self.connection = Openbus.connectByAddress(host, port, orb)
+      local orb = openbus.createORB(props)
+      self.connection = openbus.connectByAddress(host, port, orb)
     end,
 
     afterTestCase = function(self)

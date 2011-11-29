@@ -10,7 +10,7 @@ conn:loginByPassword("admin", "admin")
 local LoginRegistry = conn.logins
 local logins = LoginRegistry:getEntityLogins("demo")
 for _, login in ipairs(logins) do
-	LoginRegistry:terminateLogin(login.id)
+	LoginRegistry:invalidateLogin(login.id)
 end
 
 -- remove authorizations
