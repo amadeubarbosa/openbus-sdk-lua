@@ -61,7 +61,7 @@ end
 timer:enable()
 
 -- setup action on login termination
-function conn:onLoginTerminated()
+function conn:onInvalidLogin()
 	print("login terminated, shutting the server down")
 	timer:disable() -- stop the timer
 	conn:close() -- free connection resources

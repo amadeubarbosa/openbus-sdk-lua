@@ -18,7 +18,7 @@ local connAtBus2WithOrb1 = openbus.connectByAddress("localhost", 2090, orb1)
 local connAtBus1WithOrb2 = openbus.connectByAddress("localhost", 2089, orb2)
 
 -- setup action on login termination
-function conn1AtBus1WithOrb1:onLoginTerminated()
+function conn1AtBus1WithOrb1:onInvalidLogin()
 	print("login conn1AtBus1WithOrb1 terminated")
 	conn1AtBus1WithOrb1:close() -- free connection resources
 	conn1AtBus1WithOrb1 = nil
@@ -27,7 +27,7 @@ function conn1AtBus1WithOrb1:onLoginTerminated()
 		orb1:shutdown() -- stop the ORB and free all its resources
 	end
 end
-function conn2AtBus1WithOrb1:onLoginTerminated()
+function conn2AtBus1WithOrb1:onInvalidLogin()
 	print("login conn2AtBus1WithOrb1 terminated")
 	conn2AtBus1WithOrb1:close() -- free connection resources
 	conn2AtBus1WithOrb1 = nil
@@ -36,7 +36,7 @@ function conn2AtBus1WithOrb1:onLoginTerminated()
 		orb1:shutdown() -- stop the ORB and free all its resources
 	end
 end
-function connAtBus2WithOrb1:onLoginTerminated()
+function connAtBus2WithOrb1:onInvalidLogin()
 	print("login connAtBus2WithOrb1 terminated")
 	connAtBus2WithOrb1:close() -- free connection resources
 	connAtBus2WithOrb1 = nil
@@ -45,7 +45,7 @@ function connAtBus2WithOrb1:onLoginTerminated()
 		orb1:shutdown() -- stop the ORB and free all its resources
 	end
 end
-function connAtBus1WithOrb2:onLoginTerminated()
+function connAtBus1WithOrb2:onInvalidLogin()
 	print("login connAtBus1WithOrb2 terminated, shutting ORB2 down")
 	connAtBus1WithOrb2:close() -- free connection resources
 	connAtBus1WithOrb2 = nil

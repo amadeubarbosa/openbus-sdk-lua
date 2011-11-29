@@ -12,7 +12,7 @@ orb:loadidl "interface Hello { void sayHello(); };"
 cothread.next(coroutine.create(orb.run), orb)
 
 -- setup action on login termination
-function conn:onLoginTerminated()
+function conn:onInvalidLogin()
 	print("login terminated, shutting the server down")
 	conn:close() -- free connection resources
 	orb:shutdown() -- stop the ORB and free all its resources

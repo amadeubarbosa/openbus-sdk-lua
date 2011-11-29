@@ -26,7 +26,7 @@ local function checktype(funcname, index, typenames, value)
 			return value
 		end
 	end
-	error("bad argument #"..index.." to '"..funcname.."' (expected "..typename
+	error("bad argument #"..index.." to '"..funcname.."' (expected "..typenames
 	    ..", got "..luatype..")", 3)
 end
 

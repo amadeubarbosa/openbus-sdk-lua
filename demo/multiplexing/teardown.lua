@@ -13,7 +13,7 @@ for _, port in ipairs{2089, 2090} do
 	for _, entity in ipairs{"conn1","conn2","demo"} do
 		local logins = LoginRegistry:getEntityLogins(entity)
 		for _, login in ipairs(logins) do
-			LoginRegistry:terminateLogin(login.id)
+			LoginRegistry:invalidateLogin(login.id)
 		end
 	end
 	

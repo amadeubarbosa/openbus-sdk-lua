@@ -33,7 +33,7 @@ local entities = {
 local logins = conn.logins
 for entity in pairs(entities) do
 	for _, login in ipairs(logins:getEntityLogins(entity)) do
-		logins:terminateLogin(login.id)
+		logins:invalidateLogin(login.id)
 	end
 end
 
