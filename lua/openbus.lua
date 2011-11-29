@@ -4,7 +4,9 @@ local error = _G.error
 local ipairs = _G.ipairs
 local next = _G.next
 local pairs = _G.pairs
+local pcall = _G.pcall
 local rawget = _G.rawget
+local setmetatable = _G.setmetatable
 local tostring = _G.tostring
 
 local coroutine = require "coroutine"
@@ -34,6 +36,7 @@ local oo = require "openbus.util.oo"
 local class = oo.class
 
 local idl = require "openbus.core.idl"
+local loginthrow = idl.throw.services.access_control
 local loginconst = idl.const.services.access_control
 local logintypes = idl.types.services.access_control
 local offerconst = idl.const.services.offer_registry
@@ -152,7 +155,7 @@ local function getLoginInfo(self, loginId)
 	if login ~= nil then
 		return login
 	end
-	throw.InvalidLogins{loginsId={id}}
+	loginthrow.InvalidLogins{loginsId={loginId}}
 end
 
 local function localLogout(self)
@@ -380,7 +383,7 @@ function Connection:loginByPassword(entity, password)
 	local encoded, errmsg = encrypt(buskey, password)
 	if encoded == nil then
 		error(msg.CorruptedBusCertificate:tag{
-			certificate = buscert,
+			certificate = buskey,
 			errmsg = errmsg,
 		})
 	end
@@ -406,7 +409,7 @@ function Connection:loginByCertificate(entity, privatekey)
 	if answer == nil then
 		attempt:cancel()
 		error(msg.CorruptedBusCertificate:tag{
-			certificate = buscert,
+			certificate = buskey,
 			errmsg = errmsg,
 		})
 	end

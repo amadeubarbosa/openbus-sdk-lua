@@ -13,6 +13,7 @@ local lce = require "lce"
 local Check = require "latt.Check"
 
 local openbus = require "openbus"
+local idl = require "openbus.core.idl"
 local Log = require "openbus.util.logger"
 
 local orb = oil.init {flavor = "cooperative;corba.intercepted",}
@@ -180,25 +181,50 @@ Suite = {
       end
     end,
 
-    testLoginBecameInvalid = function(self)
+    testLoginBecameInvalidDuringACall = function(self)
       local conn = self.connection
-      Log:action("<< Teste da validade do lease >>")
+      Log:action("<< Teste do login ficar invalido durante uma chamada >>")
+
+      local isInvalid = false
+      function conn:onInvalidLogin()
+        isInvalid = true
+      end
 
       conn:loginByPassword(user, password)
-      local wasExpired = false
-      function self.connection:onInvalidLogin()
-        wasExpired = true
-      end
-      Check.assertTrue(conn:isLoggedIn())
       conn.logins:invalidateLogin(conn.login.id) -- force login to become invalid
-      Check.assertFalse(conn:logout())
-      Check.assertTrue(wasExpired)
+      -- perform a invocation with an invalid login
+      local offers = conn.offers
+      local ok, ex = pcall(offers.getServices, offers)
+      Check.assertFalse(ok)
+      Check.assertEquals(ex._repid, "IDL:omg.org/CORBA/NO_PERMISSION:1.0")
+      Check.assertEquals(ex.completed, "COMPLETED_NO")
+      Check.assertEquals(ex.minor, idl.const.services.access_control.InvalidLoginCode)
+
+      Check.assertTrue(isInvalid)
+      Check.assertFalse(conn:isLoggedIn())
     end,
 
-    testReconnectOnLoginTerminatedDefinedAfterLogin = function(self)
+    testLoginBecameInvalidDuringRenew = function(self)
       local conn = self.connection
-      Log:action("<< Teste da reconexão após a lease não ser mais válida [Callback cadastrada depois do connect] >>")
+      Log:action("<< Teste do login ficar invalido antes de sua renovação >>")
+    
+      local isInvalid = false
+      function conn:onInvalidLogin()
+        isInvalid = true
+      end
+
       conn:loginByPassword(user, password)
+      local validity = conn.logins:getValidity{conn.login.id}[1]
+      conn.logins:invalidateLogin(conn.login.id) -- force login to become invalid
+      oil.sleep(validity+2) -- wait for the attempt to renew the login
+
+      Check.assertTrue(isInvalid)
+      Check.assertFalse(conn:isLoggedIn())
+    end,
+
+    testReconnectOnInvalidLogin = function(self)
+      local conn = self.connection
+      Log:action("<< Teste da reconexão após o login ficar inválido >>")
 
       local wasReconnected = false
       function conn:onInvalidLogin()
@@ -207,26 +233,7 @@ Suite = {
         return true -- retry invocation
       end
 
-      Check.assertTrue(conn:isLoggedIn())
-      conn.logins:invalidateLogin(conn.login.id) -- force login to become invalid
-      conn.offers:getServices()
-      Check.assertTrue(wasReconnected)
-      Check.assertTrue(conn:logout())
-    end,
-
-    testReconnectOnLoginTerminatedDefinedBeforeLogin = function(self)
-      local conn = self.connection
-      Log:action("<< Teste da reconexão após a lease não ser mais válida [Callback cadastrada antes do connect] >>")
-
-      local wasReconnected = false
-      function conn:onInvalidLogin()
-        self:loginByPassword(user, password)
-        wasReconnected = true
-        return true -- retry invocation
-      end
-
       conn:loginByPassword(user, password)
-      Check.assertTrue(self.connection:isLoggedIn())
       conn.logins:invalidateLogin(conn.login.id) -- force login to become invalid
       conn.offers:getServices()
       Check.assertTrue(wasReconnected)
@@ -301,5 +308,6 @@ Suite = {
           self.testKey)
       Check.assertTrue(self.connection:logout())
     end,
+
   },
 }
