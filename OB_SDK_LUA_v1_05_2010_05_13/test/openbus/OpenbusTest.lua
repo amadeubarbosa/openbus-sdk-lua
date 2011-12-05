@@ -19,8 +19,8 @@ local password = "tester"
 local oilLogLevel = 0
 local sdkLogLevel = 3
 
-local entityName = "TesteBarramento"
-local privateKey = "resources/TesteBarramento.key"
+local entityName = "TesteBarramento_v152"
+local privateKey = "resources/TesteBarramento_v152.key"
 local acsCertificate = "AccessControlService.crt"
 
 -- alterando as propriedades se preciso
