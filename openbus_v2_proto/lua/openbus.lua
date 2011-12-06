@@ -162,6 +162,7 @@ local function localLogout(self)
 	self.login = nil
 	local renewer = self.renewer
 	if renewer ~= nil then
+		self.renewer = nil
 		unschedule(renewer)
 	end
 end
@@ -220,11 +221,15 @@ function Interceptor:sendrequest(request)
 				operation = request.operation.name,
 			})
 		end
+	else
+		log:access(msg.OutsideBusCall:tag{
+			operation = request.operation.name,
+		})
 	end
 end
 
 function Interceptor:receivereply(request)
-	local conn = self.connection
+	local conn = request.connection
 	if conn ~= nil and conn.receivereply ~= nil then
 		request.connection = nil
 		conn:receivereply(request)
@@ -232,28 +237,26 @@ function Interceptor:receivereply(request)
 end
 
 function Interceptor:receiverequest(request)
-	if self.ignoredThreads[running()] == nil then
-		local conn = self.connection
-		if conn ~= nil then
-			request.connection = conn
-			conn:receiverequest(request)
-		else
-			request.success = false
-			request.results = {self.orb:newexcept{
-				"CORBA::NO_PERMISSION",
-				completed = "COMPLETED_NO",
-				minor = loginconst.UnverifiedLoginCode,
-			}}
-			log:badaccess(msg.GotCallBeforeBusConnection:tag{
-				operation = request.operation.name,
-			})
-		end
+	local conn = self.connection
+	if conn ~= nil then
+		request.connection = conn
+		conn:receiverequest(request)
+	else
+		request.success = false
+		request.results = {self.orb:newexcept{
+			"CORBA::NO_PERMISSION",
+			completed = "COMPLETED_NO",
+			minor = loginconst.UnverifiedLoginCode,
+		}}
+		log:badaccess(msg.GotCallBeforeBusConnection:tag{
+			operation = request.operation.name,
+		})
 	end
 end
 
 function Interceptor:sendreply(request)
 	local conn = request.connection
-	if conn ~= nil and conn.sendreply ~= nil then
+	if conn.sendreply ~= nil then
 		request.connection = nil
 		conn:sendreply(request)
 	end
@@ -301,19 +304,20 @@ function Connection:__init()
 end
 
 function Connection:newrenewer(lease)
-	local manager = self.AccessControl
 	local thread
 	thread = newthread(function()
-		while self.login ~= nil do
+		local login = self.login
+		local manager = self.AccessControl
+		while self.login == login do
 			self.renewer = thread
 			deferuntil(time()+lease)
 			self.renewer = nil
-			log:action(msg.RenewLogin:tag(self.login))
+			log:action(msg.RenewLogin:tag(login))
 			local ok, result = pcall(manager.renew, manager)
 			if ok then
 				lease = result
-			elseif result._repid == sysex.NO_PERMISSION then
-				self.login = nil -- flag connection is logged out
+			else
+				log:badaccess(msg.FailToRenewLogin:tag{error = result})
 			end
 		end
 	end)
@@ -352,11 +356,11 @@ function Connection:receivereply(request)
 			localLogout(self)
 			if self:onInvalidLogin() then
 				request.success = nil -- reissue request to the same reference
-				sendBusRequest(self, request)
 				log:badaccess(msg.ReissuingCallAfterCallback:tag{
 					operation = request.operation.name,
 					bus = self.busid,
 				})
+				sendBusRequest(self, request)
 			end
 		end
 	end

@@ -181,7 +181,7 @@ Suite = {
       end
     end,
 
-    testLoginBecameInvalidDuringACall = function(self)
+    testLoginBecameInvalidDuringCall = function(self)
       local conn = self.connection
       Log:action("<< Teste do login ficar invalido durante uma chamada >>")
 
@@ -196,9 +196,9 @@ Suite = {
       local offers = conn.offers
       local ok, ex = pcall(offers.getServices, offers)
       Check.assertFalse(ok)
-      Check.assertEquals(ex._repid, "IDL:omg.org/CORBA/NO_PERMISSION:1.0")
-      Check.assertEquals(ex.completed, "COMPLETED_NO")
-      Check.assertEquals(ex.minor, idl.const.services.access_control.InvalidLoginCode)
+      Check.assertEquals("IDL:omg.org/CORBA/NO_PERMISSION:1.0", ex._repid)
+      Check.assertEquals("COMPLETED_NO", ex.completed)
+      Check.assertEquals(idl.const.services.access_control.InvalidLoginCode, ex.minor)
 
       Check.assertTrue(isInvalid)
       Check.assertFalse(conn:isLoggedIn())
@@ -207,7 +207,7 @@ Suite = {
     testLoginBecameInvalidDuringRenew = function(self)
       local conn = self.connection
       Log:action("<< Teste do login ficar invalido antes de sua renovação >>")
-    
+
       local isInvalid = false
       function conn:onInvalidLogin()
         isInvalid = true
@@ -222,7 +222,7 @@ Suite = {
       Check.assertFalse(conn:isLoggedIn())
     end,
 
-    testReconnectOnInvalidLogin = function(self)
+    testReconnectOnInvalidLoginDuringCall = function(self)
       local conn = self.connection
       Log:action("<< Teste da reconexão após o login ficar inválido >>")
 
@@ -238,6 +238,57 @@ Suite = {
       conn.offers:getServices()
       Check.assertTrue(wasReconnected)
       Check.assertTrue(self.connection:logout())
+    end,
+
+    testReconnectOnInvalidLoginDuringRenew = function(self)
+      local conn = self.connection
+      Log:action("<< Teste da reconexão após o login ficar inválido >>")
+
+      local wasReconnected = false
+      function conn:onInvalidLogin()
+        self:loginByPassword(user, password)
+        wasReconnected = true
+        return true -- retry invocation
+      end
+
+      conn:loginByPassword(user, password)
+      local validity = conn.logins:getValidity{conn.login.id}[1]
+      conn.logins:invalidateLogin(conn.login.id) -- force login to become invalid
+      oil.sleep(validity+2) -- wait for the attempt to renew the login
+      Check.assertTrue(wasReconnected)
+      Check.assertTrue(self.connection:logout())
+    end,
+
+    testOnInvalidLoginErrorDuringCall = function(self)
+      local conn = self.connection
+      Log:action("<< Teste de erro lançado na callback 'onInvalidLogin' >>")
+
+      function conn:onInvalidLogin()
+        error("Oops!")
+      end
+
+      conn:loginByPassword(user, password)
+      conn.logins:invalidateLogin(conn.login.id) -- force login to become invalid
+      local offers = conn.offers
+      local ok, ex = pcall(offers.getServices, offers)
+      Check.assertFalse(ok)
+      Check.assertNotNil(ex:match("Oops!$"))
+    end,
+
+    testOnInvalidLoginErrorDuringRenew = function(self)
+      local conn = self.connection
+      Log:action("<< Teste de erro lançado na callback 'onInvalidLogin' >>")
+
+      local wasReconnected = false
+      function conn:onInvalidLogin()
+        error("Oops!")
+      end
+
+      conn:loginByPassword(user, password)
+      local validity = conn.logins:getValidity{conn.login.id}[1]
+      conn.logins:invalidateLogin(conn.login.id) -- force login to become invalid
+      oil.sleep(validity+2) -- wait for the attempt to renew the login
+      Check.assertFalse(conn:isLoggedIn())
     end,
   },
 
