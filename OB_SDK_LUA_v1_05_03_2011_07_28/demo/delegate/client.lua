@@ -41,7 +41,7 @@ end
 -- Execução
 function main ()
   -- Carga da IDL Hello
-  orb:loadidlfile("../idl/delegate.idl")
+  orb:loadidlfile("idl/delegate.idl")
 
   -- Conexão com o barramento (tem de ser por certificado para o delegate) e obtenção do componente HelloComponent
   local entityName = props["entity.name"].value

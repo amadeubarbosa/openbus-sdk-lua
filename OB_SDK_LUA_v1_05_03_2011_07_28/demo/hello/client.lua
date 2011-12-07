@@ -27,7 +27,7 @@ local orb = openbus:getORB()
 -- Execução
 function main ()
   -- Carga da IDL Hello
-  orb:loadidlfile("../idl/hello.idl")
+  orb:loadidlfile("idl/hello.idl")
 
   -- Conexão com o barramento e obtenção do componente HelloComponent
   local login = props.login.value
