@@ -13,6 +13,7 @@ LUASRC= \
 	$(LUADIR)/openbus/core/idl.lua \
 	$(LUADIR)/openbus/core/messages.lua \
 	$(LUADIR)/openbus/multiplexed.lua \
+	$(LUADIR)/openbus/util/argcheck.lua \
 	$(LUADIR)/openbus/util/database.lua \
 	$(LUADIR)/openbus/util/logger.lua \
 	$(LUADIR)/openbus/util/messages.lua \
