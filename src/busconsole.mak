@@ -16,7 +16,6 @@ LIBS= \
 INCLUDES+= . $(SRCLUADIR) \
 	$(OPENBUSINC)/luuid \
 	$(OPENBUSINC)/lce \
-	$(OPENBUSINC)/lpw \
 	$(OPENBUSINC)/luafilesystem \
 	$(OPENBUSINC)/luavararg \
 	$(OPENBUSINC)/luastruct \
