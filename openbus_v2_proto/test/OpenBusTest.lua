@@ -31,24 +31,12 @@ local props = {}
 scsutils:readProperties(props, "Test.properties")
 scsutils = nil
 
-if props["host.name"] then
-  host = props["host.name"].value
-end
-if props["host.port"] and tonumber(props["host.port"].value) then
-  port = tonumber(props["host.port"].value)
-end
-if props["user"] then
-  user = props["user"].value
-end
-if props["password"] then
-  password = props["password"].value
-end
-if props["oil.verbose"] and tonumber(props["oil.verbose"].value) then
-  oilLogLevel = tonumber(props["oil.verbose"].value)
-end
-if props["openbus.verbose"] and tonumber(props["openbus.verbose"].value) then
-  sdkLogLevel = tonumber(props["openbus.verbose"].value)
-end
+host = props:getTagOrDefault("host.name", host)
+port = props:getTagOrDefault("host.port", port)
+user = props:getTagOrDefault("user", user)
+password = props:getTagOrDefault("password", password)
+sdkLogLevel = props:getTagOrDefault("openbus.verbose", sdkLogLevel)
+oilLogLevel = props:getTagOrDefault("oil.verbose", oilLogLevel)
 
 oil.verbose:level(oilLogLevel)
 Log:level(sdkLogLevel)
