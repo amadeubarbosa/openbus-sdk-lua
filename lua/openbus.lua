@@ -155,7 +155,7 @@ local function getLoginInfo(self, loginId)
 	if login ~= nil then
 		return login
 	end
-	loginthrow.InvalidLogins{loginsId={loginId}}
+	loginthrow.InvalidLogins{loginIds={loginId}}
 end
 
 local function localLogout(self)
