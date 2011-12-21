@@ -36,6 +36,7 @@ do
 	const.InvalidLoginCode = 0x42555301 -- "BUS\1"
 	const.UnverifiedLoginCode = 0x42555302 -- "BUS\2"
 	const.DeniedLoginCode = 0x42555303 -- "BUS\3"
+	const.UnknownBusCode = 0x42555304 -- "BUS\4"
 	local const = idl.const.services.offer_registry
 	const.OfferRegistryFacet = "OfferRegistry_2_00"
 	const.EntityRegistryFacet = "EntityRegistry_2_00"

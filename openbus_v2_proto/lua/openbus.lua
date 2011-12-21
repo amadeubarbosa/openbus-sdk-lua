@@ -367,14 +367,27 @@ function Connection:receivereply(request)
 end
 
 function Connection:receiverequest(request)
-	receiveBusRequest(self, request)
-	local callers = self:getCallerChain()
-	if callers == nil then
+	if self:isLoggedIn() then
+		receiveBusRequest(self, request)
+		local callers = self:getCallerChain()
+		if callers == nil then
+			request.success = false
+			request.results = {self.orb:newexcept{
+				"CORBA::NO_PERMISSION",
+				completed = "COMPLETED_NO",
+				minor = loginconst.InvalidLoginCode,
+			}}
+		end
+	else
+		log:badaccess(msg.ConnectionWithoutLogin:tag{
+			operation = request.operation.name,
+			bus = self.busid,
+		})
 		request.success = false
 		request.results = {self.orb:newexcept{
 			"CORBA::NO_PERMISSION",
 			completed = "COMPLETED_NO",
-			minor = loginconst.InvalidLoginCode,
+			minor = loginconst.UnverifiedLoginCode,
 		}}
 	end
 end
