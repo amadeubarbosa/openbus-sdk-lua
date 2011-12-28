@@ -9,12 +9,12 @@ local tostring = _G.tostring
 
 local socket = require "socket.core"
 local oil = require "oil"
-local lce = require "lce"
 local Check = require "latt.Check"
 
 local openbus = require "openbus"
 local idl = require "openbus.core.idl"
 local Log = require "openbus.util.logger"
+local server = require "openbus.util.server"
 
 local orb = oil.init {flavor = "cooperative;corba.intercepted",}
 
@@ -302,10 +302,7 @@ Suite = {
           " --certificate="..self.entityId..".crt"..logoutput)
       
       self.testKeyFile = self.categoryId .. ".key"
-      local keyFile = assert(io.open(self.testKeyFile))
-      self.testKey = keyFile:read("*a")
-      self.testKey = lce.key.readprivatefrompemstring(self.testKey)
-      keyFile:close()
+      self.testKey = server.readprivatekey(self.testKeyFile)
 
       local orb = openbus.createORB(props)
       self.connection = openbus.connectByAddress(host, port, orb)

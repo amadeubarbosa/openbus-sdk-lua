@@ -13,10 +13,11 @@ local coroutine = require "coroutine"
 local newthread = coroutine.create
 local running = coroutine.running
 
-local lce = require "lce"
-local encrypt = lce.cipher.encrypt
-local decrypt = lce.cipher.decrypt
-local readcertificate = lce.x509.readfromderstring
+local hash = require "lce.hash"
+local sha256 = hash.sha256
+
+local x509 = require "lce.x509"
+local decodecertificate = x509.decode
 
 local table = require "loop.table"
 local copy = table.copy
@@ -57,9 +58,9 @@ local threadtrap = cothread.trap
 
 
 local function getpublickey(certificate)
-	local result, errmsg = readcertificate(certificate)
+	local result, errmsg = decodecertificate(certificate)
 	if result then
-		result, errmsg = result:getpublickey()
+		result, errmsg = result:getpubkey()
 		if result then
 			return result
 		end
@@ -267,9 +268,12 @@ end
 local Connection = class({}, Access)
 
 function Connection:__init()
+	-- retrieve IDL definitions for login
+	local orb = self.orb
+	self.LoginAuthenticationInfo =
+		assert(orb.types:lookup_id(logintypes.LoginAuthenticationInfo))
 	-- retrieve core service references
 	local bus = self.bus
-	local orb = self.orb
 	local iceptor = orb.OpenBusInterceptor
 	local ignored = iceptor.ignoredThreads
 	local thread = running()
@@ -379,7 +383,7 @@ function Connection:receiverequest(request)
 			}}
 		end
 	else
-		log:badaccess(msg.ConnectionWithoutLogin:tag{
+		log:badaccess(msg.GotCallFromConnectionWithoutLogin:tag{
 			operation = request.operation.name,
 			bus = self.busid,
 		})
@@ -397,15 +401,20 @@ function Connection:loginByPassword(entity, password)
 	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
 	local manager = self.AccessControl
 	local buskey = assert(getpublickey(manager:_get_certificate()))
-	local encoded, errmsg = encrypt(buskey, password)
-	if encoded == nil then
+	local pubkey = self.pubkey
+	local idltype = self.LoginAuthenticationInfo
+	local encoder = self.orb:newencoder()
+	encoder:put({data=password,hash=sha256(pubkey)}, idltype)
+	local encoded = encoder:getdata()
+	local encrypted, errmsg = buskey:encrypt(encoded)
+	if encrypted == nil then
 		error(msg.CorruptedBusCertificate:tag{
 			certificate = buskey,
 			errmsg = errmsg,
 		})
 	end
-	local lease
-	self.login, lease = manager:loginByPassword(entity, encoded)
+	local id, lease = manager:loginByPassword(entity, pubkey, encrypted)
+	self.login = {id=id, entity=entity, pubkey=pubkey}
 	self:newrenewer(lease)
 end
 
@@ -414,7 +423,7 @@ function Connection:loginByCertificate(entity, privatekey)
 	local manager = self.AccessControl
 	local buskey = assert(getpublickey(manager:_get_certificate()))
 	local attempt, challenge = manager:startLoginByCertificate(entity)
-	local secret, errmsg = decrypt(privatekey, challenge)
+	local secret, errmsg = privatekey:decrypt(challenge)
 	if secret == nil then
 		attempt:cancel()
 		error(msg.CorruptedPrivateKey:tag{
@@ -422,16 +431,21 @@ function Connection:loginByCertificate(entity, privatekey)
 			errmsg = errmsg,
 		})
 	end
-	local answer, errmsg = encrypt(buskey, secret)
-	if answer == nil then
+	local pubkey = self.pubkey
+	local idltype = self.LoginAuthenticationInfo
+	local encoder = self.orb:newencoder()
+	encoder:put({data=secret,hash=sha256(pubkey)}, idltype)
+	local encoded = encoder:getdata()
+	local encrypted, errmsg = buskey:encrypt(encoded)
+	if encrypted == nil then
 		attempt:cancel()
 		error(msg.CorruptedBusCertificate:tag{
 			certificate = buskey,
 			errmsg = errmsg,
 		})
 	end
-	local lease
-	self.login, lease = attempt:login(answer)
+	local id, lease = attempt:login(pubkey, encrypted)
+	self.login = {id=id, entity=entity, pubkey=pubkey}
 	self:newrenewer(lease)
 end
 
@@ -492,12 +506,17 @@ end
 
 local openbus = { createORB = createORB }
 
+openbus.keyname = "my"
+
 function openbus.connectByAddress(host, port, orb)
 	local ref = "corbaloc::"..host..":"..port.."/"..BusObjectKey
 	if orb == nil then orb = createORB() end
 	return Connection{
 		orb = orb,
 		bus = orb:newproxy(ref, nil, "scs::core::IComponent"),
+		-- TODO:[maia] fix this crap!
+		pubkey = assert(_G.require("openbus.util.server").readfilecontents(openbus.keyname..".crt")),
+		prvkey = assert(_G.require("openbus.util.server").readprivatekey(openbus.keyname..".key")),
 	}
 end
 
@@ -508,7 +527,7 @@ local argcheck = require "openbus.util.argcheck"
 argcheck.convertclass(Connection, {
 	--encodeLogin = {},
 	loginByPassword = { "string", "string" },
-	loginByCertificate = { "string", "table" },
+	loginByCertificate = { "string", "userdata" },
 	shareLogin = { "string" },
 	logout = {},
 	getCallerChain = {},

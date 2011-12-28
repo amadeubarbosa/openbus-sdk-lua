@@ -17,9 +17,10 @@ local io = require "io"
 local openfile = io.open
 local stderr = io.stderr
 
-local lce = require "lce"
-local readprivatekey = lce.key.readprivatefrompemfile
-local readcertificate = lce.x509.readfromderfile
+local pubkey = require "lce.pubkey"
+local decodeprivatekey = pubkey.decodeprivate
+local x509 = require "lce.x509"
+local decodecertificate = x509.decode
 
 local Arguments = require "loop.compiler.Arguments"
 
@@ -71,20 +72,33 @@ function module.readfilecontents(path)
 end
 
 function module.readpublickey(path)
-	local result, errmsg = readcertificate(path)
-	if result then
-		result, errmsg = result:getpublickey()
-		if result then
-			return result
+	local file, errmsg = assert(io.open(path, "rb"))
+	if file then
+		local certificate
+		certificate, errmsg = file:read("*a")
+		file:close()
+		if certificate then
+			certificate, errmsg = decodecertificate(certificate)
+			if certificate then
+				local key
+				key, errmsg = certificate:getpubkey()
+				if key then return key end
+			end
 		end
 	end
 	return nil, msg.UnableToReadPublicKey:tag{ path = path, errmsg = errmsg }
 end
 
 function module.readprivatekey(path)
-	local result, errmsg = readprivatekey(path)
-	if result then
-		return result
+	local file, errmsg = assert(io.open(path, "rb"))
+	if file then
+		local key
+		key, errmsg = file:read("*a")
+		file:close()
+		if key then
+			key, errmsg = decodeprivatekey(key)
+			if key then return key end
+		end
 	end
 	return nil, msg.UnableToReadPrivateKey:tag{ path = path, errmsg = errmsg }
 end
