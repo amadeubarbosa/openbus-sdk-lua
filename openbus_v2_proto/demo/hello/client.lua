@@ -13,10 +13,8 @@ local offers = conn.offers:findServices({
 	{name="offer.domain",value="OpenBus Demos"}, -- provided property
 })
 assert(#offers > 0, "unable to find offered service")
-local hello = offers[1].service_ref:getFacetByName("hello"):__narrow()
-
--- call the service
-hello:sayHello()
-
--- logout from the bus and free connection resources permanently
+for _, offer in ipairs(offers) do
+	local hello = offer.service_ref:getFacetByName("hello"):__narrow()
+	hello:sayHello()
+end
 conn:close()

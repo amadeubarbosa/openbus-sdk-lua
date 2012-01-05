@@ -10,6 +10,9 @@ local concat = array.concat
 local table = require "loop.table"
 local memoize = table.memoize
 
+local Viewer = require "loop.debug.Viewer"
+local viewer = Viewer{ newline="", identation="", maxdepth=2 }
+
 function string:tag(values)
 	if self:match(' $') then
 		local fields = {}
@@ -25,7 +28,7 @@ function string:tag(values)
 		function(prefix, field)
 			local size = #prefix
 			if size%2 == 1 then
-				field = tostring(values[field])
+				field = viewer:tostring(values[field])
 			end
 			return prefix:sub(1, size/2)..field
 		end
