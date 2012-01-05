@@ -13,6 +13,9 @@ local coroutine = require "coroutine"
 local newthread = coroutine.create
 local running = coroutine.running
 
+local math = require "math"
+local inf = math.huge
+
 local hash = require "lce.hash"
 local sha256 = hash.sha256
 
@@ -23,7 +26,6 @@ local table = require "loop.table"
 local copy = table.copy
 local memoize = table.memoize
 
-local BiCyclicSets = require "loop.collection.BiCyclicSets"
 local Wrapper = require "loop.object.Wrapper"
 
 local Mutex = require "cothread.Mutex"
@@ -33,6 +35,8 @@ local sysex = giop.SystemExceptionIDs
 
 local log = require "openbus.util.logger"
 local msg = require "openbus.util.messages"
+local cache = require "openbus.util.cache"
+local LRU = cache.yieldableLRU
 local oo = require "openbus.util.oo"
 local class = oo.class
 
@@ -43,10 +47,11 @@ local logintypes = idl.types.services.access_control
 local offerconst = idl.const.services.offer_registry
 local offertypes = idl.types.services.offer_registry
 local BusObjectKey = idl.const.BusObjectKey
-local Access = require "openbus.core.Access"
-local neworb = Access.createORB
-local sendBusRequest = Access.sendrequest
-local receiveBusRequest = Access.receiverequest
+local access = require "openbus.core.Access"
+local neworb = access.createORB
+local Interceptor = access.Interceptor
+local sendBusRequest = Interceptor.sendrequest
+local receiveBusRequest = Interceptor.receiverequest
 
 local cothread = require "cothread"
 local resume = cothread.next
@@ -69,78 +74,37 @@ local function getpublickey(certificate)
 end
 
 local function getEntryFromCache(self, loginId)
-	local usage = self.usage
+	local logins = self.__object
 	local ids = self.ids
 	local validity = self.validity
-	local id2entry = self.id2entry
-	local leastused = self.leastused
-	local logins = self.__object
-	-- add crendential to cache if it is not there
-	local entry = id2entry[loginId]
-	if entry == nil then
-		local ok
-		ok, entry = pcall(logins.getLoginInfo, logins, loginId)
-		if not ok then
-			if entry._repid ~= logintypes.InvalidLogins then
-				error(entry)
-			end
-			entry = { id = loginId }
-		end
-		local size = #ids
-		if size < self.maxcachesize then
-			size = size+1
-			entry.index = size
-			ids[size] = loginId
-			usage:add(entry, leastused)
-			leastused = entry
-			log:action(msg.LoginAddedToValidityCache:tag{
-				login = entry.id,
+	local timeupdated = self.timeupdated
+	-- use information in the cache to validate the login
+	local entry = self.cache(loginId)
+	if entry ~= nil then
+		local time2live = validity[entry.index]
+		if time2live == 0 then
+			log:action(msg.InvalidLoginInValidityCache:tag{
+				login = loginId,
 				entity = entry.entity,
 			})
-		else
-			log:action(msg.LoginReplacedInValidityCache:tag{
-				oldlogin = leastused.id,
-				oldentity = leastused.entity,
-				newlogin = loginId,
-				newentity = entry.entity,
+		elseif time2live ~= nil and time2live > time()-timeupdated then
+			log:action(msg.ValidLoginInValidityCache:tag{
+				login = loginId,
+				entity = entry.entity,
 			})
-			id2entry[leastused.id] = nil
-			validity[leastused.index] = nil
-			leastused.id = loginId
-			leastused.entity = entry.entity
-			entry = leastused
-		end
-		id2entry[loginId] = entry
-	end
-	-- update login usage in the cache
-	if entry == leastused then
-		self.leastused = usage:predecessor(entry)
-	else
-		usage:move(entry, leastused)
-	end
-	-- use information in the cache to validate the login
-	local time2live = self.validity[entry.index]
-	if time2live == 0 then
-		log:action(msg.InvalidLoginInValidityCache:tag{
-			login = loginId,
-			entity = entry.entity,
-		})
-	elseif time2live ~= nil and time2live > time()-self.timeupdated then
-		log:action(msg.ValidLoginInValidityCache:tag{
-			login = loginId,
-			entity = entry.entity,
-		})
-		return entry -- valid login in cache
-	else -- update validity cache
-		log:action(msg.UpdateLoginValidityCache:tag{count=#ids})
-		self.timeupdated = time()
-		local validity = logins:getValidity(ids)
-		self.validity = validity
-		if validity[entry.index] > 0 then
-			return entry -- valid login
+			return entry -- valid login in cache
+		else -- update validity cache
+			log:action(msg.UpdateLoginValidityCache:tag{count=#ids})
+			self.timeupdated = time()
+			validity = logins:getValidity(ids)
+			self.validity = validity
+			if validity[entry.index] > 0 then
+				return entry -- valid login
+			end
 		end
 	end
 end
+
 
 local function getLoginEntry(self, loginId)
 	local mutex = self.mutex
@@ -157,6 +121,48 @@ local function getLoginInfo(self, loginId)
 		return login
 	end
 	loginthrow.InvalidLogins{loginIds={loginId}}
+end
+
+local function newLoginRegistryWrapper(logins)
+	local ids = {}
+	local validity = {}
+	return Wrapper{
+		__object = logins,
+		ids = ids,
+		validity = validity,
+		timeupdated = -inf,
+		mutex = Mutex(),
+		cache = LRU(function(loginId, replacedId, replaced)
+			local ok, entry, pubkey = pcall(logins.getLoginInfo, logins, loginId)
+			if not ok then
+				if entry._repid ~= logintypes.InvalidLogins then
+					error(entry)
+				end
+				return { id = loginId }
+			end
+			entry.pubkey = pubkey
+			if replaced == nil then
+				entry.index = #ids+1
+				log:action(msg.LoginAddedToValidityCache:tag{
+					login = loginId,
+					entity = entry.entity,
+				})
+			else
+				entry.index = replaced.index
+				log:action(msg.LoginReplacedInValidityCache:tag{
+					oldlogin = replacedId,
+					oldentity = replaced.entity,
+					newlogin = loginId,
+					newentity = entry.entity,
+				})
+			end
+			ids[entry.index] = loginId
+			validity[entry.index] = nil
+			return entry
+		end),
+		getLoginEntry = getLoginEntry,
+		getLoginInfo = getLoginInfo,
+	}
 end
 
 local function localLogout(self)
@@ -265,7 +271,7 @@ end
 
 
 
-local Connection = class({}, Access)
+local Connection = class({}, Interceptor)
 
 function Connection:__init()
 	-- retrieve IDL definitions for login
@@ -292,19 +298,7 @@ function Connection:__init()
 	iceptor:addConnection(self)
 	ignored[thread] = nil -- restore only calls with credentials
 	-- create wrapper for core service LoginRegistry
-	self.logins = Wrapper{
-		connection = self,
-		__object = self.logins,
-		maxcachesize = 128,
-		timeupdated = 0,
-		usage = BiCyclicSets(),
-		ids = {},
-		validity = {},
-		id2entry = {},
-		mutex = Mutex(),
-		getLoginEntry = getLoginEntry,
-		getLoginInfo = getLoginInfo,
-	}
+	self.logins = newLoginRegistryWrapper(self.logins)
 end
 
 function Connection:newrenewer(lease)

@@ -25,8 +25,8 @@ local const = idl.const.services.access_control
 local Identifier = idl.types.Identifier
 local BusObjectKey = idl.const.BusObjectKey
 
-local Access = require "openbus.core.Access"
-local neworb = Access.neworb
+local access = require "openbus.core.Access"
+local neworb = access.createORB
 
 local openbus = require "openbus"
 local basicORB = openbus.createORB
