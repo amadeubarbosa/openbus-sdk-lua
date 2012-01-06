@@ -47,7 +47,7 @@ local LRU = cache.LRU
 local msg = require "openbus.core.messages"
 local idl = require "openbus.core.idl"
 local loadidl = idl.loadto
-local loginconst = idl.const.access_control
+local loginconst = idl.const.services.access_control
 local repids = {
 	Identifier = idl.types.services.access_control.Identifier,
 	LoginInfoSeq = idl.types.services.access_control.LoginInfoSeq,
@@ -68,8 +68,6 @@ local WeakKeys = {__mode = "k"}
 
 local CredentialContextId = 0x42555300 -- "BUS\0"
 
-local CredVer = {2,0}
-
 
 
 local CallChain = class()
@@ -83,8 +81,8 @@ end
 local function calculateHash(secret, ticket, request)
 	return sha256(encode(
 		"<BBc16I4I4c0c0",        -- '<' flag to set to little endian
-		CredVer[1],              -- 'B' unsigned char
-		CredVer[2],              -- 'B' unsigned char
+		2,                       -- 'B' unsigned char
+		0,                       -- 'B' unsigned char
 		secret,                  -- 'c16' sequence of exactly 16 chars of a string
 		ticket,                  -- 'I4' unsigned integer with 4 bytes
 		request.request_id,      -- 'I4' unsigned integer with 4 bytes
@@ -115,7 +113,8 @@ local function marshalReset(self, request, challenge)
 	}
 	local encoder = self.orb:newencoder()
 	local types = self.types
-	encoder:put(CredVer, types.CredentialVersion)
+	encoder:octet(2)
+	encoder:octet(0)
 	encoder:put(reset, types.CredentialReset)
 	request.service_context = {{
 		context_id = CredentialContextId,
@@ -128,8 +127,9 @@ local function unmarshalReset(self, contexts)
 		if context.context_id == CredentialContextId then
 			local decoder = self.orb:newdecoder(context.context_data)
 			local types = self.types
-			local version = decoder:get(types.CredentialVersion)
-			if version[1]==CredVer[1] or version[2]==CredVer[2] then
+			local major = decoder:octet()
+			local minor = decoder:octet()
+			if major == 2 or minor == 0 then
 				local reset = decoder:get(types.CredentialReset)
 				local login = reset.login
 				local secret, errmsg = self.prvkey:decrypt(reset.challenge)
@@ -140,8 +140,8 @@ local function unmarshalReset(self, contexts)
 				return nil, msg.CredentialResetBadChallenge, { error=errmsg }
 			end
 			return nil, msg.CredentialResetUnsupportedVersion, {
-				major = version[1],
-				minor = version[2],
+				major = major,
+				minor = minor,
 			}
 		end
 	end
@@ -154,7 +154,8 @@ local function marshalCredential(self, request, credential, chain, remoteid)
 	if chain==nil or chain.signature~=nil then -- no legacy chain (OpenBus 1.5)
 		local encoder = orb:newencoder()
 		local types = self.types
-		encoder:put(CredVer, types.CredentialVersion)
+		encoder:octet(2)
+		encoder:octet(0)
 		encoder:put(credential, types.CredentialData)
 		if remoteid ~= nil then -- credential session is established
 			legacy = false -- do not send legacy credential (OpenBus 1.5)
@@ -202,11 +203,12 @@ local function unmarshalCredential(self, contexts)
 	for _, context in ipairs(contexts) do
 		if context.context_id == CredentialContextId then
 			local decoder = orb:newdecoder(context.context_data)
-			local version = decoder:get(types.CredentialVersion)
-			if version[1]==CredVer[1] or version[2]==CredVer[2] then
+			local major = decoder:octet()
+			local minor = decoder:octet()
+			if major == 2 or minor == 0 then
 				local credential = decoder:get(types.CredentialData)
 				local chain
-				if decoder.cursor <= decoder.data then
+				if decoder.cursor <= #decoder.data then
 					chain = decoder:get(types.CredentialChain)
 					local encoded = chain.encoded
 					if encoded ~= nil then
