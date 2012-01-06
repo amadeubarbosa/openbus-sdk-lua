@@ -108,10 +108,14 @@ local function connectInvalidPort(self)
 end
 
 local function connectTwice(self)
-  local connection = openbus.connectByAddress(host, port, nil)
+  local orb = openbus.createORB(props)
+  local connection = openbus.connectByAddress(host, port, orb)
   Check.assertNotNil(connection)
+  -- Nova conexão com ORB diferente deve ser bem sucedida
   local connection2 = openbus.connectByAddress(host, port, nil)
   Check.assertNotNil(connection2)
+  -- Nova conexão com um mesmo ORB deve resultar em erro
+  Check.assertError(openbus.connectByAddress, openbus, host, port, orb)
   connection:close()
   connection2:close()
 end
