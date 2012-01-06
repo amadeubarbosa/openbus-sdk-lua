@@ -19,8 +19,8 @@ local inf = math.huge
 local hash = require "lce.hash"
 local sha256 = hash.sha256
 
-local x509 = require "lce.x509"
-local decodecertificate = x509.decode
+local pubkey = require "lce.pubkey"
+local decodepubkey = pubkey.decodepublic
 
 local table = require "loop.table"
 local copy = table.copy
@@ -49,9 +49,10 @@ local offertypes = idl.types.services.offer_registry
 local BusObjectKey = idl.const.BusObjectKey
 local access = require "openbus.core.Access"
 local neworb = access.createORB
-local Interceptor = access.Interceptor
-local sendBusRequest = Interceptor.sendrequest
-local receiveBusRequest = Interceptor.receiverequest
+local CoreInterceptor = access.Interceptor
+local sendBusRequest = CoreInterceptor.sendrequest
+local receiveBusReply = CoreInterceptor.receivereply
+local receiveBusRequest = CoreInterceptor.receiverequest
 
 local cothread = require "cothread"
 local resume = cothread.next
@@ -61,17 +62,6 @@ local time = cothread.now
 local threadtrap = cothread.trap
 
 
-
-local function getpublickey(certificate)
-	local result, errmsg = decodecertificate(certificate)
-	if result then
-		result, errmsg = result:getpubkey()
-		if result then
-			return result
-		end
-	end
-	return nil, msg.UnableToReadPublicKey:tag{ errmsg = errmsg }
-end
 
 local function getEntryFromCache(self, loginId)
 	local logins = self.__object
@@ -133,14 +123,15 @@ local function newLoginRegistryWrapper(logins)
 		timeupdated = -inf,
 		mutex = Mutex(),
 		cache = LRU(function(loginId, replacedId, replaced)
-			local ok, entry, pubkey = pcall(logins.getLoginInfo, logins, loginId)
+			local ok, entry, encodedkey = pcall(logins.getLoginInfo, logins, loginId)
 			if not ok then
 				if entry._repid ~= logintypes.InvalidLogins then
 					error(entry)
 				end
 				return { id = loginId }
 			end
-			entry.pubkey = pubkey
+			entry.encodedkey = encodedkey
+			entry.pubkey = assert(decodepubkey(encodedkey))
 			if replaced == nil then
 				entry.index = #ids+1
 				log:action(msg.LoginAddedToValidityCache:tag{
@@ -271,7 +262,7 @@ end
 
 
 
-local Connection = class({}, Interceptor)
+local Connection = class({}, CoreInterceptor)
 
 function Connection:__init()
 	-- retrieve IDL definitions for login
@@ -280,10 +271,6 @@ function Connection:__init()
 		assert(orb.types:lookup_id(logintypes.LoginAuthenticationInfo))
 	-- retrieve core service references
 	local bus = self.bus
-	local iceptor = orb.OpenBusInterceptor
-	local ignored = iceptor.ignoredThreads
-	local thread = running()
-	ignored[thread] = true -- perform these calls without credential
 	for field, name in pairs(LoginServiceNames) do
 		local facetname = assert(loginconst[name.."Facet"], name)
 		local typerepid = assert(logintypes[name], name)
@@ -295,8 +282,7 @@ function Connection:__init()
 		self[field] = orb:narrow(bus:getFacetByName(facetname), typerepid)
 	end
 	self.busid = self.AccessControl:_get_busid()
-	iceptor:addConnection(self)
-	ignored[thread] = nil -- restore only calls with credentials
+	orb.OpenBusInterceptor:addConnection(self)
 	-- create wrapper for core service LoginRegistry
 	self.logins = newLoginRegistryWrapper(self.logins)
 end
@@ -342,6 +328,7 @@ function Connection:sendrequest(request)
 end
 
 function Connection:receivereply(request)
+	receiveBusReply(self, request)
 	if request.success == false then
 		local except = request.results[1]
 		if except._repid == sysex.NO_PERMISSION
@@ -394,8 +381,8 @@ end
 function Connection:loginByPassword(entity, password)
 	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
 	local manager = self.AccessControl
-	local buskey = assert(getpublickey(manager:_get_certificate()))
-	local pubkey = self.pubkey
+	local buskey = assert(decodepubkey(manager:_get_buskey()))
+	local pubkey = self.prvkey:encode("public")
 	local idltype = self.LoginAuthenticationInfo
 	local encoder = self.orb:newencoder()
 	encoder:put({data=password,hash=sha256(pubkey)}, idltype)
@@ -415,17 +402,14 @@ end
 function Connection:loginByCertificate(entity, privatekey)
 	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
 	local manager = self.AccessControl
-	local buskey = assert(getpublickey(manager:_get_certificate()))
+	local buskey = assert(decodepubkey(manager:_get_pubkey()))
 	local attempt, challenge = manager:startLoginByCertificate(entity)
 	local secret, errmsg = privatekey:decrypt(challenge)
 	if secret == nil then
 		attempt:cancel()
-		error(msg.CorruptedPrivateKey:tag{
-			privatekey = privatekey,
-			errmsg = errmsg,
-		})
+		error(msg.CorruptedPrivateKey:tag{ errmsg = errmsg })
 	end
-	local pubkey = self.pubkey
+	local pubkey = self.prvkey:encode("public")
 	local idltype = self.LoginAuthenticationInfo
 	local encoder = self.orb:newencoder()
 	encoder:put({data=secret,hash=sha256(pubkey)}, idltype)
@@ -508,9 +492,6 @@ function openbus.connectByAddress(host, port, orb)
 	return Connection{
 		orb = orb,
 		bus = orb:newproxy(ref, nil, "scs::core::IComponent"),
-		-- TODO:[maia] fix this crap!
-		pubkey = assert(_G.require("openbus.util.server").readfilecontents(openbus.keyname..".crt")),
-		prvkey = assert(_G.require("openbus.util.server").readprivatekey(openbus.keyname..".key")),
 	}
 end
 
