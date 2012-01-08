@@ -7,7 +7,7 @@ local luaidl = require "luaidl"
 local parse = luaidl.parse
 
 local idlspec = [[
-#include "access_control.idl"
+#include "credential.idl"
 #include "offer_registry.idl"
 ]]
 

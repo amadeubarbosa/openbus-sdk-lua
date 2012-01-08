@@ -26,7 +26,7 @@ local idl = {
 do
 	local const = idl.const
 	const.Version = "2_00"
-	const.BusId = "OpenBus"
+	const.BusEntity = "OpenBus"
 	const.BusObjectKey = "OpenBus"
 	local const = idl.const.services.access_control
 	const.AccessControlFacet = "AccessControl_2_00"

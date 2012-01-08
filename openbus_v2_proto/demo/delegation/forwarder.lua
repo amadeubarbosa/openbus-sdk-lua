@@ -21,22 +21,23 @@ Forwarder = {
 }
 function Forwarder:setForward(to)
 	local chain = conn:getCallerChain()
-	local user = chain[1].entity
-	print("setup forward to "..to.." by "..chain2str(chain))
+	local callers = chain.callers
+	local user = callers[1].entity
+	print("setup forward to "..to.." by "..chain2str(callers))
 	self.forwardsOf[user] = {chain=chain, to=to}
 end
 function Forwarder:cancelForward()
-	local chain = conn:getCallerChain()
-	local user = chain[1].entity
+	local callers = conn:getCallerChain().callers
+	local user = callers[1].entity
 	local forward = self.forwardsOf[user]
 	if forward ~= nil then
-		print("cancel forward to "..forward.to.." by "..chain2str(chain))
+		print("cancel forward to "..forward.to.." by "..chain2str(callers))
 		self.forwardsOf[user] = nil
 	end
 end
 function Forwarder:getForward()
-	local chain = conn:getCallerChain()
-	local user = chain[1].entity
+	local callers = conn:getCallerChain().callers
+	local user = callers[1].entity
 	local forward = self.forwardsOf[user]
 	if forward == nil then
 		error(orb:newexcept{"tecgraf::openbus::demo::delegation::NoForward"})

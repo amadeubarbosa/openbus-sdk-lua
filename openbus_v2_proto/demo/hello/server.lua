@@ -21,8 +21,8 @@ end
 -- create service implementation
 local hello = {}
 function hello:sayHello()
-	local chain = conn:getCallerChain()
-	print("Hello from "..chain[1].entity.."!")
+	local callers = conn:getCallerChain().callers
+	print("Hello from "..callers[1].entity.."!")
 end
 
 -- create service SCS component

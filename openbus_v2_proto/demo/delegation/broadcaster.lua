@@ -31,15 +31,15 @@ function Broadcaster:post(message)
 	end
 end
 function Broadcaster:subscribe()
-	local chain = conn:getCallerChain()
-	local user = chain[1].entity
-	print("subscription by "..chain2str(chain))
+	local callers = conn:getCallerChain().callers
+	local user = callers[1].entity
+	print("subscription by "..chain2str(callers))
 	self.subscribers[user] = true
 end
 function Broadcaster:unsubscribe()
-	local chain = conn:getCallerChain()
-	local user = chain[1].entity
-	print("unsubscription by "..chain2str(chain))
+	local callers = conn:getCallerChain().callers
+	local user = callers[1].entity
+	print("unsubscription by "..chain2str(callers))
 	self.subscribers[user] = nil
 end
 
