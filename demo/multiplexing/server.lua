@@ -58,7 +58,7 @@ function hello:sayHello()
   local chain = conn1AtBus1WithOrb1:getCallerChain()
              or connAtBus2WithOrb1:getCallerChain()
              or connAtBus1WithOrb2:getCallerChain()
-  print("Hello from "..chain[1].entity.."@"..chain.busid.."!")
+  print("Hello from "..chain.callers[1].entity.."@"..chain.busid.."!")
 end
 
 -- create service SCS component

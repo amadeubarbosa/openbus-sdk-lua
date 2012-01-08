@@ -281,7 +281,9 @@ function Connection:__init()
 		local typerepid = assert(offertypes[name], name)
 		self[field] = orb:narrow(bus:getFacetByName(facetname), typerepid)
 	end
-	self.busid = self.AccessControl:_get_busid()
+	local access = self.AccessControl
+	self.busid = access:_get_busid()
+	self.buskey = assert(decodepubkey(access:_get_buskey()))
 	orb.OpenBusInterceptor:addConnection(self)
 	-- create wrapper for core service LoginRegistry
 	self.logins = newLoginRegistryWrapper(self.logins)
@@ -296,7 +298,7 @@ function Connection:newrenewer(lease)
 			self.renewer = thread
 			deferuntil(time()+lease)
 			self.renewer = nil
-			log:action(msg.RenewLogin:tag(login))
+			log:action(msg.RenewLogin:tag{id=login.id,entity=login.entity})
 			local ok, result = pcall(manager.renew, manager)
 			if ok then
 				lease = result
@@ -354,14 +356,15 @@ end
 function Connection:receiverequest(request)
 	if self:isLoggedIn() then
 		receiveBusRequest(self, request)
-		local callers = self:getCallerChain()
-		if callers == nil then
-			request.success = false
-			request.results = {self.orb:newexcept{
-				"CORBA::NO_PERMISSION",
-				completed = "COMPLETED_NO",
-				minor = loginconst.InvalidLoginCode,
-			}}
+		if request.success == nil then
+			if self:getCallerChain() == nil then
+				request.success = false
+				request.results = {self.orb:newexcept{
+					"CORBA::NO_PERMISSION",
+					completed = "COMPLETED_NO",
+					minor = loginconst.InvalidLoginCode,
+				}}
+			end
 		end
 	else
 		log:badaccess(msg.GotCallFromConnectionWithoutLogin:tag{
@@ -381,18 +384,14 @@ end
 function Connection:loginByPassword(entity, password)
 	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
 	local manager = self.AccessControl
-	local buskey = assert(decodepubkey(manager:_get_buskey()))
 	local pubkey = self.prvkey:encode("public")
 	local idltype = self.LoginAuthenticationInfo
 	local encoder = self.orb:newencoder()
 	encoder:put({data=password,hash=sha256(pubkey)}, idltype)
 	local encoded = encoder:getdata()
-	local encrypted, errmsg = buskey:encrypt(encoded)
+	local encrypted, errmsg = self.buskey:encrypt(encoded)
 	if encrypted == nil then
-		error(msg.CorruptedBusCertificate:tag{
-			certificate = buskey,
-			errmsg = errmsg,
-		})
+		error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
 	end
 	local id, lease = manager:loginByPassword(entity, pubkey, encrypted)
 	self.login = {id=id, entity=entity, pubkey=pubkey}
@@ -402,7 +401,6 @@ end
 function Connection:loginByCertificate(entity, privatekey)
 	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
 	local manager = self.AccessControl
-	local buskey = assert(decodepubkey(manager:_get_pubkey()))
 	local attempt, challenge = manager:startLoginByCertificate(entity)
 	local secret, errmsg = privatekey:decrypt(challenge)
 	if secret == nil then
@@ -414,13 +412,10 @@ function Connection:loginByCertificate(entity, privatekey)
 	local encoder = self.orb:newencoder()
 	encoder:put({data=secret,hash=sha256(pubkey)}, idltype)
 	local encoded = encoder:getdata()
-	local encrypted, errmsg = buskey:encrypt(encoded)
+	local encrypted, errmsg = self.buskey:encrypt(encoded)
 	if encrypted == nil then
 		attempt:cancel()
-		error(msg.CorruptedBusCertificate:tag{
-			certificate = buskey,
-			errmsg = errmsg,
-		})
+		error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
 	end
 	local id, lease = attempt:login(pubkey, encrypted)
 	self.login = {id=id, entity=entity, pubkey=pubkey}

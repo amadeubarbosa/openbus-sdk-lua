@@ -21,12 +21,13 @@ LUAMOD= \
 	openbus.util.oo \
 	openbus.util.server \
 	openbus.util.sysex \
+	openbus.util.tickets \
 	openbus
 LUADIR= ../lua
 LUASRC=$(addprefix $(LUADIR)/,$(addsuffix .lua,$(subst .,/,$(LUAMOD))))
 
 IDL= \
-	$(OPENBUSIDL)/access_control.idl \
+	$(OPENBUSIDL)/credential.idl \
 	$(OPENBUSIDL)/offer_registry.idl
 
 include ${OIL_HOME}/openbus/base.mak

@@ -26,16 +26,16 @@ Messenger = {
 	inboxOf = memoize(function() return {} end),
 }
 function Messenger:post(to, message)
-	local chain = conn:getCallerChain()
-	local from = chain[1].entity
-	print("post to "..to.." by "..chain2str(chain))
+	local callers = conn:getCallerChain().callers
+	local from = callers[1].entity
+	print("post to "..to.." by "..chain2str(callers))
 	local inbox = self.inboxOf[to]
 	inbox[#inbox+1] = { from=from, message=message }
 end
 function Messenger:receivePosts()
-	local chain = conn:getCallerChain()
-	local owner = chain[1].entity
-	print("downdoad of messsages by "..chain2str(chain))
+	local callers = conn:getCallerChain().callers
+	local owner = callers[1].entity
+	print("downdoad of messsages by "..chain2str(callers))
 	local inbox = self.inboxOf[owner]
 	self.inboxOf[owner] = nil
 	return inbox
