@@ -260,6 +260,16 @@ local Interceptor = class()
 
 function Interceptor:__init()
 	if self.prvkey == nil then self.prvkey = newkey(256) end
+	local types = self.orb.types
+	local idltypes = {}
+	for name, repid in pairs(repids) do
+		idltypes[name] = types:lookup_id(repid)
+	end
+	self.types = idltypes
+	self:resetCaches()
+end
+
+function Interceptor:resetCaches()
 	self.emptyChain = CallChain{ callers = {} }
 	self.callerChainOf = setmetatable({}, WeakKeys)
 	self.joinedChainOf = setmetatable({}, WeakKeys)
@@ -271,12 +281,6 @@ function Interceptor:__init()
 			tickets = tickets(),
 		}
 	end)
-	local types = self.orb.types
-	local idltypes = {}
-	for name, repid in pairs(repids) do
-		idltypes[name] = types:lookup_id(repid)
-	end
-	self.types = idltypes
 end
 
 function Interceptor:validateCredential(credential, request, remotekey)
@@ -454,11 +458,12 @@ function Interceptor:receiverequest(request)
 					else
 						-- return invalid chain exception
 						setNoPermSysEx(request, loginconst.InvalidChainCode)
-						tags.bus = self.busid
-						tags.login = caller.id
-						tags.entity = caller.entity
-						tags.operation = request.operation.name
-						log:badaccess(errmsg:tag(tags))
+						log:badaccess(msg.GotCallWithInvalidChain:tag{
+							bus = self.busid,
+							login = caller.id,
+							entity = caller.entity,
+							operation = request.operation.name,
+						})
 					end
 				else
 					-- credential not valid, try to reset credetial session

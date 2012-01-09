@@ -158,6 +158,7 @@ end
 
 local function localLogout(self)
 	self.login = nil
+	self:resetCaches()
 	local renewer = self.renewer
 	if renewer ~= nil then
 		self.renewer = nil
@@ -501,7 +502,7 @@ argcheck.convertclass(Connection, {
 	shareLogin = { "string" },
 	logout = {},
 	getCallerChain = {},
-	joinChain = { "table" },
+	joinChain = { "nil|table" },
 	exitChain = {},
 	getJoinedChain = {},
 	close = {},
