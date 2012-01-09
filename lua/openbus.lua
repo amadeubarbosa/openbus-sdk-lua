@@ -128,10 +128,11 @@ local function newLoginRegistryWrapper(logins)
 				if entry._repid ~= logintypes.InvalidLogins then
 					error(entry)
 				end
-				return { id = loginId }
+				entry = { id = loginId }
+			else
+				entry.encodedkey = encodedkey
+				entry.pubkey = assert(decodepubkey(encodedkey))
 			end
-			entry.encodedkey = encodedkey
-			entry.pubkey = assert(decodepubkey(encodedkey))
 			if replaced == nil then
 				entry.index = #ids+1
 				log:action(msg.LoginAddedToValidityCache:tag{
