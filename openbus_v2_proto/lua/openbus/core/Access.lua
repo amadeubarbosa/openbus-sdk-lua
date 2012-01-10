@@ -294,7 +294,7 @@ function Interceptor:validateCredential(credential, request, remotekey)
 	local ticket = credential.ticket
 	-- validate credential with current secret
 	if hash == calculateHash(session.secret, ticket, request)
-	then--and session.tickets:check(ticket) then
+	and session.tickets:check(ticket) then
 		return true
 	end
 	return false, session.secret
