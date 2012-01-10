@@ -25,6 +25,8 @@ local log = Verbose{
 		info = { "config", "admin", "uptime" },
 		debug = { "request", "action" },
 		extra = { "access", "badaccess", "multiplexed" },
+		
+		DEBUG = { "LOGIN_CACHE" } -- TODO:[maia] to be removed after all tests
 	},
 }
 log:settimeformat("%d/%m/%Y %H:%M:%S") -- inclui data e hora no log

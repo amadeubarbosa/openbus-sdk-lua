@@ -231,15 +231,21 @@ local function unmarshalReset(self, contexts)
 					reset.secret = secret
 					return reset
 				end
-				return nil, msg.CredentialResetBadChallenge, { error=errmsg }
+				log:badaccess(msg.CredentialResetBadChallenge:tag{
+					operation = request.operation.name,
+					error = errmsg,
+				})
 			end
-			return nil, msg.CredentialResetUnsupportedVersion, {
+			log:badaccess(msg.CredentialResetUnsupportedVersion:tag{
+				operation = request.operation.name,
 				major = major,
 				minor = minor,
-			}
+			})
 		end
 	end
-	return nil, msg.CredentialResetMissing, {}
+	log:badaccess(msg.CredentialResetMissing:tag{
+		operation = request.operation.name,
+	})
 end
 
 
@@ -356,19 +362,13 @@ function Interceptor:sendrequest(request)
 			session.ticket = ticket
 			hash = calculateHash(session.secret, ticket, request)
 			log:access(msg.BusCall:tag{
-				bus = self.busid,
-				login = login.id,
-				entity = login.entity,
-				remoteid = remoteid,
+				login = remoteid,
 				operation = request.operation.name,
 			})
 		else
 			ticket = 0
 			hash = NullHash
 			log:access(msg.InitializingCredentialSession:tag{
-				bus = self.busid,
-				login = login.id,
-				entity = login.entity,
 				operation = request.operation.name,
 			})
 		end
@@ -385,7 +385,6 @@ function Interceptor:sendrequest(request)
 		-- not logged in yet
 		log:badaccess(msg.CallWithoutCredential:tag{
 			operation = request.operation.name,
-			bus = self.busid,
 		})
 	end
 end
@@ -397,7 +396,7 @@ function Interceptor:receivereply(request)
 		and except.completed == "COMPLETED_NO"
 		and except.minor == loginconst.InvalidCredentialCode then
 			-- got invalid credential exception
-			local reset, errmsg, tags = unmarshalReset(self, request.reply_service_context)
+			local reset = unmarshalReset(self, request.reply_service_context)
 			if reset ~= nil then
 				-- get previous credential session information, if any
 				local profile = request.profile_data
@@ -418,29 +417,17 @@ function Interceptor:receivereply(request)
 					}
 					outgoing[remoteid] = session
 					log:access(msg.CredentialSessionInitialized:tag{
-						bus = self.busid,
-						login = self.login.id,
-						entity = self.login.entity,
+						login = remoteid,
 						operation = request.operation.name,
-						remoteid = remoteid,
 					})
 				else
 					log:access(msg.CredentialSessionReused:tag{
-						bus = self.busid,
-						login = self.login.id,
-						entity = self.login.entity,
+						login = remoteid,
 						operation = request.operation.name,
-						remoteid = remoteid,
 					})
 				end
 				request.success = nil -- reissue request to the same reference
 				return self:sendrequest(request)
-			else
-				tags.bus = self.busid
-				tags.login = self.login.id
-				tags.entity = self.login.entity
-				tags.operation = request.operation.name
-				log:badaccess(errmsg:tag(tags))
 			end
 			except.minor = loginconst.InvalidRemoteCode
 		end
@@ -459,11 +446,8 @@ function Interceptor:receiverequest(request)
 					chain = self:validateChain(chain, caller)
 					if chain ~= nil then
 						log:access(msg.GotBusCall:tag{
-							bus = self.busid,
-							login = login.id,
-							entity = login.entity,
-							callerlogin = caller.id,
-							callerentity = caller.entity,
+							login = caller.id,
+							entity = caller.entity,
 							operation = request.operation.name,
 						})
 						self.callerChainOf[running()] = CallChain(chain)
@@ -471,11 +455,8 @@ function Interceptor:receiverequest(request)
 						-- return invalid chain exception
 						setNoPermSysEx(request, loginconst.InvalidChainCode)
 						log:badaccess(msg.GotCallWithInvalidChain:tag{
-							bus = self.busid,
-							login = login.id,
-							entity = login.entity,
-							callerlogin = caller.id,
-							callerentity = caller.entity,
+							login = caller.id,
+							entity = caller.entity,
 							operation = request.operation.name,
 						})
 					end
@@ -486,21 +467,15 @@ function Interceptor:receiverequest(request)
 						marshalReset(self, request, challenge)
 						setNoPermSysEx(request, loginconst.InvalidCredentialCode)
 						log:badaccess(msg.GotCallWithInvalidCredential:tag{
-							bus = self.busid,
-							login = login.id,
-							entity = login.entity,
-							callerlogin = caller.id,
-							callerentity = caller.entity,
+							login = caller.id,
+							entity = caller.entity,
 							operation = request.operation.name,
 						})
 					else
 						setNoPermSysEx(request, loginconst.InvalidPublicKeyCode)
 						log:badaccess(msg.UnableToEncryptSecretWithCallerKey:tag{
-							bus = self.busid,
-							login = login.id,
-							entity = login.entity,
-							callerlogin = caller.id,
-							callerentity = caller.entity,
+							login = caller.id,
+							entity = caller.entity,
 							operation = request.operation.name,
 							error = errmsg,
 						})
@@ -510,24 +485,17 @@ function Interceptor:receiverequest(request)
 				-- return invalid login exception
 				setNoPermSysEx(request, loginconst.InvalidLoginCode)
 				log:badaccess(msg.GotCallWithInvalidLogin:tag{
-					bus = self.busid,
-					login = login.id,
-					entity = login.entity,
-					callerlogin = credential.login,
+					login = credential.login,
 					operation = request.operation.name,
 				})
 			end
 		else
 			log:badaccess(msg.GotCallWithoutCredential:tag{
-				bus = self.busid,
-				login = login.id,
-				entity = login.entity,
 				operation = request.operation.name,
 			})
 		end
 	else
 		log:badaccess(msg.GotCallBeforeLogin:tag{
-			bus = self.busid,
 			operation = request.operation.name,
 		})
 	end
