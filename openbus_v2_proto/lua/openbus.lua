@@ -73,18 +73,18 @@ local function getEntryFromCache(self, loginId)
 	if entry ~= nil then
 		local time2live = validity[entry.index]
 		if time2live == 0 then
-			log:action(msg.InvalidLoginInValidityCache:tag{
+			log:LOGIN_CACHE(msg.InvalidLoginInValidityCache:tag{
 				login = loginId,
 				entity = entry.entity,
 			})
 		elseif time2live ~= nil and time2live > time()-timeupdated then
-			log:action(msg.ValidLoginInValidityCache:tag{
+			log:LOGIN_CACHE(msg.ValidLoginInValidityCache:tag{
 				login = loginId,
 				entity = entry.entity,
 			})
 			return entry -- valid login in cache
 		else -- update validity cache
-			log:action(msg.UpdateLoginValidityCache:tag{count=#ids})
+			log:LOGIN_CACHE(msg.UpdateLoginValidityCache:tag{count=#ids})
 			self.timeupdated = time()
 			validity = logins:getValidity(ids)
 			self.validity = validity
@@ -135,13 +135,13 @@ local function newLoginRegistryWrapper(logins)
 			end
 			if replaced == nil then
 				entry.index = #ids+1
-				log:action(msg.LoginAddedToValidityCache:tag{
+				log:LOGIN_CACHE(msg.LoginAddedToValidityCache:tag{
 					login = loginId,
 					entity = entry.entity,
 				})
 			else
 				entry.index = replaced.index
-				log:action(msg.LoginReplacedInValidityCache:tag{
+				log:LOGIN_CACHE(msg.LoginReplacedInValidityCache:tag{
 					oldlogin = replacedId,
 					oldentity = replaced.entity,
 					newlogin = loginId,
@@ -217,7 +217,7 @@ function Interceptor:sendrequest(request)
 				completed = "COMPLETED_NO",
 				minor = loginconst.NoLoginCode,
 			}}
-			log:badaccess(msg.AttemptToCallBeforeBusConnection:tag{
+			log:badaccess(msg.CallAfterDisconnection:tag{
 				operation = request.operation.name,
 			})
 		end
@@ -250,7 +250,7 @@ function Interceptor:receiverequest(request)
 			completed = "COMPLETED_NO",
 			minor = loginconst.UnverifiedLoginCode,
 		}}
-		log:badaccess(msg.GotCallBeforeBusConnection:tag{
+		log:badaccess(msg.CallAfterDisconnection:tag{
 			operation = request.operation.name,
 		})
 	end
@@ -326,9 +326,8 @@ function Connection:sendrequest(request)
 			completed = "COMPLETED_NO",
 			minor = loginconst.NoLoginCode,
 		}}
-		log:badaccess(msg.AttemptToCallBeforeLogin:tag{
+		log:badaccess(msg.CallAfterDisconnection:tag{
 			operation = request.operation.name,
-			bus = self.busid,
 		})
 	end
 end
@@ -342,14 +341,13 @@ function Connection:receivereply(request)
 		and except.minor == loginconst.InvalidLoginCode then
 			log:badaccess(msg.GotInvalidLoginException:tag{
 				operation = request.operation.name,
-				bus = self.busid,
 			})
+			local login = self.login
 			localLogout(self)
-			if self:onInvalidLogin() then
+			if self:onInvalidLogin(login) then
 				request.success = nil -- reissue request to the same reference
 				log:badaccess(msg.ReissuingCallAfterCallback:tag{
 					operation = request.operation.name,
-					bus = self.busid,
 				})
 				sendBusRequest(self, request)
 			end
@@ -373,7 +371,6 @@ function Connection:receiverequest(request)
 	else
 		log:badaccess(msg.GotCallFromConnectionWithoutLogin:tag{
 			operation = request.operation.name,
-			bus = self.busid,
 		})
 		request.success = false
 		request.results = {self.orb:newexcept{
@@ -400,6 +397,11 @@ function Connection:loginByPassword(entity, password)
 	local id, lease = manager:loginByPassword(entity, pubkey, encrypted)
 	self.login = {id=id, entity=entity, pubkey=pubkey}
 	self:newrenewer(lease)
+	log:action(msg.LoginByPassword:tag{
+		bus = self.busid,
+		login = id,
+		entity = entity,
+	})
 end
 
 function Connection:loginByCertificate(entity, privatekey)
@@ -424,11 +426,11 @@ function Connection:loginByCertificate(entity, privatekey)
 	local id, lease = attempt:login(pubkey, encrypted)
 	self.login = {id=id, entity=entity, pubkey=pubkey}
 	self:newrenewer(lease)
-end
-
-function Connection:shareLogin(logindata)
-	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
-	self.login = decodelogin(logindata)
+	log:action(msg.LoginByCertificate:tag{
+		bus = self.busid,
+		login = id,
+		entity = entity,
+	})
 end
 
 function Connection:logout()
@@ -483,8 +485,6 @@ end
 
 local openbus = { createORB = createORB }
 
-openbus.keyname = "my"
-
 function openbus.connectByAddress(host, port, orb)
 	local ref = "corbaloc::"..host..":"..port.."/"..BusObjectKey
 	if orb == nil then orb = createORB() end
@@ -499,10 +499,8 @@ end
 -- insert function argument typing
 local argcheck = require "openbus.util.argcheck"
 argcheck.convertclass(Connection, {
-	--encodeLogin = {},
 	loginByPassword = { "string", "string" },
 	loginByCertificate = { "string", "userdata" },
-	shareLogin = { "string" },
 	logout = {},
 	getCallerChain = {},
 	joinChain = { "nil|table" },

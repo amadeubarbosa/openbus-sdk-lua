@@ -38,6 +38,29 @@ local CredentialContextId = 0x42555300 -- "BUS\0"
 local WeakKeyMeta = { __mode = "k" }
 
 
+local IceptorOp2LogMessage = {
+	sendrequest = msg.MultiplexedCall,
+	receivereply = false,
+	receiverequest = msg.GotMultiplexedCall,
+	sendreply = false,
+}
+
+local function logMultiplexed(conn, op, request, ...)
+	local message = IceptorOp2LogMessage[op]
+	if message then
+		local login = conn.login
+		log:multiplexed(true, IceptorOp2LogMessage[op]:tag{
+			bus = conn.busid,
+			login = login and login.id,
+			entity = login and login.entity,
+			operation = request.operation.name,
+		})
+	end
+	conn[op](conn, request, ...)
+	if not message then
+		log:multiplexed(false)
+	end
+end
 
 local function getBusId(self, contexts)
 	for _, context in ipairs(contexts) do
@@ -83,7 +106,7 @@ function Multiplexer:sendrequest(request, ...)
 	local conn = self.connectionOf[running()]
 	if conn ~= nil then
 		request.multiplexedConnection = conn
-		conn:sendrequest(request, ...)
+		logMultiplexed(conn, "sendrequest", request, ...)
 	else
 		request.success = false
 		request.results = {self.orb:newexcept{
@@ -98,7 +121,8 @@ function Multiplexer:sendrequest(request, ...)
 end
 
 function Multiplexer:receivereply(request, ...)
-	request.multiplexedConnection:receivereply(request, ...)
+	local conn = request.multiplexedConnection
+	logMultiplexed(conn, "receivereply", request, ...)
 	if request.success ~= nil then
 		request.multiplexedConnection = nil
 	end
@@ -111,7 +135,7 @@ function Multiplexer:receiverequest(request, ...)
 		if conn ~= nil then
 			request.multiplexedConnection = conn
 			self.connectionOf[running()] = conn
-			conn:receiverequest(request, ...)
+			logMultiplexed(conn, "receiverequest", request, ...)
 		else
 			request.success = false
 			request.results = {self.orb:newexcept{
@@ -132,7 +156,8 @@ function Multiplexer:receiverequest(request, ...)
 end
 
 function Multiplexer:sendreply(request, ...)
-	request.multiplexedConnection:sendreply(request, ...)
+	local conn = request.multiplexedConnection
+	logMultiplexed(conn, "sendreply", request, ...)
 	request.multiplexedConnection = nil
 	self.connectionOf[running()] = nil
 end
