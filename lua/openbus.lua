@@ -230,9 +230,11 @@ end
 
 function Interceptor:receivereply(request)
 	local conn = request.connection
-	if conn ~= nil and conn.receivereply ~= nil then
-		request.connection = nil
+	if conn ~= nil then
 		conn:receivereply(request)
+		if request.success ~= nil then
+			request.connection = nil
+		end
 	end
 end
 

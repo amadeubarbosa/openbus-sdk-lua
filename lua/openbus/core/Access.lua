@@ -82,12 +82,11 @@ end
 
 local function calculateHash(secret, ticket, request)
 	return sha256(encode(
-		"<BBc16I4I4c0c0",        -- '<' flag to set to little endian
-		2,                       -- 'B' unsigned char
-		0,                       -- 'B' unsigned char
+		"<c2c16I4c0c0",        -- '<' flag to set to little endian
+		VersionHeader,           -- 'c2' sequence of exactly 2 chars of a string
 		secret,                  -- 'c16' sequence of exactly 16 chars of a string
 		ticket,                  -- 'I4' unsigned integer with 4 bytes
-		request.request_id,      -- 'I4' unsigned integer with 4 bytes
+		--request.request_id,      -- 'I4' unsigned integer with 4 bytes
 		request.object_key,      -- 'c0' sequence of all chars of a string
 		request.operation_name)) -- 'c0' sequence of all chars of a string
 end
@@ -173,6 +172,7 @@ local function unmarshalCredential(self, contexts)
 					callers.n = nil -- remove field 'n' created by OiL unmarshal
 					chain.callers = callers
 					chain.target = decoded.target
+					chain.busid = credential.bus
 				end
 				return credential, chain
 			end
@@ -274,8 +274,8 @@ function Interceptor:resetCaches()
 	self.callerChainOf = setmetatable({}, WeakKeys)
 	self.joinedChainOf = setmetatable({}, WeakKeys)
 	self.profile2login = LRU(function() return false end)
-	self.outgoingCredentials = LRU(function() return {} end)
-	self.incommingCredentials = LRU(function()
+	self.outgoingCredentials = LRU(function() return false end)
+	self.incomingCredentials = LRU(function()
 		return {
 			secret = newSecret(), -- must be a secret no one can guess
 			tickets = tickets(),
@@ -290,24 +290,14 @@ function Interceptor:validateCredential(credential, request, remotekey)
 		return true
 	end
 	-- get current credential session
-	local session = self.incommingCredentials[credential.login]
+	local session = self.incomingCredentials[credential.login]
 	local ticket = credential.ticket
 	-- validate credential with current secret
 	if hash == calculateHash(session.secret, ticket, request)
-	and session.tickets:check(ticket) then
+	then--and session.tickets:check(ticket) then
 		return true
 	end
-	-- validate credential with the last new secret emitted
-	local newsecret = session.newsecret
-	if newsecret ~= nil and hash == calculateHash(newsecret, ticket, request) then
-		session.newsecret = nil
-		session.secret = newsecret
-		return true
-	end
-	-- emit a new secret to establish a new session
-	newsecret = newSecret()
-	session.newsecret = newsecret
-	return false, newsecret
+	return false, session.secret
 end
 
 function Interceptor:validateChain(chain, caller)
@@ -369,6 +359,7 @@ function Interceptor:sendrequest(request)
 				bus = self.busid,
 				login = login.id,
 				entity = login.entity,
+				remoteid = remoteid,
 				operation = request.operation.name,
 			})
 		else
@@ -408,21 +399,40 @@ function Interceptor:receivereply(request)
 			-- got invalid credential exception
 			local reset, errmsg, tags = unmarshalReset(self, request.reply_service_context)
 			if reset ~= nil then
-				-- got credential reset information
+				-- get previous credential session information, if any
+				local profile = request.profile_data
+				local profile2login = self.profile2login
+				local previousid = profile2login[profile]
+				-- get credential reset information
 				local remoteid = reset.login
-				self.profile2login[request.profile_data] = remoteid
-				local session = self.outgoingCredentials[remoteid]
-				-- initialize session
-				session.remoteid = remoteid
-				session.secret = reset.secret
-				session.ticket = -1
-				log:access(msg.CredentialSessionInitialized:tag{
-					bus = self.busid,
-					login = self.login.id,
-					entity = self.login.entity,
-					operation = request.operation.name,
-					remoteid = remoteid,
-				})
+				profile2login[profile] = remoteid
+				-- find a suitable credential session
+				local outgoing = self.outgoingCredentials
+				local session = outgoing[remoteid]
+				if not session then
+					-- initialize session
+					session = {
+						remoteid = remoteid,
+						secret = reset.secret,
+						ticket = -1,
+					}
+					outgoing[remoteid] = session
+					log:access(msg.CredentialSessionInitialized:tag{
+						bus = self.busid,
+						login = self.login.id,
+						entity = self.login.entity,
+						operation = request.operation.name,
+						remoteid = remoteid,
+					})
+				else
+					log:access(msg.CredentialSessionReused:tag{
+						bus = self.busid,
+						login = self.login.id,
+						entity = self.login.entity,
+						operation = request.operation.name,
+						remoteid = remoteid,
+					})
+				end
 				request.success = nil -- reissue request to the same reference
 				return self:sendrequest(request)
 			else
@@ -450,8 +460,10 @@ function Interceptor:receiverequest(request)
 					if chain ~= nil then
 						log:access(msg.GotBusCall:tag{
 							bus = self.busid,
-							login = caller.id,
-							entity = caller.entity,
+							login = login.id,
+							entity = login.entity,
+							callerlogin = caller.id,
+							callerentity = caller.entity,
 							operation = request.operation.name,
 						})
 						self.callerChainOf[running()] = CallChain(chain)
@@ -460,8 +472,10 @@ function Interceptor:receiverequest(request)
 						setNoPermSysEx(request, loginconst.InvalidChainCode)
 						log:badaccess(msg.GotCallWithInvalidChain:tag{
 							bus = self.busid,
-							login = caller.id,
-							entity = caller.entity,
+							login = login.id,
+							entity = login.entity,
+							callerlogin = caller.id,
+							callerentity = caller.entity,
 							operation = request.operation.name,
 						})
 					end
@@ -473,16 +487,20 @@ function Interceptor:receiverequest(request)
 						setNoPermSysEx(request, loginconst.InvalidCredentialCode)
 						log:badaccess(msg.GotCallWithInvalidCredential:tag{
 							bus = self.busid,
-							login = caller.id,
-							entity = caller.entity,
+							login = login.id,
+							entity = login.entity,
+							callerlogin = caller.id,
+							callerentity = caller.entity,
 							operation = request.operation.name,
 						})
 					else
 						setNoPermSysEx(request, loginconst.InvalidPublicKeyCode)
 						log:badaccess(msg.UnableToEncryptSecretWithCallerKey:tag{
 							bus = self.busid,
-							login = caller.id,
-							entity = caller.entity,
+							login = login.id,
+							entity = login.entity,
+							callerlogin = caller.id,
+							callerentity = caller.entity,
 							operation = request.operation.name,
 							error = errmsg,
 						})
@@ -493,13 +511,17 @@ function Interceptor:receiverequest(request)
 				setNoPermSysEx(request, loginconst.InvalidLoginCode)
 				log:badaccess(msg.GotCallWithInvalidLogin:tag{
 					bus = self.busid,
-					login = credential.login,
+					login = login.id,
+					entity = login.entity,
+					callerlogin = credential.login,
 					operation = request.operation.name,
 				})
 			end
 		else
 			log:badaccess(msg.GotCallWithoutCredential:tag{
 				bus = self.busid,
+				login = login.id,
+				entity = login.entity,
 				operation = request.operation.name,
 			})
 		end
