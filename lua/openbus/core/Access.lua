@@ -82,11 +82,11 @@ end
 
 local function calculateHash(secret, ticket, request)
 	return sha256(encode(
-		"<c2c16I4c0c0",        -- '<' flag to set to little endian
+		"<c2c16I4I4c0c0",        -- '<' flag to set to little endian
 		VersionHeader,           -- 'c2' sequence of exactly 2 chars of a string
 		secret,                  -- 'c16' sequence of exactly 16 chars of a string
 		ticket,                  -- 'I4' unsigned integer with 4 bytes
-		--request.request_id,      -- 'I4' unsigned integer with 4 bytes
+		request.request_id,      -- 'I4' unsigned integer with 4 bytes
 		request.object_key,      -- 'c0' sequence of all chars of a string
 		request.operation_name)) -- 'c0' sequence of all chars of a string
 end
