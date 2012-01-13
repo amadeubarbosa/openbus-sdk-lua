@@ -16,7 +16,7 @@ if [ -z "${port}" ]; then
   port=2089
 fi
 if [ -z "${adminLogin}" ]; then
-  admimLogin="admin"
+  adminLogin="admin"
 fi
 if [ -z "${adminPassword}" ]; then
   adminPassword="admin"
