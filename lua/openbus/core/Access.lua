@@ -427,9 +427,9 @@ function Interceptor:receivereply(request)
 					})
 				end
 				request.success = nil -- reissue request to the same reference
-				return self:sendrequest(request)
+			else
+				except.minor = loginconst.InvalidRemoteCode
 			end
-			except.minor = loginconst.InvalidRemoteCode
 		end
 	end
 end

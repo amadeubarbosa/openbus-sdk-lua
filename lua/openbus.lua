@@ -349,7 +349,6 @@ function Connection:receivereply(request)
 				log:badaccess(msg.ReissuingCallAfterCallback:tag{
 					operation = request.operation.name,
 				})
-				sendBusRequest(self, request)
 			end
 		end
 	end
