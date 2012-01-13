@@ -1,5 +1,4 @@
 local _G = require "_G"
-local os = _G.os
 local io = _G.io
 local pairs = _G.pairs
 local string = _G.string
@@ -9,23 +8,24 @@ local tostring = _G.tostring
 
 local socket = require "socket.core"
 local oil = require "oil"
-local lce = require "lce"
 local Check = require "latt.Check"
 
 local bus = require "openbus"
 local multiplexer = require "openbus.multiplexed"
 local idl = require "openbus.core.idl"
 local Log = require "openbus.util.logger"
+local server = require "openbus.util.server"
 
 local orb = oil.init {flavor = "cooperative;corba.intercepted",}
 
+-- Configurações --------------------------------------------------------------
 local host = "localhost"
 local port = 2089
 local port2 = 2090
 local user = "tester"
 local password = "tester"
 local oilLogLevel = 0
-local sdkLogLevel = 3
+local sdkLogLevel = 5
 
 -- alterando as propriedades se preciso
 local scsutils = require ("scs.core.utils")()
@@ -33,23 +33,20 @@ local props = {}
 scsutils:readProperties(props, "Test.properties")
 scsutils = nil
 
-host = props:getTagOrDefault("host.name", host)
-port = props:getTagOrDefault("host.port", port)
-port2 = props:getTagOrDefault("host.port2", port2)
-user = props:getTagOrDefault("user", user)
+host = props:getTagOrDefault("host", host)
+port = props:getTagOrDefault("port", port)
+port2 = props:getTagOrDefault("port2", port2)
+user = props:getTagOrDefault("login", user)
 password = props:getTagOrDefault("password", password)
-sdkLogLevel = props:getTagOrDefault("openbus.verbose", sdkLogLevel)
-oilLogLevel = props:getTagOrDefault("oil.verbose", oilLogLevel)
+sdkLogLevel = props:getTagOrDefault("sdkLogLevel", sdkLogLevel)
+oilLogLevel = props:getTagOrDefault("oilLogLevel", oilLogLevel)
+
+-------------------------------------------------------------------------------
 
 oil.verbose:level(oilLogLevel)
 Log:level(sdkLogLevel)
 
 local openbus
-
-local OPENBUS_HOME = os.getenv("OPENBUS_HOME")
-local busadmin = OPENBUS_HOME .. "/bin/busadmin --host="..host.." --port="..port..
-    " --login="..user.." --password=".. password
-local logoutput = " 2>>management-err.txt >>management.txt "
 
 local function toStandardBus(self)
   openbus = bus
@@ -439,41 +436,11 @@ Suite = {
 
   Test3 = { -- Testes básicos de certificado
     beforeTestCase = function(self)
-      local ltime = tostring(socket.gettime())
-      ltime = string.gsub(ltime, "%.", "")
-
-      self.categoryId = "TesteBarramento".. ltime
+      self.categoryId = "TesteBarramento"
       self.entityId = self.categoryId
-
-      os.execute("echo -e '\n\n\n\n\n\n\n' | openssl-generate.ksh -n "
-          .. self.categoryId .. " 2> genkey-err.txt >genkeyT.txt ")
-
-      os.execute(busadmin.." --add-category=".. self.categoryId ..
-          " --name=Teste_do_OpenBus" .. logoutput)
-
-      os.execute(busadmin.." --add-entity="..self.entityId ..
-          " --category="..self.categoryId .. " --name=Teste_do_Barramento" ..
-          logoutput)
-
-      os.execute(busadmin.." --add-certificate="..self.entityId ..
-          " --certificate="..self.entityId..".crt"..logoutput)
-
       self.testKeyFile = self.categoryId .. ".key"
-      local keyFile = assert(io.open(self.testKeyFile))
-      self.testKey = keyFile:read("*a")
-      self.testKey = lce.key.readprivatefrompemstring(self.testKey)
-      keyFile:close()
-
+      self.testKey = server.readprivatekey(self.testKeyFile)
       createORBsAndConnect(self)
-    end,
-
-    afterTestCase = function(self)
-      os.execute(busadmin.." --del-entity="..self.entityId..logoutput)
-      os.execute(busadmin.." --del-category="..self.categoryId..logoutput)
-
-      --Apaga as chaves e certificados gerados
-      os.execute("rm -f " .. self.categoryId .. ".key")
-      os.execute("rm -f " .. self.categoryId .. ".crt")
     end,
 
     afterEachTest = function(self)
