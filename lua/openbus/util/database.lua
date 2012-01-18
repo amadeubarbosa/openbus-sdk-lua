@@ -139,11 +139,14 @@ end
 function Table:setentryfield(key, field, value)
 	local path = self.path..key..".lua"
 	local result, errmsg = loadfrom(path)
-	if result ~= nil then
-		result[field] = value
-		result, errmsg = saveto(path, result)
+	if result == nil then
+		if errmsg ~= nil then
+			return result, errmsg
+		end
+		result = {}
 	end
-	return result, errmsg
+	result[field] = value
+	result, errmsg = saveto(path, result)
 end
 
 function Table:removeentry(key)
