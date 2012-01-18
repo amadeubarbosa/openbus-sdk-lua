@@ -394,7 +394,7 @@ function Connection:loginByPassword(entity, password)
 		error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
 	end
 	local id, lease = manager:loginByPassword(entity, pubkey, encrypted)
-	self.login = {id=id, entity=entity, pubkey=pubkey}
+	self.login = {id=id, entity=entity}
 	self:newrenewer(lease)
 	log:action(msg.LoginByPassword:tag{
 		bus = self.busid,
@@ -423,7 +423,7 @@ function Connection:loginByCertificate(entity, privatekey)
 		error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
 	end
 	local id, lease = attempt:login(pubkey, encrypted)
-	self.login = {id=id, entity=entity, pubkey=pubkey}
+	self.login = {id=id, entity=entity}
 	self:newrenewer(lease)
 	log:action(msg.LoginByCertificate:tag{
 		bus = self.busid,
