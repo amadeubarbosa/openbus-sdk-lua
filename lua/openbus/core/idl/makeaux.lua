@@ -43,7 +43,7 @@ local function makeaux(def, types, consts, excepts)
 			error(Exception(fields))
 		end
 	elseif def._type == "const" then
-		consts[name] = def.value 
+		consts[name] = def.val
 	elseif name ~= nil then
 		types[name] = def.repID
 	end
