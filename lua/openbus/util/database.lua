@@ -147,6 +147,7 @@ function Table:setentryfield(key, field, value)
 	end
 	result[field] = value
 	result, errmsg = saveto(path, result)
+	return result, errmsg
 end
 
 function Table:removeentry(key)
