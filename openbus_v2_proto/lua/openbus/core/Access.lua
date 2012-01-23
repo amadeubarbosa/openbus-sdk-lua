@@ -205,9 +205,10 @@ local function unmarshalCredential(self, contexts)
 	end
 end
 
-local function marshalReset(self, request, challenge)
+local function marshalReset(self, request, sessionid, challenge)
 	local reset = {
 		login = self.login.id,
+		session = sessionid,
 		challenge = challenge,
 	}
 	local encoder = self.orb:newencoder()
@@ -281,9 +282,10 @@ function Interceptor:resetCaches()
 	self.joinedChainOf = setmetatable({}, WeakKeys)
 	self.profile2login = LRU(function() return false end)
 	self.outgoingCredentials = LRU(function() return false end)
-	self.incomingCredentials = LRU(function()
+	self.incomingCredentials = LRU(function(id)
 		return {
-			secret = newSecret(), -- must be a secret no one can guess
+			id = id,
+			secret = newSecret(),
 			tickets = tickets(),
 		}
 	end)
@@ -296,14 +298,18 @@ function Interceptor:validateCredential(credential, request, remotekey)
 		return true
 	end
 	-- get current credential session
-	local session = self.incomingCredentials[credential.login]
-	local ticket = credential.ticket
-	-- validate credential with current secret
-	if hash == calculateHash(session.secret, ticket, request)
-	and session.tickets:check(ticket) then
-		return true
+	local incoming = self.incomingCredentials
+	local session = rawget(incoming, credential.session)
+	if session ~= nil then
+		local ticket = credential.ticket
+		-- validate credential with current secret
+		if hash == calculateHash(session.secret, ticket, request)
+		and session.tickets:check(ticket) then
+			return true
+		end
 	end
-	return false, session.secret
+	-- create a new session for the invalid credential
+	return false, incoming[#incoming+1]
 end
 
 function Interceptor:validateChain(chain, caller)
@@ -354,10 +360,11 @@ function Interceptor:sendrequest(request)
 	local login = self.login
 	if login ~= nil then
 		-- check whether there is an active credential session for this IOR profile
-		local ticket, hash
+		local sessionid, ticket, hash
 		local remoteid = self.profile2login[request.profile_data]
 		if remoteid then
 			local session = self.outgoingCredentials[remoteid]
+			sessionid = session.id
 			ticket = session.ticket+1
 			session.ticket = ticket
 			hash = calculateHash(session.secret, ticket, request)
@@ -366,6 +373,7 @@ function Interceptor:sendrequest(request)
 				operation = request.operation.name,
 			})
 		else
+			sessionid = 0
 			ticket = 0
 			hash = NullHash
 			log:access(msg.InitializingCredentialSession:tag{
@@ -375,6 +383,7 @@ function Interceptor:sendrequest(request)
 		local credential = {
 			bus = self.busid,
 			login = login.id,
+			session = sessionid,
 			ticket = ticket,
 			hash = hash,
 		}
@@ -402,8 +411,13 @@ function Interceptor:receivereply(request)
 				local profile = request.profile_data
 				local profile2login = self.profile2login
 				local previousid = profile2login[profile]
-				-- get credential reset information
 				local remoteid = reset.login
+				if previousid ~= remoteid then
+					log:badaccess(msg.LoginOfRemoteObjectChanged:tag{
+						previous = previousid,
+						login = remoteid,
+					})
+				end
 				profile2login[profile] = remoteid
 				-- find a suitable credential session
 				local outgoing = self.outgoingCredentials
@@ -411,8 +425,9 @@ function Interceptor:receivereply(request)
 				if not session then
 					-- initialize session
 					session = {
-						remoteid = remoteid,
+						id = reset.session,
 						secret = reset.secret,
+						remoteid = remoteid,
 						ticket = -1,
 					}
 					outgoing[remoteid] = session
@@ -441,7 +456,7 @@ function Interceptor:receiverequest(request)
 		if credential ~= nil then
 			local caller = self.logins:getLoginEntry(credential.login)
 			if caller ~= nil then
-				local valid, newsecret = self:validateCredential(credential, request)
+				local valid, newsession = self:validateCredential(credential, request)
 				if valid then
 					chain = self:validateChain(chain, caller)
 					if chain ~= nil then
@@ -462,9 +477,9 @@ function Interceptor:receiverequest(request)
 					end
 				else
 					-- credential not valid, try to reset credetial session
-					local challenge, errmsg = caller.pubkey:encrypt(newsecret)
+					local challenge, errmsg = caller.pubkey:encrypt(newsession.secret)
 					if challenge ~= nil then
-						marshalReset(self, request, challenge)
+						marshalReset(self, request, newsession.id, challenge)
 						setNoPermSysEx(request, loginconst.InvalidCredentialCode)
 						log:badaccess(msg.GotCallWithInvalidCredential:tag{
 							login = caller.id,
