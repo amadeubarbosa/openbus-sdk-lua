@@ -36,7 +36,7 @@ local sysex = giop.SystemExceptionIDs
 local log = require "openbus.util.logger"
 local msg = require "openbus.util.messages"
 local cache = require "openbus.util.cache"
-local LRU = cache.yieldableLRU
+local LRU = cache.LRU
 local oo = require "openbus.util.oo"
 local class = oo.class
 
@@ -69,28 +69,37 @@ local function getEntryFromCache(self, loginId)
 	local validity = self.validity
 	local timeupdated = self.timeupdated
 	-- use information in the cache to validate the login
-	local entry = self.cache(loginId)
-	if entry ~= nil then
-		local time2live = validity[entry.index]
-		if time2live == 0 then
-			log:LOGIN_CACHE(msg.InvalidLoginInValidityCache:tag{
-				login = loginId,
-				entity = entry.entity,
-			})
-		elseif time2live ~= nil and time2live > time()-timeupdated then
-			log:LOGIN_CACHE(msg.ValidLoginInValidityCache:tag{
-				login = loginId,
-				entity = entry.entity,
-			})
-			return entry -- valid login in cache
-		else -- update validity cache
-			log:LOGIN_CACHE(msg.UpdateLoginValidityCache:tag{count=#ids})
-			self.timeupdated = time()
-			validity = logins:getValidity(ids)
-			self.validity = validity
-			if validity[entry.index] > 0 then
-				return entry -- valid login
-			end
+	local entry = self.cache[loginId]
+	if entry.id == nil then
+		local ok, info, encodedkey = pcall(logins.getLoginInfo, logins, loginId)
+		if ok then
+			entry.entity = info.entity
+			entry.encodedkey = encodedkey
+			entry.pubkey = assert(decodepubkey(encodedkey))
+		elseif info._repid ~= logintypes.InvalidLogins then
+			error(info)
+		end
+		entry.id = loginId
+	end
+	local time2live = validity[entry.index]
+	if time2live == 0 then
+		log:LOGIN_CACHE(msg.InvalidLoginInValidityCache:tag{
+			login = loginId,
+			entity = entry.entity,
+		})
+	elseif time2live ~= nil and time2live > time()-timeupdated then
+		log:LOGIN_CACHE(msg.ValidLoginInValidityCache:tag{
+			login = loginId,
+			entity = entry.entity,
+		})
+		return entry -- valid login in cache
+	else -- update validity cache
+		log:LOGIN_CACHE(msg.UpdateLoginValidityCache:tag{count=#ids})
+		self.timeupdated = time()
+		validity = logins:getValidity(ids)
+		self.validity = validity
+		if validity[entry.index] > 0 then
+			return entry -- valid login
 		end
 	end
 end
@@ -122,34 +131,18 @@ local function newLoginRegistryWrapper(logins)
 		validity = validity,
 		timeupdated = -inf,
 		mutex = Mutex(),
-		cache = LRU(function(loginId, replacedId, replaced)
-			local ok, entry, encodedkey = pcall(logins.getLoginInfo, logins, loginId)
-			if not ok then
-				if entry._repid ~= logintypes.InvalidLogins then
-					error(entry)
-				end
-				entry = { id = loginId }
+		cache = LRU(function(loginId, replacedId, entry)
+			local index
+			if entry == nil then
+				index = #ids+1
+				entry = { index = index }
 			else
-				entry.encodedkey = encodedkey
-				entry.pubkey = assert(decodepubkey(encodedkey))
+				index = entry.index
+				entry.id = nil
+				entry.entity = nil
 			end
-			if replaced == nil then
-				entry.index = #ids+1
-				log:LOGIN_CACHE(msg.LoginAddedToValidityCache:tag{
-					login = loginId,
-					entity = entry.entity,
-				})
-			else
-				entry.index = replaced.index
-				log:LOGIN_CACHE(msg.LoginReplacedInValidityCache:tag{
-					oldlogin = replacedId,
-					oldentity = replaced.entity,
-					newlogin = loginId,
-					newentity = entry.entity,
-				})
-			end
-			ids[entry.index] = loginId
-			validity[entry.index] = nil
+			ids[index] = loginId
+			validity[index] = nil
 			return entry
 		end),
 		getLoginEntry = getLoginEntry,
