@@ -109,7 +109,7 @@ end
 local function marshalCredential(self, request, credential, chain, remoteid)
 	local orb = self.orb
 	local legacy = self.legacy
-	local contexts = {nil,nil}
+	local contexts = {}
 	if chain==nil or chain.signature~=nil then -- no legacy chain (OpenBus 1.5)
 		if remoteid then -- credential session is established
 			legacy = false -- do not send legacy credential (OpenBus 1.5)
@@ -127,10 +127,7 @@ local function marshalCredential(self, request, credential, chain, remoteid)
 		credential.chain = chain or NullChain
 		local encoder = orb:newencoder()
 		encoder:put(credential, self.types.CredentialData)
-		contexts[1] = {
-			context_id = CredentialContextId,
-			context_data = VersionHeader..encoder:getdata(),
-		}
+		contexts[CredentialContextId] = VersionHeader..encoder:getdata()
 	end
 	if legacy then
 		local encoder = orb:newencoder()
@@ -143,10 +140,7 @@ local function marshalCredential(self, request, credential, chain, remoteid)
 		else
 			encoder:string("")
 		end
-		contexts[#contexts+1] = {
-			context_id = 1234,
-			context_data = encoder:getdata(),
-		}
+		contexts[1234] = encoder:getdata()
 	end
 	request.service_context = contexts
 end
@@ -154,28 +148,24 @@ end
 local function unmarshalCredential(self, contexts)
 	local types = self.types
 	local orb = self.orb
-	for _, context in ipairs(contexts) do
-		if context.context_id == CredentialContextId then
-			local data = context.context_data
-			if data:find(VersionHeader, 1, true) == 1 then
-				local decoder = orb:newdecoder(data:sub(3))
-				local credential = decoder:get(types.CredentialData)
-				local chain = credential.chain
-				local encoded = chain.encoded
-				if encoded == "" then
-					chain = nil
-				else
-					local decoder = orb:newdecoder(encoded)
-					local decoded = decoder:get(types.CallChain)
-					local callers = decoded.callers
-					callers.n = nil -- remove field 'n' created by OiL unmarshal
-					chain.callers = callers
-					chain.target = decoded.target
-					chain.busid = credential.bus
-				end
-				return credential, chain
-			end
+	local data = contexts[CredentialContextId]
+	if data ~= nil and data:find(VersionHeader, 1, true) == 1 then
+		local decoder = orb:newdecoder(data:sub(3))
+		local credential = decoder:get(types.CredentialData)
+		local chain = credential.chain
+		local encoded = chain.encoded
+		if encoded == "" then
+			chain = nil
+		else
+			local decoder = orb:newdecoder(encoded)
+			local decoded = decoder:get(types.CallChain)
+			local callers = decoded.callers
+			callers.n = nil -- remove field 'n' created by OiL unmarshal
+			chain.callers = callers
+			chain.target = decoded.target
+			chain.busid = credential.bus
 		end
+		return credential, chain
 	end
 	if self.legacy then
 		for _, context in ipairs(contexts) do
@@ -212,40 +202,40 @@ local function marshalReset(self, request, sessionid, challenge)
 	}
 	local encoder = self.orb:newencoder()
 	encoder:put(reset, self.types.CredentialReset)
-	request.reply_service_context = {{
-		context_id = CredentialContextId,
-		context_data = VersionHeader..encoder:getdata(),
-	}}
+	request.reply_service_context = {
+		[CredentialContextId] = VersionHeader..encoder:getdata(),
+	}
 end
 
 local function unmarshalReset(self, contexts)
-	for _, context in ipairs(contexts) do
-		if context.context_id == CredentialContextId then
-			local data = context.context_data
-			if data:find(VersionHeader, 1, true) == 1 then
-				local decoder = self.orb:newdecoder(data:sub(3))
-				local reset = decoder:get(self.types.CredentialReset)
-				local login = reset.login
-				local secret, errmsg = self.prvkey:decrypt(reset.challenge)
-				if secret ~= nil then
-					reset.secret = secret
-					return reset
-				end
+	local data = contexts[CredentialContextId]
+	if data ~= nil then
+		if data:find(VersionHeader, 1, true) == 1 then
+			local decoder = self.orb:newdecoder(data:sub(3))
+			local reset = decoder:get(self.types.CredentialReset)
+			local login = reset.login
+			local secret, errmsg = self.prvkey:decrypt(reset.challenge)
+			if secret ~= nil then
+				reset.secret = secret
+				return reset
+			else
 				log:badaccess(msg.CredentialResetBadChallenge:tag{
 					operation = request.operation.name,
 					error = errmsg,
 				})
 			end
+		else
 			log:badaccess(msg.CredentialResetUnsupportedVersion:tag{
 				operation = request.operation.name,
 				major = major,
 				minor = minor,
 			})
 		end
+	else
+		log:badaccess(msg.CredentialResetMissing:tag{
+			operation = request.operation.name,
+		})
 	end
-	log:badaccess(msg.CredentialResetMissing:tag{
-		operation = request.operation.name,
-	})
 end
 
 
