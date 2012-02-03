@@ -63,14 +63,10 @@ local function logMultiplexed(conn, op, request, ...)
 end
 
 local function getBusId(self, contexts)
-	for _, context in ipairs(contexts) do
-		if context.context_id == CredentialContextId then
-			local data = context.context_data
-			if data:find(VersionHeader, 1, true) == 1 then
-				local decoder = self.orb:newdecoder(data:sub(3))
-				return decoder:get(self.identifierType)
-			end
-		end
+	local data = contexts[CredentialContextId]
+	if data ~= nil and data:find(VersionHeader, 1, true) == 1 then
+		local decoder = self.orb:newdecoder(data:sub(3))
+		return decoder:get(self.identifierType)
 	end
 end
 
