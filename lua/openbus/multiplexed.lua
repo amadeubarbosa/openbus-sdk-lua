@@ -64,8 +64,8 @@ end
 
 local function getBusId(self, contexts)
 	local data = contexts[CredentialContextId]
-	if data ~= nil and data:find(VersionHeader, 1, true) == 1 then
-		local decoder = self.orb:newdecoder(data:sub(3))
+	if data ~= nil then
+		local decoder = self.orb:newdecoder(data)
 		return decoder:get(self.identifierType)
 	end
 end
