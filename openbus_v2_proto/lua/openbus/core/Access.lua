@@ -106,6 +106,24 @@ local function setNoPermSysEx(request, minor)
 	}}
 end
 
+local function decode(self, data, type)
+	return self.orb:newdecoder(data):get(type)
+end
+local function decodeContext(...)
+	local ok, value = pcall(decode, ...)
+	if ok then return value end
+end
+
+local function encode(self, value, type)
+	local encoder = self.orb:newencoder()
+	encoder:put(value, type)
+	return encoder:getdata()
+end
+local function encodeContext(...)
+	local ok, encoded = pcall(encode, ...)
+	if ok then return encoded end
+end
+
 local function marshalCredential(self, request, credential, chain, remoteid)
 	local orb = self.orb
 	local legacy = self.legacy
@@ -125,9 +143,8 @@ local function marshalCredential(self, request, credential, chain, remoteid)
 			end
 		end
 		credential.chain = chain or NullChain
-		local encoder = orb:newencoder()
-		encoder:put(credential, self.types.CredentialData)
-		contexts[CredentialContextId] = VersionHeader..encoder:getdata()
+		contexts[CredentialContextId] =
+			encodeContext(self, credential, self.types.CredentialData)
 	end
 	if legacy then
 		local encoder = orb:newencoder()
@@ -149,47 +166,47 @@ local function unmarshalCredential(self, contexts)
 	local types = self.types
 	local orb = self.orb
 	local data = contexts[CredentialContextId]
-	if data ~= nil and data:find(VersionHeader, 1, true) == 1 then
-		local decoder = orb:newdecoder(data:sub(3))
-		local credential = decoder:get(types.CredentialData)
-		local chain = credential.chain
-		local encoded = chain.encoded
-		if encoded == "" then
-			chain = nil
-		else
-			local decoder = orb:newdecoder(encoded)
-			local decoded = decoder:get(types.CallChain)
-			local callers = decoded.callers
-			callers.n = nil -- remove field 'n' created by OiL unmarshal
-			chain.callers = callers
-			chain.target = decoded.target
-			chain.busid = credential.bus
+	if data ~= nil then
+		local credential = decodeContext(self, data, types.CredentialData)
+		if credential ~= nil then
+			local chain = credential.chain
+			local encoded = chain.encoded
+			if encoded == "" then
+				chain = nil
+			else
+				local decoder = orb:newdecoder(encoded)
+				local decoded = decoder:get(types.CallChain)
+				local callers = decoded.callers
+				callers.n = nil -- remove field 'n' created by OiL unmarshal
+				chain.callers = callers
+				chain.target = decoded.target
+				chain.busid = credential.bus
+			end
+			return credential, chain
 		end
-		return credential, chain
 	end
 	if self.legacy then
-		for _, context in ipairs(contexts) do
-			if context.context_id == 1234 then
-				local decoder = orb:newdecoder(context.context_data)
-				local loginId = decoder:string()
-				local entity = decoder:string()
-				local callers = {{id=loginId, entity=entity}}
-				local delegate = decoder:string()
-				if delegate == "" then
-					callers[1], callers[2] = {id="<unknown>",entity=delegate},callers[1]
-				end
-				return {
-					bus = nil,
-					login = loginId,
-					ticket = nil,
-					hash = nil,
-				}, CallChain{
-					encoded = nil,
-					signature = nil,
-					target = nil,
-					callers = callers,
-				}
+		local data = contexts[1234]
+		if data ~= nil then
+			local decoder = orb:newdecoder(data)
+			local loginId = decoder:string()
+			local entity = decoder:string()
+			local callers = {{id=loginId, entity=entity}}
+			local delegate = decoder:string()
+			if delegate == "" then
+				callers[1], callers[2] = {id="<unknown>",entity=delegate},callers[1]
 			end
+			return {
+				bus = nil,
+				login = loginId,
+				ticket = nil,
+				hash = nil,
+			}, CallChain{
+				encoded = nil,
+				signature = nil,
+				target = nil,
+				callers = callers,
+			}
 		end
 	end
 end
@@ -200,19 +217,16 @@ local function marshalReset(self, request, sessionid, challenge)
 		session = sessionid,
 		challenge = challenge,
 	}
-	local encoder = self.orb:newencoder()
-	encoder:put(reset, self.types.CredentialReset)
 	request.reply_service_context = {
-		[CredentialContextId] = VersionHeader..encoder:getdata(),
+		[CredentialContextId]=encodeContext(self,reset,self.types.CredentialReset),
 	}
 end
 
 local function unmarshalReset(self, contexts)
 	local data = contexts[CredentialContextId]
 	if data ~= nil then
-		if data:find(VersionHeader, 1, true) == 1 then
-			local decoder = self.orb:newdecoder(data:sub(3))
-			local reset = decoder:get(self.types.CredentialReset)
+		local reset = decodeContext(self, data, self.types.CredentialReset)
+		if reset ~= nil then
 			local login = reset.login
 			local secret, errmsg = self.prvkey:decrypt(reset.challenge)
 			if secret ~= nil then
