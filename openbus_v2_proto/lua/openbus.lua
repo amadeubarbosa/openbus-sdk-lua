@@ -425,6 +425,38 @@ function Connection:loginByCertificate(entity, privatekey)
 	})
 end
 
+function Connection:startSingleSignOn()
+	local manager = self.AccessControl
+	local attempt, challenge = manager:startLoginBySingleSignOn()
+	local secret, errmsg = self.prvkey:decrypt(challenge)
+	if secret == nil then
+		attempt:cancel()
+		error(msg.CorruptedPrivateKey:tag{ errmsg = errmsg })
+	end
+	return attempt, secret
+end
+
+function Connection:loginBySingleSignOn(attempt, secret)
+	local pubkey = self.prvkey:encode("public")
+	local idltype = self.LoginAuthenticationInfo
+	local encoder = self.orb:newencoder()
+	encoder:put({data=secret,hash=sha256(pubkey)}, idltype)
+	local encoded = encoder:getdata()
+	local encrypted, errmsg = self.buskey:encrypt(encoded)
+	if encrypted == nil then
+		attempt:cancel()
+		error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
+	end
+	local id, lease = attempt:login(pubkey, encrypted)
+	self.login = {id=id, entity=entity}
+	self:newrenewer(lease)
+	log:action(msg.LoginBySingleSignOn:tag{
+		bus = self.busid,
+		login = id,
+		entity = entity,
+	})
+end
+
 function Connection:logout()
 	if self.login ~= nil then
 		local access = self.AccessControl
