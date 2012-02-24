@@ -437,6 +437,7 @@ function Connection:startSingleSignOn()
 end
 
 function Connection:loginBySingleSignOn(attempt, secret)
+	if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
 	local pubkey = self.prvkey:encode("public")
 	local idltype = self.LoginAuthenticationInfo
 	local encoder = self.orb:newencoder()
