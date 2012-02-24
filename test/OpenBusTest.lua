@@ -26,6 +26,7 @@ local user = "tester"
 local password = "tester"
 local oilLogLevel = 0
 local sdkLogLevel = 5
+local entity = "TesteBarramento"
 
 -- alterando as propriedades se preciso
 local scsutils = require ("scs.core.utils")()
@@ -40,6 +41,7 @@ user = props:getTagOrDefault("login", user)
 password = props:getTagOrDefault("password", password)
 sdkLogLevel = props:getTagOrDefault("sdkLogLevel", sdkLogLevel)
 oilLogLevel = props:getTagOrDefault("oilLogLevel", oilLogLevel)
+entity = props:getTagOrDefault("entity", entity)
 
 -------------------------------------------------------------------------------
 
@@ -250,7 +252,8 @@ local function reconnectOnInvalidLoginDuringCall(self)
 
   conn:loginByPassword(user, password)
   conn.logins:invalidateLogin(conn.login.id) -- force login to become invalid
-  conn.offers:getServices()
+  local ok, err = pcall(conn.offers.getServices, conn.offers)
+  Check.assertTrue(ok, err)
   Check.assertTrue(wasReconnected)
   Check.assertTrue(self.connection:logout())
 end
@@ -320,7 +323,7 @@ local function connectByCertificateInvalidEntityName(self)
   Check.assertError(self.connection.loginByCertificate, self.connection, nil, self.testKey)
 end
 
-    --TODO: verificar se aqui deve dar erro ou nao na nova API
+--TODO: verificar se aqui deve dar erro ou nao na nova API
 local function connectByCertificateTwice(self)
   Check.assertNil(self.connection:loginByCertificate(self.entityId,
       self.testKey))
@@ -436,9 +439,9 @@ Suite = {
 
   Test3 = { -- Testes básicos de certificado
     beforeTestCase = function(self)
-      self.categoryId = "TesteBarramento"
-      self.entityId = self.categoryId
-      self.testKeyFile = self.categoryId .. ".key"
+      self.categoryId = entity
+      self.entityId = entity
+      self.testKeyFile = entity .. ".key"
       self.testKey = server.readprivatekey(self.testKeyFile)
       createORBsAndConnect(self)
     end,
