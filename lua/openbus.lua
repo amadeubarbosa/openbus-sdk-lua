@@ -386,13 +386,13 @@ function Connection:loginByPassword(entity, password)
 	if encrypted == nil then
 		error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
 	end
-	local lease
-	self.login, lease = manager:loginByPassword(entity, pubkey, encrypted)
+	local login, lease = manager:loginByPassword(entity, pubkey, encrypted)
+	self.login = login
 	self:newrenewer(lease)
 	log:action(msg.LoginByPassword:tag{
 		bus = self.busid,
-		login = id,
-		entity = entity,
+		login = login.id,
+		entity = login.entity,
 	})
 end
 
@@ -415,13 +415,13 @@ function Connection:loginByCertificate(entity, privatekey)
 		attempt:cancel()
 		error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
 	end
-	local lease
-	self.login, lease = attempt:login(pubkey, encrypted)
+	local login, lease = attempt:login(pubkey, encrypted)
+	self.login = login
 	self:newrenewer(lease)
 	log:action(msg.LoginByCertificate:tag{
 		bus = self.busid,
-		login = id,
-		entity = entity,
+		login = login.id,
+		entity = login.entity,
 	})
 end
 
@@ -448,13 +448,13 @@ function Connection:loginBySingleSignOn(attempt, secret)
 		attempt:cancel()
 		error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
 	end
-	local lease
-	self.login, lease = attempt:login(pubkey, encrypted)
+	local login, lease = attempt:login(pubkey, encrypted)
+	self.login = login
 	self:newrenewer(lease)
 	log:action(msg.LoginBySingleSignOn:tag{
 		bus = self.busid,
-		login = id,
-		entity = entity,
+		login = login.id,
+		entity = login.entity,
 	})
 end
 
