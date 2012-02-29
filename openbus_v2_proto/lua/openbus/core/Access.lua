@@ -415,12 +415,6 @@ function Interceptor:receivereply(request)
 				local profile2login = self.profile2login
 				local previousid = profile2login[profile]
 				local remoteid = reset.login
-				if previousid ~= remoteid then
-					log:badaccess(msg.LoginOfRemoteObjectChanged:tag{
-						previous = previousid,
-						login = remoteid,
-					})
-				end
 				profile2login[profile] = remoteid
 				-- find a suitable credential session
 				local outgoing = self.outgoingCredentials
