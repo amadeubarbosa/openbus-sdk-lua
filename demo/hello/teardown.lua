@@ -10,18 +10,18 @@ conn:loginByPassword("admin", "admin")
 local LoginRegistry = conn.logins
 local logins = LoginRegistry:getEntityLogins("demo")
 for _, login in ipairs(logins) do
-	LoginRegistry:invalidateLogin(login.id)
+  LoginRegistry:invalidateLogin(login.id)
 end
 
 -- remove authorizations
 local entities = conn.entities
 local entity = entities:getEntity("demo")
 if entity ~= nil then
-	entity:remove()
-	local category = entities:getEntityCategory("OpenBusDemos")
-	if category ~= nil then
-		category:remove()
-	end
+  entity:remove()
+  local category = entities:getEntityCategory("OpenBusDemos")
+  if category ~= nil then
+    category:remove()
+  end
 end
 
 -- remove interface

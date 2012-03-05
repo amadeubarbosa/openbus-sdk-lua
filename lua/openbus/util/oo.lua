@@ -39,10 +39,10 @@ local oo = setmetatable({ Object = Object }, { __index = multiple })
 -- @param ...   Optional superclasses that the new class inherits from.
 -- @return      New created class.
 function oo.class(class, ...)
-	if issubclassof(..., Object) then
-		return newclass(class, ...)
-	end
-	return newclass(class, Object, ...)
+  if issubclassof(..., Object) then
+    return newclass(class, ...)
+  end
+  return newclass(class, Object, ...)
 end
 
 return oo

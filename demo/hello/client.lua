@@ -8,13 +8,13 @@ conn:loginByPassword("demo", "demo")
 
 -- find the offered service
 local offers = conn.offers:findServices({
-	{name="openbus.offer.entity",value="demo"}, -- automatic property
-	{name="openbus.component.facet",value="hello"}, -- automatic property
-	{name="offer.domain",value="OpenBus Demos"}, -- provided property
+  {name="openbus.offer.entity",value="demo"}, -- automatic property
+  {name="openbus.component.facet",value="hello"}, -- automatic property
+  {name="offer.domain",value="OpenBus Demos"}, -- provided property
 })
 assert(#offers > 0, "unable to find offered service")
 for _, offer in ipairs(offers) do
-	local hello = offer.service_ref:getFacetByName("hello"):__narrow()
-	hello:sayHello()
+  local hello = offer.service_ref:getFacetByName("hello"):__narrow()
+  hello:sayHello()
 end
 conn:close()

@@ -48,20 +48,20 @@ static const char *callerchunk =
 " local _loadfile = _G.loadfile"
 " _G.lua51_loadfile = _loadfile"
 " function _G.loadfile(path, mode, env)"
-" 	local result, errmsg = _loadfile(path)"
-" 	if result ~= nil and env ~= nil then"
-" 		setfenv(result, env)"
-" 	end"
-" 	return result, errmsg"
+"   local result, errmsg = _loadfile(path)"
+"   if result ~= nil and env ~= nil then"
+"     setfenv(result, env)"
+"   end"
+"   return result, errmsg"
 " end"
 
 " return function(f, ...)"
-" 	local coroutine = require 'coroutine'"
-" 	local newthread = coroutine.create"
-" 	local cothread = require 'cothread'"
-" 	local step = cothread.step"
-" 	local run = cothread.run"
-" 	return run(step(newthread(f), ...))"
+"   local coroutine = require 'coroutine'"
+"   local newthread = coroutine.create"
+"   local cothread = require 'cothread'"
+"   local step = cothread.step"
+"   local run = cothread.run"
+"   return run(step(newthread(f), ...))"
 " end";
 
 
@@ -114,13 +114,13 @@ static int report (lua_State *L, int status) {
 
 
 static int traceback (lua_State *L) {
-	lua_getfield(L, LUA_GLOBALSINDEX, "tostring");
-	if (lua_isfunction(L, -1)) {
-		lua_insert(L, 1);  /* place below the message */
-		lua_call(L, 1, 1);  /* call tostring */
-	} else {
-		lua_pop(L, 1);
-	}
+  lua_getfield(L, LUA_GLOBALSINDEX, "tostring");
+  if (lua_isfunction(L, -1)) {
+    lua_insert(L, 1);  /* place below the message */
+    lua_call(L, 1, 1);  /* call tostring */
+  } else {
+    lua_pop(L, 1);
+  }
   lua_getfield(L, LUA_GLOBALSINDEX, "debug");
   if (!lua_istable(L, -1)) {
     lua_pop(L, 1);
@@ -309,7 +309,7 @@ static int enable_dynload (lua_State *L) {
 
 
 /* check that argument has no extra characters at the end */
-#define notail(x)	{if ((x)[2] != '\0') return -1;}
+#define notail(x) {if ((x)[2] != '\0') return -1;}
 
 
 static int collectargs (char **argv, int *pi, int *pv, int *pe, int *pd) {
@@ -429,7 +429,7 @@ static int pmain (lua_State *L) {
   luapreload_luaopenbus(L);
   /* ??? */
   if (luaL_dostring(L, callerchunk) == 0)
-  	lua_setfield(L, LUA_REGISTRYINDEX, OPENBUS_EXECUTOR);
+    lua_setfield(L, LUA_REGISTRYINDEX, OPENBUS_EXECUTOR);
 
   s->status = handle_luainit(L);
   if (s->status != 0) return 0;

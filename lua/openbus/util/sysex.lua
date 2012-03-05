@@ -7,10 +7,10 @@ local memoize = table.memoize
 local Exception = require "loop.object.Exception"
 
 return memoize(function(name)
-	local repId = "IDL:omg.org/CORBA/"..name..":1.0"
-	return function(fields)
-		if fields == nil then fields = {} end
-		fields._repid = repId
-		error(Exception(fields))
-	end
+  local repId = "IDL:omg.org/CORBA/"..name..":1.0"
+  return function(fields)
+    if fields == nil then fields = {} end
+    fields._repid = repId
+    error(Exception(fields))
+  end
 end)
