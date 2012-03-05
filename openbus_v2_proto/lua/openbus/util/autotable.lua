@@ -6,23 +6,23 @@ local table = require "loop.table"
 local memoize = table.memoize
 
 local function create(weakmode)
-	return memoize(create, weakmode)
+  return memoize(create, weakmode)
 end
 
 local function remove(table, key, ...)
-	if select("#", ...) == 0 then
-		local value = table[key]
-		table[key] = nil
-		return value
-	else
-		local value = rawget(table, key)
-		if value ~= nil then
-			return remove(value, ...)
-		end
-	end
+  if select("#", ...) == 0 then
+    local value = table[key]
+    table[key] = nil
+    return value
+  else
+    local value = rawget(table, key)
+    if value ~= nil then
+      return remove(value, ...)
+    end
+  end
 end
 
 return {
-	create = create,
-	remove = remove,
+  create = create,
+  remove = remove,
 }

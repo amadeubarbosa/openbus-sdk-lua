@@ -17,15 +17,15 @@ conn2:loginBySingleSignOn(logger, secret)
 
 -- find the offered service
 for _, conn in ipairs{conn1, conn2} do
-	local offers = conn.offers:findServices({
-		{name="openbus.offer.entity",value="demo"}, -- automatic property
-		{name="openbus.component.facet",value="hello"}, -- automatic property
-		{name="offer.domain",value="OpenBus Demos"}, -- provided property
-	})
-	assert(#offers > 0, "unable to find offered service")
-	for _, offer in ipairs(offers) do
-		local hello = offer.service_ref:getFacetByName("hello"):__narrow()
-		hello:sayHello()
-	end
-	conn:close()
+  local offers = conn.offers:findServices({
+    {name="openbus.offer.entity",value="demo"}, -- automatic property
+    {name="openbus.component.facet",value="hello"}, -- automatic property
+    {name="offer.domain",value="OpenBus Demos"}, -- provided property
+  })
+  assert(#offers > 0, "unable to find offered service")
+  for _, offer in ipairs(offers) do
+    local hello = offer.service_ref:getFacetByName("hello"):__narrow()
+    hello:sayHello()
+  end
+  conn:close()
 end

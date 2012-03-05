@@ -13,11 +13,11 @@ conn.interfaces:registerInterface("IDL:Hello:1.0")
 local entities = conn.entities
 local entity = entities:getEntity("demo")
 if entity == nil then
-	local category = entities:getEntityCategory("OpenBusDemos")
-	if category == nil then
-		category = entities:createEntityCategory("OpenBusDemos", "OpenBus Demo Entities")
-	end
-	entity = category:registerEntity("demo", "entity used in OpenBus demos")
+  local category = entities:getEntityCategory("OpenBusDemos")
+  if category == nil then
+    category = entities:createEntityCategory("OpenBusDemos", "OpenBus Demo Entities")
+  end
+  entity = category:registerEntity("demo", "entity used in OpenBus demos")
 end
 entity:grantInterface("IDL:Hello:1.0")
 

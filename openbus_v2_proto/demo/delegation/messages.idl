@@ -5,36 +5,36 @@ module openbus {
 module demo {
 
 module delegation {
-	
-	typedef string Identifier;
-	
-	exception NoForward {};
-	
-	
-	struct PostDesc {
-		Identifier from;
-		string message;
-	};
-	typedef sequence<PostDesc> PostDescSeq;
+  
+  typedef string Identifier;
+  
+  exception NoForward {};
+  
+  
+  struct PostDesc {
+    Identifier from;
+    string message;
+  };
+  typedef sequence<PostDesc> PostDescSeq;
 
-	interface Messenger {
-		void post(in Identifier to, in string message);
-		PostDescSeq receivePosts();
-	};
-	
-	
-	interface Broadcaster {
-		void post(in string message);
-		void subscribe();
-		void unsubscribe();
-	};
-	
-	
-	interface Forwarder {
-		void setForward(in Identifier to);
-		void cancelForward(in Identifier to);
-		Identifier getForward() raises (NoForward);
-	};
+  interface Messenger {
+    void post(in Identifier to, in string message);
+    PostDescSeq receivePosts();
+  };
+  
+  
+  interface Broadcaster {
+    void post(in string message);
+    void subscribe();
+    void unsubscribe();
+  };
+  
+  
+  interface Forwarder {
+    void setForward(in Identifier to);
+    void cancelForward(in Identifier to);
+    Identifier getForward() raises (NoForward);
+  };
 
 }; // delegation
 
