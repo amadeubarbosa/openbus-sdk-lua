@@ -82,7 +82,7 @@ end
 
 local function calculateHash(secret, ticket, request)
   return sha256(encode(
-    "<c2c16I4c0",          -- '<' flag to set to little endian
+    "<c2c16I4c0",            -- '<' flag to set to little endian
     VersionHeader,           -- 'c2' sequence of exactly 2 chars of a string
     secret,                  -- 'c16' sequence of exactly 16 chars of a string
     ticket,                  -- 'I4' unsigned integer with 4 bytes
@@ -415,28 +415,18 @@ function Interceptor:receivereply(request)
         local previousid = profile2login[profile]
         local remoteid = reset.login
         profile2login[profile] = remoteid
-        -- find a suitable credential session
-        local outgoing = self.outgoingCredentials
-        local session = outgoing[remoteid]
-        if not session then
-          -- initialize session
-          session = {
-            id = reset.session,
-            secret = reset.secret,
-            remoteid = remoteid,
-            ticket = -1,
-          }
-          outgoing[remoteid] = session
-          log:access(msg.CredentialSessionInitialized:tag{
-            login = remoteid,
-            operation = request.operation.name,
-          })
-        else
-          log:access(msg.CredentialSessionReused:tag{
-            login = remoteid,
-            operation = request.operation.name,
-          })
-        end
+        -- initialize session
+        local session = {
+          id = reset.session,
+          secret = reset.secret,
+          remoteid = remoteid,
+          ticket = -1,
+        }
+        self.outgoingCredentials[remoteid] = session
+        log:access(msg.CredentialSessionReset:tag{
+          login = remoteid,
+          operation = request.operation.name,
+        })
         request.success = nil -- reissue request to the same reference
       else
         except.minor = loginconst.InvalidRemoteCode
