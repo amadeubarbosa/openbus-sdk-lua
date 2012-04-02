@@ -48,14 +48,15 @@ local tickets = require "openbus.util.tickets"
 local msg = require "openbus.core.messages"
 local idl = require "openbus.core.idl"
 local loadidl = idl.loadto
+local CredentialContextId = idl.const.credential.CredentialContextId
 local loginconst = idl.const.services.access_control
 local repids = {
   CallChain = idl.types.services.access_control.CallChain,
   CredentialData = idl.types.credential.CredentialData,
   CredentialReset = idl.types.credential.CredentialReset,
 }
-
-
+local VersionHeader = char(idl.const.MajorVersion,
+                           idl.const.MinorVersion)
 
 local NullChar = "\0"
 local NullSecret = NullChar:rep(16)
@@ -67,8 +68,6 @@ local NullChain = {
 
 local WeakKeys = {__mode = "k"}
 
-local VersionHeader = "\002\000"
-local CredentialContextId = 0x42555300 -- "BUS\0"
 
 
 
@@ -105,24 +104,6 @@ local function setNoPermSysEx(request, minor)
   }}
 end
 
-local function decode(self, data, type)
-  return self.orb:newdecoder(data):get(type)
-end
-local function decodeContext(...)
-  local ok, value = pcall(decode, ...)
-  if ok then return value end
-end
-
-local function encode(self, value, type)
-  local encoder = self.orb:newencoder()
-  encoder:put(value, type)
-  return encoder:getdata()
-end
-local function encodeContext(...)
-  local ok, encoded = pcall(encode, ...)
-  if ok then return encoded end
-end
-
 local function marshalCredential(self, request, credential, chain, remoteid)
   local orb = self.orb
   local legacy = self.legacy
@@ -142,8 +123,9 @@ local function marshalCredential(self, request, credential, chain, remoteid)
       end
     end
     credential.chain = chain or NullChain
-    contexts[CredentialContextId] =
-      encodeContext(self, credential, self.types.CredentialData)
+    local encoder = self.orb:newencoder()
+    encoder:put(credential, self.types.CredentialData)
+    contexts[CredentialContextId] = encoder:getdata()
   end
   if legacy then
     local encoder = orb:newencoder()
@@ -166,7 +148,7 @@ local function unmarshalCredential(self, contexts)
   local orb = self.orb
   local data = contexts[CredentialContextId]
   if data ~= nil then
-    local credential = decodeContext(self, data, types.CredentialData)
+    local credential = self.orb:newdecoder(data):get(types.CredentialData)
     if credential ~= nil then
       local chain = credential.chain
       local encoded = chain.encoded
@@ -211,20 +193,21 @@ local function unmarshalCredential(self, contexts)
 end
 
 local function marshalReset(self, request, sessionid, challenge)
-  local reset = {
+  local encoder = self.orb:newencoder()
+  encoder:put({
     login = self.login.id,
     session = sessionid,
     challenge = challenge,
-  }
+  }, self.types.CredentialReset)
   request.reply_service_context = {
-    [CredentialContextId]=encodeContext(self,reset,self.types.CredentialReset),
+    [CredentialContextId] = encoder:getdata(),
   }
 end
 
-local function unmarshalReset(self, contexts)
-  local data = contexts[CredentialContextId]
+local function unmarshalReset(self, request)
+  local data = request.reply_service_context[CredentialContextId]
   if data ~= nil then
-    local reset = decodeContext(self, data, self.types.CredentialReset)
+    local reset = self.orb:newdecoder(data):get(self.types.CredentialReset)
     if reset ~= nil then
       local login = reset.login
       local secret, errmsg = self.prvkey:decrypt(reset.challenge)
@@ -407,7 +390,7 @@ function Interceptor:receivereply(request)
     and except.completed == "COMPLETED_NO"
     and except.minor == loginconst.InvalidCredentialCode then
       -- got invalid credential exception
-      local reset = unmarshalReset(self, request.reply_service_context)
+      local reset = unmarshalReset(self, request)
       if reset ~= nil then
         -- get previous credential session information, if any
         local profile = request.profile_data
