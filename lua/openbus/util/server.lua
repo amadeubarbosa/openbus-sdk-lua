@@ -118,7 +118,7 @@ function module.newSCS(params)
   -- adiciona as facetas e receptáculos do componente
   local facets = params.facets
   for name, obj in pairs(facets) do
-    component:addFacet(obj.__objkey, obj.__type, obj, obj.__objkey)
+    component:addFacet(obj.__facet or obj.__objkey,obj.__type,obj,obj.__objkey)
   end
   local receptacles = params.receptacles
   if receptacles ~= nil then
