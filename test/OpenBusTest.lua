@@ -67,14 +67,14 @@ local function testBothAPIs(self, f)
   f(self)
 end
 
-local function createORBsAndConnect(self)
+local function initORBsAndConnect(self)
   local temp = openbus
   openbus = bus
-  local orb = openbus.createORB(props)
-  self.conn = openbus.connectByAddress(host, port, orb)
+  local orb = openbus.initORB(props)
+  self.conn = openbus.connect(host, port, orb)
   openbus = multiplexer
-  local orb2 = openbus.createORB(props)
-  self.connM = openbus.connectByAddress(host, port, orb2)
+  local orb2 = openbus.initORB(props)
+  self.connM = openbus.connect(host, port, orb2)
   openbus = temp
 end
 
@@ -85,36 +85,36 @@ local function disconnect(self)
 end
 
 local function connect(self)
-  local connection = openbus.connectByAddress(host, port, nil)
+  local connection = openbus.connect(host, port, nil)
   Check.assertNotNil(connection)
   connection:close()
-  local orb = openbus.createORB(props)
-  connection = openbus.connectByAddress(host, port, orb)
+  local orb = openbus.initORB(props)
+  connection = openbus.connect(host, port, orb)
   Check.assertNotNil(connection)
   connection:close()
 end
 
 local function connectNullHost(self)
-  Check.assertError(openbus.connectByAddress, nil, port, nil)
+  Check.assertError(openbus.connect, nil, port, nil)
 end
 
 local function connectNegativePort(self)
-  Check.assertError(openbus.connectByAddress, openbus, host, -1, nil)
+  Check.assertError(openbus.connect, openbus, host, -1, nil)
 end
 
 local function connectInvalidPort(self)
-  Check.assertError(openbus.connectByAddress, openbus, host, "INVALID", nil)
+  Check.assertError(openbus.connect, openbus, host, "INVALID", nil)
 end
 
 local function connectTwice(self)
-  local orb = openbus.createORB(props)
-  local connection = openbus.connectByAddress(host, port, orb)
+  local orb = openbus.initORB(props)
+  local connection = openbus.connect(host, port, orb)
   Check.assertNotNil(connection)
   -- Nova conexão com ORB diferente deve ser bem sucedida
-  local connection2 = openbus.connectByAddress(host, port, nil)
+  local connection2 = openbus.connect(host, port, nil)
   Check.assertNotNil(connection2)
   -- Nova conexão com um mesmo ORB deve resultar em erro
-  Check.assertError(openbus.connectByAddress, openbus, host, port, orb)
+  Check.assertError(openbus.connect, openbus, host, port, orb)
   connection:close()
   connection2:close()
 end
@@ -357,7 +357,7 @@ Suite = {
 
   Test2 = { -- Testes básicos e comuns das APIs padrão e multiplexada
     beforeEachTest = function(self)
-      createORBsAndConnect(self)
+      initORBsAndConnect(self)
     end,
 
     afterEachTest = function(self)
@@ -443,7 +443,7 @@ Suite = {
       self.entityId = entity
       self.testKeyFile = entity .. ".key"
       self.testKey = server.readprivatekey(self.testKeyFile)
-      createORBsAndConnect(self)
+      initORBsAndConnect(self)
     end,
 
     afterEachTest = function(self)

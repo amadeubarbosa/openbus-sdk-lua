@@ -2,7 +2,7 @@ cothread = require "cothread"
 openbus = require "openbus"
 
 -- connect to the bus
-conn = openbus.connectByAddress("localhost", 2089)
+conn = openbus.connect("localhost", 2089)
 
 -- setup ORB
 orb = conn.orb

@@ -1,12 +1,12 @@
 local openbus = require "openbus"
 
 -- create ORBs
-local orb1 = openbus.createORB()
-local orb2 = openbus.createORB()
+local orb1 = openbus.initORB()
+local orb2 = openbus.initORB()
 
 -- connect to the bus
-local conn1 = openbus.connectByAddress("localhost", 2089, orb1)
-local conn2 = openbus.connectByAddress("localhost", 2089, orb2)
+local conn1 = openbus.connect("localhost", 2089, orb1)
+local conn2 = openbus.connect("localhost", 2089, orb2)
 
 -- login to the bus using password
 conn1:loginByPassword("demo", "demo")

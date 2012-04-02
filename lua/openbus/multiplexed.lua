@@ -26,11 +26,11 @@ local Identifier = idl.types.Identifier
 local BusObjectKey = idl.const.BusObjectKey
 
 local access = require "openbus.core.Access"
-local neworb = access.createORB
+local neworb = access.initORB
 
 local openbus = require "openbus"
-local basicORB = openbus.createORB
-local connectByAddress = openbus.connectByAddress
+local basicORB = openbus.initORB
+local connect = openbus.connect
 
 local VersionHeader = "\002\000"
 local CredentialContextId = 0x42555300 -- "BUS\0"
@@ -146,8 +146,8 @@ function Multiplexer:receiverequest(request, ...)
     end
   else
     request.success = false
-    request.results = { callers } -- TODO[maia]: Is a good CORBA SysEx to throw here?
-    log:badaccess(msg.UnableToDecodeCredential:tag{errmsg=callers})
+    request.results = { busid } -- TODO[maia]: Is a good CORBA SysEx to throw here?
+    log:badaccess(msg.UnableToDecodeCredential:tag{errmsg=busid})
   end
 end
 
@@ -183,7 +183,7 @@ end
 
 
 
-local function createORB(...)
+local function initORB(...)
   local orb = basicORB(...)
   local multiplexer = Multiplexer{ orb = orb }
   orb.OpenBusConnectionMultiplexer = multiplexer
@@ -223,11 +223,11 @@ end
 
 
 
-local openbus = { createORB = createORB }
+local openbus = { initORB = initORB }
 
-function openbus.connectByAddress(host, port, orb)
-  if orb == nil then orb = createORB() end
-  local conn = connectByAddress(host, port, orb)
+function openbus.connect(host, port, orb)
+  if orb == nil then orb = initORB() end
+  local conn = connect(host, port, orb)
   local multiplexer = orb.OpenBusConnectionMultiplexer
   local renewer = conn.newrenewer
   function conn:newrenewer(lease)
@@ -249,8 +249,8 @@ argcheck.convertclass(Multiplexer, {
   getIncomingConnection = { "string" },
 })
 argcheck.convertmodule(openbus, {
-  createORB = { "nil|table" },
-  connectByAddress = { "string", "number" },
+  initORB = { "nil|table" },
+  connect = { "string", "number" },
 })
 
 

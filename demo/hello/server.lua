@@ -4,7 +4,7 @@ local openbus = require "openbus"
 local ComponentContext = require "scs.core.ComponentContext"
 
 -- connect to the bus
-local conn = openbus.connectByAddress("localhost", 2089)
+local conn = openbus.connect("localhost", 2089)
 
 -- setup and start the ORB
 local orb = conn.orb

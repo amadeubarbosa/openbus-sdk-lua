@@ -5,7 +5,7 @@ ComponentContext = require "scs.core.ComponentContext"
 chain2str = require "chain2str"
 
 -- connect to the bus
-conn = openbus.connectByAddress("localhost", 2089)
+conn = openbus.connect("localhost", 2089)
 
 -- setup ORB
 orb = conn.orb
