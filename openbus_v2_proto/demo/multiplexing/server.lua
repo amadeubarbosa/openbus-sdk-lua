@@ -4,18 +4,18 @@ local openbus = require "openbus.multiplexed"
 local ComponentContext = require "scs.core.ComponentContext"
 
 -- setup and start the ORB
-local orb1 = openbus.createORB()
+local orb1 = openbus.initORB()
 orb1:loadidl "interface Hello { void sayHello(); };"
 cothread.next(coroutine.create(orb1.run), orb1)
-local orb2 = openbus.createORB()
+local orb2 = openbus.initORB()
 orb2:loadidl "interface Hello { void sayHello(); };"
 cothread.next(coroutine.create(orb2.run), orb2)
 
 -- connect to the bus
-local conn1AtBus1WithOrb1 = openbus.connectByAddress("localhost", 2089, orb1)
-local conn2AtBus1WithOrb1 = openbus.connectByAddress("localhost", 2089, orb1)
-local connAtBus2WithOrb1 = openbus.connectByAddress("localhost", 2090, orb1)
-local connAtBus1WithOrb2 = openbus.connectByAddress("localhost", 2089, orb2)
+local conn1AtBus1WithOrb1 = openbus.connect("localhost", 2089, orb1)
+local conn2AtBus1WithOrb1 = openbus.connect("localhost", 2089, orb1)
+local connAtBus2WithOrb1 = openbus.connect("localhost", 2090, orb1)
+local connAtBus1WithOrb2 = openbus.connect("localhost", 2089, orb2)
 
 -- setup action on login termination
 function conn1AtBus1WithOrb1:onInvalidLogin()

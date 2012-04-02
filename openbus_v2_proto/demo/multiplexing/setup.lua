@@ -15,7 +15,7 @@ local openbus = require "openbus"
 
 do
   -- connect to the bus
-  local conn = openbus.connectByAddress("localhost", 2089)
+  local conn = openbus.connect("localhost", 2089)
   
   -- login to the bus
   conn:loginByPassword("admin", "admin")
@@ -34,7 +34,7 @@ end
 
 do
   -- connect to the bus
-  local conn = openbus.connectByAddress("localhost", 2090)
+  local conn = openbus.connect("localhost", 2090)
   
   -- login to the bus
   conn:loginByPassword("admin", "admin")

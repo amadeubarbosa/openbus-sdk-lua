@@ -3,7 +3,7 @@ local openbus = require "openbus"
 for _, port in ipairs{2089, 2090} do
   
   -- connect to the bus
-  local conn = openbus.connectByAddress("localhost", port)
+  local conn = openbus.connect("localhost", port)
   
   -- login to the bus
   conn:loginByPassword("demo@"..port, "demo@"..port)

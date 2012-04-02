@@ -48,7 +48,7 @@ local offerconst = idl.const.services.offer_registry
 local offertypes = idl.types.services.offer_registry
 local BusObjectKey = idl.const.BusObjectKey
 local access = require "openbus.core.Access"
-local neworb = access.createORB
+local neworb = access.initORB
 local CoreInterceptor = access.Interceptor
 local sendBusRequest = CoreInterceptor.sendrequest
 local receiveBusReply = CoreInterceptor.receivereply
@@ -501,18 +501,18 @@ end
 
 
 
-local function createORB(configs)
+local function initORB(configs)
   local orb = neworb(copy(configs))
   orb.OpenBusInterceptor = Interceptor{ orb = orb }
   orb:setinterceptor(orb.OpenBusInterceptor, "corba")
   return orb
 end
 
-local openbus = { createORB = createORB }
+local openbus = { initORB = initORB }
 
-function openbus.connectByAddress(host, port, orb)
+function openbus.connect(host, port, orb)
   local ref = "corbaloc::"..host..":"..port.."/"..BusObjectKey
-  if orb == nil then orb = createORB() end
+  if orb == nil then orb = initORB() end
   return Connection{
     orb = orb,
     bus = orb:newproxy(ref, nil, "scs::core::IComponent"),
@@ -534,8 +534,8 @@ argcheck.convertclass(Connection, {
   close = {},
 })
 argcheck.convertmodule(openbus, {
-  createORB = { "nil|table" },
-  connectByAddress = { "string", "number", "nil|table" },
+  initORB = { "nil|table" },
+  connect = { "string", "number", "nil|table" },
 })
 
 

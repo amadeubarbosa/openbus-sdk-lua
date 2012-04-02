@@ -192,7 +192,7 @@ local function unmarshalCredential(self, contexts)
       local entity = decoder:string()
       local callers = {{id=loginId, entity=entity}}
       local delegate = decoder:string()
-      if delegate == "" then
+      if delegate ~= "" then
         callers[1], callers[2] = {id="<unknown>",entity=delegate},callers[1]
       end
       return {
@@ -513,7 +513,7 @@ local module = {
   Interceptor = Interceptor,
 }
 
-function module.createORB(configs)
+function module.initORB(configs)
   if configs == nil then configs = {} end
   if configs.tcpoptions == nil then
     configs.tcpoptions = {reuseaddr = true}
