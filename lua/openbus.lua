@@ -211,12 +211,12 @@ function Interceptor:sendrequest(request)
         minor = loginconst.NoLoginCode,
       }}
       log:badaccess(msg.CallAfterDisconnection:tag{
-        operation = request.operation.name,
+        operation = request.operation_name,
       })
     end
   else
     log:access(msg.OutsideBusCall:tag{
-      operation = request.operation.name,
+      operation = request.operation_name,
     })
   end
 end
@@ -244,7 +244,7 @@ function Interceptor:receiverequest(request)
       minor = loginconst.UnverifiedLoginCode,
     }}
     log:badaccess(msg.CallAfterDisconnection:tag{
-      operation = request.operation.name,
+      operation = request.operation_name,
     })
   end
 end
@@ -320,7 +320,7 @@ function Connection:sendrequest(request)
       minor = loginconst.NoLoginCode,
     }}
     log:badaccess(msg.CallAfterDisconnection:tag{
-      operation = request.operation.name,
+      operation = request.operation_name,
     })
   end
 end
@@ -333,14 +333,14 @@ function Connection:receivereply(request)
     and except.completed == "COMPLETED_NO"
     and except.minor == loginconst.InvalidLoginCode then
       log:badaccess(msg.GotInvalidLoginException:tag{
-        operation = request.operation.name,
+        operation = request.operation_name,
       })
       local login = self.login
       localLogout(self)
       if self:onInvalidLogin(login) then
         request.success = nil -- reissue request to the same reference
         log:badaccess(msg.ReissuingCallAfterCallback:tag{
-          operation = request.operation.name,
+          operation = request.operation_name,
         })
       end
     end
@@ -362,7 +362,7 @@ function Connection:receiverequest(request)
     end
   else
     log:badaccess(msg.GotCallFromConnectionWithoutLogin:tag{
-      operation = request.operation.name,
+      operation = request.operation_name,
     })
     request.success = false
     request.results = {self.orb:newexcept{

@@ -48,6 +48,7 @@ local tickets = require "openbus.util.tickets"
 local msg = require "openbus.core.messages"
 local idl = require "openbus.core.idl"
 local loadidl = idl.loadto
+local EncryptedBlockSize = idl.const.EncryptedBlockSize
 local CredentialContextId = idl.const.credential.CredentialContextId
 local loginconst = idl.const.services.access_control
 local repids = {
@@ -58,12 +59,14 @@ local repids = {
 local VersionHeader = char(idl.const.MajorVersion,
                            idl.const.MinorVersion)
 
+local SecretSize = 16
+
 local NullChar = "\0"
-local NullSecret = NullChar:rep(16)
-local NullHash = NullChar:rep(32)
+local NullSecret = NullChar:rep(SecretSize)
+local NullHash = NullChar:rep(idl.const.HashValueSize)
 local NullChain = {
   encoded = "",
-  signature = NullChar:rep(256),
+  signature = NullChar:rep(EncryptedBlockSize),
 }
 
 local WeakKeys = {__mode = "k"}
@@ -81,9 +84,9 @@ end
 
 local function calculateHash(secret, ticket, request)
   return sha256(encode(
-    "<c2c16I4c0",            -- '<' flag to set to little endian
+    "<c2c0I4c0",             -- '<' flag to set to little endian
     VersionHeader,           -- 'c2' sequence of exactly 2 chars of a string
-    secret,                  -- 'c16' sequence of exactly 16 chars of a string
+    secret,                  -- 'c0' sequence of all chars of a string
     ticket,                  -- 'I4' unsigned integer with 4 bytes
     request.operation_name)) -- 'c0' sequence of all chars of a string
 end
@@ -91,7 +94,7 @@ end
 randomseed(gettime())
 local function newSecret()
   local bytes = {}
-  for i=1, 16 do bytes[i] = random(0, 255) end
+  for i=1, SecretSize do bytes[i] = random(0, 255) end
   return char(unpack(bytes))
 end
 
@@ -216,20 +219,20 @@ local function unmarshalReset(self, request)
         return reset
       else
         log:badaccess(msg.CredentialResetBadChallenge:tag{
-          operation = request.operation.name,
+          operation = request.operation_name,
           error = errmsg,
         })
       end
     else
       log:badaccess(msg.CredentialResetUnsupportedVersion:tag{
-        operation = request.operation.name,
+        operation = request.operation_name,
         major = major,
         minor = minor,
       })
     end
   else
     log:badaccess(msg.CredentialResetMissing:tag{
-      operation = request.operation.name,
+      operation = request.operation_name,
     })
   end
 end
@@ -251,7 +254,7 @@ local Interceptor = class()
 -- legacy     : flag indicating whether to accept OpenBus 1.5 invocations
 
 function Interceptor:__init()
-  if self.prvkey == nil then self.prvkey = newkey(256) end
+  if self.prvkey == nil then self.prvkey = newkey(EncryptedBlockSize) end
   local types = self.orb.types
   local idltypes = {}
   for name, repid in pairs(repids) do
@@ -355,14 +358,14 @@ function Interceptor:sendrequest(request)
       hash = calculateHash(session.secret, ticket, request)
       log:access(msg.BusCall:tag{
         login = remoteid,
-        operation = request.operation.name,
+        operation = request.operation_name,
       })
     else
       sessionid = 0
       ticket = 0
       hash = NullHash
       log:access(msg.InitializingCredentialSession:tag{
-        operation = request.operation.name,
+        operation = request.operation_name,
       })
     end
     local credential = {
@@ -378,7 +381,7 @@ function Interceptor:sendrequest(request)
   else
     -- not logged in yet
     log:badaccess(msg.CallWithoutCredential:tag{
-      operation = request.operation.name,
+      operation = request.operation_name,
     })
   end
 end
@@ -408,7 +411,7 @@ function Interceptor:receivereply(request)
         self.outgoingCredentials[remoteid] = session
         log:access(msg.CredentialSessionReset:tag{
           login = remoteid,
-          operation = request.operation.name,
+          operation = request.operation_name,
         })
         request.success = nil -- reissue request to the same reference
       else
@@ -432,7 +435,7 @@ function Interceptor:receiverequest(request)
             log:access(msg.GotBusCall:tag{
               login = caller.id,
               entity = caller.entity,
-              operation = request.operation.name,
+              operation = request.operation_name,
             })
             self.callerChainOf[running()] = CallChain(chain)
           else
@@ -441,7 +444,7 @@ function Interceptor:receiverequest(request)
             log:badaccess(msg.GotCallWithInvalidChain:tag{
               login = caller.id,
               entity = caller.entity,
-              operation = request.operation.name,
+              operation = request.operation_name,
             })
           end
         else
@@ -453,14 +456,14 @@ function Interceptor:receiverequest(request)
             log:badaccess(msg.GotCallWithInvalidCredential:tag{
               login = caller.id,
               entity = caller.entity,
-              operation = request.operation.name,
+              operation = request.operation_name,
             })
           else
             setNoPermSysEx(request, loginconst.InvalidPublicKeyCode)
             log:badaccess(msg.UnableToEncryptSecretWithCallerKey:tag{
               login = caller.id,
               entity = caller.entity,
-              operation = request.operation.name,
+              operation = request.operation_name,
               error = errmsg,
             })
           end
@@ -470,17 +473,17 @@ function Interceptor:receiverequest(request)
         setNoPermSysEx(request, loginconst.InvalidLoginCode)
         log:badaccess(msg.GotCallWithInvalidLogin:tag{
           login = credential.login,
-          operation = request.operation.name,
+          operation = request.operation_name,
         })
       end
     else
       log:badaccess(msg.GotCallWithoutCredential:tag{
-        operation = request.operation.name,
+        operation = request.operation_name,
       })
     end
   else
     log:badaccess(msg.GotCallBeforeLogin:tag{
-      operation = request.operation.name,
+      operation = request.operation_name,
     })
   end
 end

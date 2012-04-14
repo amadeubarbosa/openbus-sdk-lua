@@ -53,7 +53,7 @@ local function logMultiplexed(conn, op, request, ...)
       bus = conn.busid,
       login = login and login.id,
       entity = login and login.entity,
-      operation = request.operation.name,
+      operation = request.operation_name,
     })
   end
   conn[op](conn, request, ...)
@@ -111,7 +111,7 @@ function Multiplexer:sendrequest(request, ...)
       minor = const.NoLoginCode,
     }}
     log:badaccess(msg.CallInThreadWithoutConnection:tag{
-      operation = request.operation.name,
+      operation = request.operation_name,
     })
   end
 end
@@ -140,7 +140,7 @@ function Multiplexer:receiverequest(request, ...)
         minor = const.UnknownBusCode,
       }}
       log:badaccess(msg.DeniedCallFromUnknownBus:tag{
-        operation = request.operation.name,
+        operation = request.operation_name,
         bus = busid,
       })
     end
