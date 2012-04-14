@@ -25,6 +25,7 @@ local gettime = socket.gettime
 local table = require "loop.table"
 local clear = table.clear
 local copy = table.copy
+local memoize = table.memoize
 
 local oil = require "oil"
 local neworb = oil.init
@@ -38,11 +39,11 @@ local sha256 = hash.sha256
 local pubkey = require "lce.pubkey"
 local newkey = pubkey.create
 
+local LRUCache = require "loop.collection.LRUCache"
+
 local log = require "openbus.util.logger"
 local oo = require "openbus.util.oo"
 local class = oo.class
-local cache = require "openbus.util.cache"
-local LRU = cache.LRU
 local tickets = require "openbus.util.tickets"
 
 local msg = require "openbus.core.messages"
@@ -71,14 +72,6 @@ local NullChain = {
 
 local WeakKeys = {__mode = "k"}
 
-
-
-
-local CallChain = class()
-
-function CallChain:__init()
-  self.joined = LRU(function(login) return false end)
-end
 
 
 
@@ -116,13 +109,7 @@ local function marshalCredential(self, request, credential, chain, remoteid)
       legacy = false -- do not send legacy credential (OpenBus 1.5)
       if remoteid ~= self.busid then
         if chain == nil then chain = self.emptyChain end
-        local cache = chain.joined
-        local joined = cache[remoteid]
-        if not joined then
-          joined = self:joinedChainFor(remoteid, chain)
-          cache[remoteid] = joined
-        end
-        chain = joined
+        chain = self.signedChainOf[chain]:get(remoteid)
       end
     end
     credential.chain = chain or NullChain
@@ -185,7 +172,7 @@ local function unmarshalCredential(self, contexts)
         login = loginId,
         ticket = nil,
         hash = nil,
-      }, CallChain{
+      }, {
         encoded = nil,
         signature = nil,
         target = nil,
@@ -265,18 +252,27 @@ function Interceptor:__init()
 end
 
 function Interceptor:resetCaches()
-  self.emptyChain = CallChain{ callers = {} }
-  self.callerChainOf = setmetatable({}, WeakKeys)
-  self.joinedChainOf = setmetatable({}, WeakKeys)
-  self.profile2login = LRU(function() return false end)
-  self.outgoingCredentials = LRU(function() return false end)
-  self.incomingCredentials = LRU(function(id)
-    return {
-      id = id,
-      secret = newSecret(),
-      tickets = tickets(),
+  self.emptyChain = { callers = {} }
+  self.callerChainOf = setmetatable({}, WeakKeys) -- [thread] = callerChain
+  self.joinedChainOf = setmetatable({}, WeakKeys) -- [thread] = joinedChain
+  self.signedChainOf = memoize(function(chain) -- [chain] = SignedChainCache
+    return LRUCache{
+      retrieve = function(remoteid)
+        return self:joinedChainFor(remoteid, chain)
+      end,
     }
-  end)
+  end, "k")
+  self.profile2login = LRUCache()
+  self.outgoingSessions = LRUCache()
+  self.incomingSessions = LRUCache{
+    retrieve = function(id)
+      return {
+        id = id,
+        secret = newSecret(),
+        tickets = tickets(),
+      }
+    end,
+  }
 end
 
 function Interceptor:validateCredential(credential, request, remotekey)
@@ -286,8 +282,7 @@ function Interceptor:validateCredential(credential, request, remotekey)
     return true
   end
   -- get current credential session
-  local incoming = self.incomingCredentials
-  local session = rawget(incoming, credential.session)
+  local session = self.incomingSessions:rawget(credential.session)
   if session ~= nil then
     local ticket = credential.ticket
     -- validate credential with current secret
@@ -297,7 +292,7 @@ function Interceptor:validateCredential(credential, request, remotekey)
     end
   end
   -- create a new session for the invalid credential
-  return false, incoming[#incoming+1]
+  return false
 end
 
 function Interceptor:validateChain(chain, caller)
@@ -349,9 +344,9 @@ function Interceptor:sendrequest(request)
   if login ~= nil then
     -- check whether there is an active credential session for this IOR profile
     local sessionid, ticket, hash
-    local remoteid = self.profile2login[request.profile_data]
+    local remoteid = self.profile2login:get(request.profile_data)
     if remoteid then
-      local session = self.outgoingCredentials[remoteid]
+      local session = self.outgoingSessions:get(remoteid)
       sessionid = session.id
       ticket = session.ticket+1
       session.ticket = ticket
@@ -395,20 +390,15 @@ function Interceptor:receivereply(request)
       -- got invalid credential exception
       local reset = unmarshalReset(self, request)
       if reset ~= nil then
-        -- get previous credential session information, if any
-        local profile = request.profile_data
-        local profile2login = self.profile2login
-        local previousid = profile2login[profile]
+        -- initialize session and set credential session information
         local remoteid = reset.login
-        profile2login[profile] = remoteid
-        -- initialize session
-        local session = {
+        self.profile2login:put(request.profile_data, remoteid)
+        self.outgoingSessions:put(remoteid, {
           id = reset.session,
           secret = reset.secret,
           remoteid = remoteid,
           ticket = -1,
-        }
-        self.outgoingCredentials[remoteid] = session
+        })
         log:access(msg.CredentialSessionReset:tag{
           login = remoteid,
           operation = request.operation_name,
@@ -428,7 +418,7 @@ function Interceptor:receiverequest(request)
     if credential ~= nil then
       local caller = self.logins:getLoginEntry(credential.login)
       if caller ~= nil then
-        local valid, newsession = self:validateCredential(credential, request)
+        local valid = self:validateCredential(credential, request)
         if valid then
           chain = self:validateChain(chain, caller)
           if chain ~= nil then
@@ -437,7 +427,7 @@ function Interceptor:receiverequest(request)
               entity = caller.entity,
               operation = request.operation_name,
             })
-            self.callerChainOf[running()] = CallChain(chain)
+            self.callerChainOf[running()] = chain
           else
             -- return invalid chain exception
             setNoPermSysEx(request, loginconst.InvalidChainCode)
@@ -449,6 +439,8 @@ function Interceptor:receiverequest(request)
           end
         else
           -- credential not valid, try to reset credetial session
+          local sessions = self.incomingSessions
+          local newsession = sessions:get(#sessions.map+1)
           local challenge, errmsg = caller.pubkey:encrypt(newsession.secret)
           if challenge ~= nil then
             marshalReset(self, request, newsession.id, challenge)
@@ -495,7 +487,6 @@ end
 
 
 local module = {
-  CallerChain = CallerChain,
   Interceptor = Interceptor,
 }
 
