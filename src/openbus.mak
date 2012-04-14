@@ -16,7 +16,6 @@ LUAMOD= \
   openbus.multiplexed \
   openbus.util.argcheck \
   openbus.util.autotable \
-  openbus.util.cache \
   openbus.util.database \
   openbus.util.logger \
   openbus.util.messages \

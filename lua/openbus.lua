@@ -26,6 +26,7 @@ local table = require "loop.table"
 local copy = table.copy
 local memoize = table.memoize
 
+local LRUCache = require "loop.collection.LRUCache"
 local Wrapper = require "loop.object.Wrapper"
 
 local Mutex = require "cothread.Mutex"
@@ -35,8 +36,6 @@ local sysex = giop.SystemExceptionIDs
 
 local log = require "openbus.util.logger"
 local msg = require "openbus.util.messages"
-local cache = require "openbus.util.cache"
-local LRU = cache.LRU
 local oo = require "openbus.util.oo"
 local class = oo.class
 
@@ -69,18 +68,7 @@ local function getEntryFromCache(self, loginId)
   local validity = self.validity
   local timeupdated = self.timeupdated
   -- use information in the cache to validate the login
-  local entry = self.cache[loginId]
-  if entry.id == nil then
-    local ok, info, encodedkey = pcall(logins.getLoginInfo, logins, loginId)
-    if ok then
-      entry.entity = info.entity
-      entry.encodedkey = encodedkey
-      entry.pubkey = assert(decodepubkey(encodedkey))
-    elseif info._repid ~= logintypes.InvalidLogins then
-      error(info)
-    end
-    entry.id = loginId
-  end
+  local entry = self.logininfo:get(loginId)
   local time2live = validity[entry.index]
   if time2live == 0 then
     log:LOGIN_CACHE(msg.InvalidLoginInValidityCache:tag{
@@ -131,20 +119,32 @@ local function newLoginRegistryWrapper(logins)
     validity = validity,
     timeupdated = -inf,
     mutex = Mutex(),
-    cache = LRU(function(loginId, replacedId, entry)
-      local index
-      if entry == nil then
-        index = #ids+1
-        entry = { index = index }
-      else
-        index = entry.index
-        entry.id = nil
-        entry.entity = nil
-      end
-      ids[index] = loginId
-      validity[index] = nil
-      return entry
-    end),
+    logininfo = LRUCache{
+      retrieve = function(loginId, replacedId, entry)
+        local index
+        if entry == nil then
+          index = #ids+1
+          entry = { index = index }
+        else
+          index = entry.index
+          entry.id = nil
+          entry.entity = nil
+          entry.pubkey = nil
+        end
+        local ok, info, enckey = pcall(logins.getLoginInfo, logins, loginId)
+        if ok then
+          entry.entity = info.entity
+          entry.encodedkey = enckey
+          entry.pubkey = assert(decodepubkey(enckey))
+        elseif info._repid ~= logintypes.InvalidLogins then
+          error(info)
+        end
+        entry.id = loginId
+        ids[index] = loginId
+        validity[index] = nil
+        return entry
+      end,
+    },
     getLoginEntry = getLoginEntry,
     getLoginInfo = getLoginInfo,
   }
