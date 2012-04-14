@@ -28,7 +28,7 @@ LUADIR= ../lua
 LUASRC=$(addprefix $(LUADIR)/,$(addsuffix .lua,$(subst .,/,$(LUAMOD))))
 
 IDL= \
-  $(OPENBUSIDL)/credential.idl \
+  $(OPENBUSIDL)/access_control.idl \
   $(OPENBUSIDL)/offer_registry.idl
 
 include ${OIL_HOME}/openbus/base.mak
