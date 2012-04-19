@@ -113,41 +113,50 @@ end
 local function newLoginRegistryWrapper(logins)
   local ids = {}
   local validity = {}
-  return Wrapper{
+  local logininfo = LRUCache()
+  local self = Wrapper{
     __object = logins,
     ids = ids,
     validity = validity,
+    logininfo = logininfo,
     timeupdated = -inf,
     mutex = Mutex(),
-    logininfo = LRUCache{
-      retrieve = function(loginId, replacedId, entry)
-        local index
-        if entry == nil then
-          index = #ids+1
-          entry = { index = index }
-        else
-          index = entry.index
-          entry.id = nil
-          entry.entity = nil
-          entry.pubkey = nil
-        end
-        local ok, info, enckey = pcall(logins.getLoginInfo, logins, loginId)
-        if ok then
-          entry.entity = info.entity
-          entry.encodedkey = enckey
-          entry.pubkey = assert(decodepubkey(enckey))
-        elseif info._repid ~= logintypes.InvalidLogins then
-          error(info)
-        end
-        entry.id = loginId
-        ids[index] = loginId
-        validity[index] = nil
-        return entry
-      end,
-    },
     getLoginEntry = getLoginEntry,
     getLoginInfo = getLoginInfo,
   }
+  function logininfo.retrieve(loginId, replacedId, entry)
+    local index
+    if entry == nil then
+      index = #ids+1
+      entry = { index = index }
+    else
+      index = entry.index
+    end
+    local ok, info, enckey = pcall(logins.getLoginInfo, logins, loginId)
+    if ok then
+      local pubkey, exception = decodepubkey(enckey)
+      if pubkey == nil then
+        logininfo:remove(loginId)
+        error(exception)
+      end
+      entry.entity = info.entity
+      entry.encodedkey = enckey
+      entry.pubkey = pubkey
+      validity[index] = time()-self.timeupdated -- valid until this moment
+    elseif info._repid == logintypes.InvalidLogins then
+      entry.entity = nil
+      entry.encodedkey = nil
+      entry.pubkey = nil
+      validity[index] = 0
+    else
+      logininfo:remove(loginId)
+      error(info)
+    end
+    entry.id = loginId
+    ids[index] = loginId
+    return entry
+  end
+  return self
 end
 
 local function localLogout(self)
