@@ -53,6 +53,12 @@ local sendBusRequest = CoreInterceptor.sendrequest
 local receiveBusReply = CoreInterceptor.receivereply
 local receiveBusRequest = CoreInterceptor.receiverequest
 
+local oldidl = require "openbus.core.legacy.idl"
+local loadoldidl = oldidl.loadto
+local oldtypes = oldidl.types.access_control_service
+
+-- must be loaded after OiL is loaded because OiL is the one that installs
+-- the cothread plug-in that supports the 'now' operation.
 local cothread = require "cothread"
 local resume = cothread.next
 local unschedule = cothread.unschedule
@@ -280,12 +286,14 @@ function Connection:__init()
   for field, name in pairs(LoginServiceNames) do
     local facetname = assert(loginconst[name.."Facet"], name)
     local typerepid = assert(logintypes[name], name)
-    self[field] = orb:narrow(bus:getFacetByName(facetname), typerepid)
+    local facet = assert(bus:getFacetByName(facetname), name)
+    self[field] = orb:narrow(facet, typerepid)
   end
   for field, name in pairs(OfferServiceNames) do
     local facetname = assert(offerconst[name.."Facet"], name)
     local typerepid = assert(offertypes[name], name)
-    self[field] = orb:narrow(bus:getFacetByName(facetname), typerepid)
+    local facet = assert(bus:getFacetByName(facetname), name)
+    self[field] = orb:narrow(facet, typerepid)
   end
   local access = self.AccessControl
   self.busid = access:_get_busid()
@@ -293,6 +301,21 @@ function Connection:__init()
   orb.OpenBusInterceptor:addConnection(self)
   -- create wrapper for core service LoginRegistry
   self.logins = newLoginRegistryWrapper(self.logins)
+  
+  local legacy = self.legacy
+  if legacy ~= nil then
+    if legacy:_non_existent() then
+      legacy = nil
+      log:badaccess(msg.BusWithoutLegacySupport:tag{bus=self.busid})
+    else
+      local facet = assert(legacy:getFacetByName("ACS_v1_05"))
+      if orb.types:lookup_id(oldtypes.IAccessControlService) == nil then
+        loadoldidl(orb)
+      end
+      legacy = orb:narrow(facet, oldtypes.IAccessControlService)
+    end
+    self.legacy = legacy
+  end
 end
 
 function Connection:newrenewer(lease)
@@ -520,11 +543,13 @@ end
 local openbus = { initORB = initORB }
 
 function openbus.connect(host, port, orb)
-  local ref = "corbaloc::"..host..":"..port.."/"..BusObjectKey
   if orb == nil then orb = initORB() end
+  local ref = "corbaloc::"..host..":"..port.."/"..BusObjectKey
+  local legacyref = "corbaloc::"..host..":"..port.."/openbus_v1_05"
   return Connection{
     orb = orb,
     bus = orb:newproxy(ref, nil, "scs::core::IComponent"),
+    legacy = orb:newproxy(legacyref, nil, "scs::core::IComponent"),
   }
 end
 
