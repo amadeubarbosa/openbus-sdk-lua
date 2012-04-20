@@ -52,6 +52,10 @@ local loadidl = idl.loadto
 local EncryptedBlockSize = idl.const.EncryptedBlockSize
 local CredentialContextId = idl.const.credential.CredentialContextId
 local loginconst = idl.const.services.access_control
+
+local oldidl = require "openbus.core.legacy.idl"
+local LegacyCredential = oldidl.types.access_control_service.Credential
+
 local repids = {
   CallChain = idl.types.services.access_control.CallChain,
   CredentialData = idl.types.credential.CredentialData,
@@ -59,7 +63,7 @@ local repids = {
 }
 local VersionHeader = char(idl.const.MajorVersion,
                            idl.const.MinorVersion)
-
+local LegacyCredentialContextId = 1234
 local SecretSize = 16
 
 local NullChar = "\0"
@@ -106,7 +110,7 @@ local function marshalCredential(self, request, credential, chain, remoteid)
   local contexts = {}
   if chain==nil or chain.signature~=nil then -- no legacy chain (OpenBus 1.5)
     if remoteid then -- credential session is established
-      legacy = false -- do not send legacy credential (OpenBus 1.5)
+      legacy = nil -- do not send legacy credential (OpenBus 1.5)
       if remoteid ~= self.busid then
         if chain == nil then chain = self.emptyChain end
         chain = self.signedChainOf[chain]:get(remoteid)
@@ -117,7 +121,7 @@ local function marshalCredential(self, request, credential, chain, remoteid)
     encoder:put(credential, self.types.CredentialData)
     contexts[CredentialContextId] = encoder:getdata()
   end
-  if legacy then
+  if legacy ~= nil then
     local encoder = orb:newencoder()
     local login = self.login
     encoder:string(login.id)
@@ -128,7 +132,7 @@ local function marshalCredential(self, request, credential, chain, remoteid)
     else
       encoder:string("")
     end
-    contexts[1234] = encoder:getdata()
+    contexts[LegacyCredentialContextId] = encoder:getdata()
   end
   request.service_context = contexts
 end
@@ -156,28 +160,20 @@ local function unmarshalCredential(self, contexts)
       return credential, chain
     end
   end
-  if self.legacy then
-    local data = contexts[1234]
+  if self.legacy ~= nil then
+    local data = contexts[LegacyCredentialContextId]
     if data ~= nil then
-      local decoder = orb:newdecoder(data)
-      local loginId = decoder:string()
-      local entity = decoder:string()
+      local credential = orb:newdecoder(data):get(types.LegacyCredential)
+      local loginId = credential.identifier
+      local entity = credential.owner
+      local delegate = credential.delegate
       local callers = {{id=loginId, entity=entity}}
-      local delegate = decoder:string()
       if delegate ~= "" then
         callers[1], callers[2] = {id="<unknown>",entity=delegate},callers[1]
       end
-      return {
-        bus = nil,
-        login = loginId,
-        ticket = nil,
-        hash = nil,
-      }, {
-        encoded = nil,
-        signature = nil,
-        target = nil,
-        callers = callers,
-      }
+      credential.bus = self.busid
+      credential.login = login.id
+      return credential, { busid = self.busid, callers = callers }
     end
   end
 end
@@ -238,14 +234,18 @@ local Interceptor = class()
 
 -- Optional field that may be provided to configure the interceptor:
 -- prvkey     : private key associated to the key registered to this login
--- legacy     : flag indicating whether to accept OpenBus 1.5 invocations
+-- legacy     : ACS facet of OpenBus 1.5 to validate legacy invocations
 
 function Interceptor:__init()
   if self.prvkey == nil then self.prvkey = newkey(EncryptedBlockSize) end
-  local types = self.orb.types
+  local orb = self.orb
+  local types = orb.types
   local idltypes = {}
   for name, repid in pairs(repids) do
     idltypes[name] = types:lookup_id(repid)
+  end
+  if self.legacy then
+    idltypes.LegacyCredential = types:lookup_id(LegacyCredential)
   end
   self.types = idltypes
   self:resetCaches()
@@ -275,21 +275,29 @@ function Interceptor:resetCaches()
   }
 end
 
-function Interceptor:validateCredential(credential, request, remotekey)
-  -- check if is a OpenBus 1.5 credential
+function Interceptor:validateCredential(credential, request, login)
   local hash = credential.hash
-  if hash == nil then
-    return true
-  end
-  -- get current credential session
-  local session = self.incomingSessions:rawget(credential.session)
-  if session ~= nil then
-    local ticket = credential.ticket
-    -- validate credential with current secret
-    if hash == calculateHash(session.secret, ticket, request)
-    and session.tickets:check(ticket) then
+  if hash ~= nil then
+    -- get current credential session
+    local session = self.incomingSessions:rawget(credential.session)
+    if session ~= nil then
+      local ticket = credential.ticket
+      -- validate credential with current secret
+      if hash == calculateHash(session.secret, ticket, request)
+      and session.tickets:check(ticket) then
+        return true
+      end
+    end
+  elseif credential.owner == login.entity then -- got a OpenBus 1.5 credential
+    if credential.delegate == "" then
       return true
     end
+    local allowLegacyDelegate = login.allowLegacyDelegate
+    if allowLegacyDelegate == nil then
+      allowLegacyDelegate = self.legacy:isValid(credential)
+      login.allowLegacyDelegate = allowLegacyDelegate
+    end
+    return allowLegacyDelegate
   end
   -- create a new session for the invalid credential
   return false
@@ -414,12 +422,12 @@ end
 function Interceptor:receiverequest(request)
   local login = self.login
   if login ~= nil then
-    local credential, chain = unmarshalCredential(self, request.service_context)
+    local service_context = request.service_context
+    local credential, chain = unmarshalCredential(self, service_context)
     if credential ~= nil then
       local caller = self.logins:getLoginEntry(credential.login)
       if caller ~= nil then
-        local valid = self:validateCredential(credential, request)
-        if valid then
+        if self:validateCredential(credential, request, caller) then
           chain = self:validateChain(chain, caller)
           if chain ~= nil then
             log:access(msg.GotBusCall:tag{
@@ -437,6 +445,15 @@ function Interceptor:receiverequest(request)
               operation = request.operation_name,
             })
           end
+        elseif credential.hash == nil then
+          -- it is a OpenBus 1.5 credential
+          setNoPermSysEx(request, 0)
+          log:badaccess(msg.GotLegacyCallWithInvalidCredential:tag{
+            login = caller.id,
+            entity = caller.entity,
+            delegate = chain.callers[1].entity,
+            operation = request.operation_name,
+          })
         else
           -- credential not valid, try to reset credetial session
           local sessions = self.incomingSessions
