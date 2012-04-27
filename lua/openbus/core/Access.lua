@@ -172,7 +172,7 @@ local function unmarshalCredential(self, contexts)
         callers[1], callers[2] = {id="<unknown>",entity=delegate},callers[1]
       end
       credential.bus = self.busid
-      credential.login = login.id
+      credential.login = loginId
       return credential, { busid = self.busid, callers = callers }
     end
   end
@@ -245,7 +245,7 @@ function Interceptor:__init()
     idltypes[name] = types:lookup_id(repid)
   end
   if self.legacy then
-    idltypes.LegacyCredential = types:lookup_id(LegacyCredential)
+    idltypes.LegacyCredential = assert(types:lookup_id(LegacyCredential))
   end
   self.types = idltypes
   self:resetCaches()
