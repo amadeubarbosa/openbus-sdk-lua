@@ -53,9 +53,6 @@ local EncryptedBlockSize = idl.const.EncryptedBlockSize
 local CredentialContextId = idl.const.credential.CredentialContextId
 local loginconst = idl.const.services.access_control
 
-local oldidl = require "openbus.core.legacy.idl"
-local LegacyCredential = oldidl.types.access_control_service.Credential
-
 local repids = {
   CallChain = idl.types.services.access_control.CallChain,
   CredentialData = idl.types.credential.CredentialData,
@@ -143,22 +140,20 @@ local function unmarshalCredential(self, contexts)
   local data = contexts[CredentialContextId]
   if data ~= nil then
     local credential = self.orb:newdecoder(data):get(types.CredentialData)
-    if credential ~= nil then
-      local chain = credential.chain
-      local encoded = chain.encoded
-      if encoded == "" then
-        chain = nil
-      else
-        local decoder = orb:newdecoder(encoded)
-        local decoded = decoder:get(types.CallChain)
-        local callers = decoded.callers
-        callers.n = nil -- remove field 'n' created by OiL unmarshal
-        chain.callers = callers
-        chain.target = decoded.target
-        chain.busid = credential.bus
-      end
-      return credential, chain
+    local chain = credential.chain
+    local encoded = chain.encoded
+    if encoded == "" then
+      chain = nil
+    else
+      local decoder = orb:newdecoder(encoded)
+      local decoded = decoder:get(types.CallChain)
+      local callers = decoded.callers
+      callers.n = nil -- remove field 'n' created by OiL unmarshal
+      chain.callers = callers
+      chain.target = decoded.target
+      chain.busid = credential.bus
     end
+    return credential, chain
   end
   if self.legacy ~= nil then
     local data = contexts[LegacyCredentialContextId]
@@ -245,7 +240,15 @@ function Interceptor:__init()
     idltypes[name] = types:lookup_id(repid)
   end
   if self.legacy then
-    idltypes.LegacyCredential = assert(types:lookup_id(LegacyCredential))
+    local oldidl = require "openbus.core.legacy.idl"
+    local loadoldidl = oldidl.loadto
+    local oldtypes = oldidl.types.access_control_service
+    local credtype = types:lookup_id(oldtypes.Credential)
+    if credtype == nil then
+      loadoldidl(orb)
+      credtype = assert(types:lookup_id(oldtypes.Credential))
+    end
+    idltypes.LegacyCredential = credtype
   end
   self.types = idltypes
   self:resetCaches()
@@ -437,7 +440,7 @@ function Interceptor:receiverequest(request)
             })
             self.callerChainOf[running()] = chain
           else
-            -- return invalid chain exception
+            -- invalid call chain
             setNoPermSysEx(request, loginconst.InvalidChainCode)
             log:badaccess(msg.GotCallWithInvalidChain:tag{
               login = caller.id,
@@ -446,8 +449,7 @@ function Interceptor:receiverequest(request)
             })
           end
         elseif credential.hash == nil then
-          -- it is a OpenBus 1.5 credential
-          setNoPermSysEx(request, 0)
+          -- invalid legacy credential (OpenBus 1.5)
           log:badaccess(msg.GotLegacyCallWithInvalidCredential:tag{
             login = caller.id,
             entity = caller.entity,
@@ -455,7 +457,7 @@ function Interceptor:receiverequest(request)
             operation = request.operation_name,
           })
         else
-          -- credential not valid, try to reset credetial session
+          -- invalid credential, try to reset credetial session
           local sessions = self.incomingSessions
           local newsession = sessions:get(#sessions.map+1)
           local challenge, errmsg = caller.pubkey:encrypt(newsession.secret)
@@ -477,8 +479,14 @@ function Interceptor:receiverequest(request)
             })
           end
         end
+      elseif credential.hash == nil then
+        -- legacy credential with invalid login (OpenBus 1.5)
+        log:badaccess(msg.GotLegacyCallWithInvalidLogin:tag{
+          login = credential.login,
+          operation = request.operation_name,
+        })
       else
-        -- return invalid login exception
+        -- credential with invalid login
         setNoPermSysEx(request, loginconst.InvalidLoginCode)
         log:badaccess(msg.GotCallWithInvalidLogin:tag{
           login = credential.login,
