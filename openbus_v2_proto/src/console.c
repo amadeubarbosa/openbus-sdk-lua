@@ -413,7 +413,6 @@ static int pmain (lua_State *L) {
   lua_pushcfunction(L,luaopen_vararg);lua_setfield(L,-2,"vararg");
   lua_pushcfunction(L,luaopen_struct);lua_setfield(L,-2,"struct");
   lua_pushcfunction(L,luaopen_socket_core);lua_setfield(L,-2,"socket.core");
-  lua_pushcfunction(L,luaopen_string_bitwise);lua_setfield(L,-2,"string.bitwise");
   lua_pop(L, 1);  /* pop 'package.preload' table */
   /* preload other C libraries */
   luapreload_lce(L);
