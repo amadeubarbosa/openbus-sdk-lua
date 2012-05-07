@@ -241,60 +241,17 @@ Suite = {
 
   Test3 = { -- Testa connectByCertificate
     beforeTestCase = function(self)
-      local OPENBUS_HOME = os.getenv("OPENBUS_HOME")
-      local ltime = tostring(socket.gettime())
-      ltime = string.gsub(ltime, "%.", "")
-
-      self.systemId     = "TesteBarramento".. ltime
+      self.systemId     = "TesteBarramento"
       self.deploymentId = self.systemId
       self.testKeyFile  = self.systemId .. ".key"
       self.acsCertFile  = "AccessControlService.crt"
       local testACSCertFile = assert(io.open(self.acsCertFile,"r"))
       testACSCertFile:close()
-
-      os.execute(OPENBUS_HOME.."/specs/shell/openssl-generate.ksh -n " .. self.systemId .. " -c "..OPENBUS_HOME.."/openssl/openssl.cnf <TesteBarramentoCertificado_input.txt  2> genkey-err.txt >genkeyT.txt ")
-
-      os.execute(OPENBUS_HOME.."/bin/run_management.sh --acs-host=" .. host ..
-                                                                        " --acs-port=" .. port  ..
-                                                                        " --login=tester" ..
-                                                                        " --password=tester" ..
-                                                                        " --add-system="..self.systemId ..
-                                                                        " --description=Teste_do_OpenBus" ..
-                                                                        " 2>> management-err.txt >>management.txt ")
-
-      os.execute(OPENBUS_HOME.."/bin/run_management.sh --acs-host=" .. host ..
-                                                                        " --acs-port=" .. port  ..
-                                                                        " --login=tester" ..
-                                                                        " --password=tester" ..
-                                                                        " --add-deployment="..self.deploymentId ..
-                                                                        " --system="..self.systemId ..
-                                                                        " --description=Teste_do_Barramento" ..
-                                                                        " --certificate="..self.systemId..".crt"..
-                                                                        " 2>> management-err.txt >>management.txt ")
-
       Openbus:init(host, port, nil, iConfig)
     end,
 
     afterTestCase = function(self)
       Openbus:destroy()
-      local OPENBUS_HOME = os.getenv("OPENBUS_HOME")
-      os.execute(OPENBUS_HOME.."/bin/run_management.sh --acs-host=" .. host ..
-                                                                        " --acs-port=" .. port ..
-                                                                        " --login=tester" ..
-                                                                        " --password=tester" ..
-                                                                        " --del-deployment="..self.deploymentId..
-                                                                        " 2>> management-err.txt >>management.txt ")
-
-      os.execute(OPENBUS_HOME.."/bin/run_management.sh --acs-host=" .. host ..
-                                                                        " --acs-port=" .. port ..
-                                                                        " --login=tester" ..
-                                                                        " --password=tester" ..
-                                                                        " --del-system="..self.systemId..
-                                                                        " 2>> management-err.txt >>management.txt ")
-
-      --Apaga as chaves e certificados gerados
-      os.execute("rm -r " .. self.systemId .. ".key")
-      os.execute("rm -r " .. self.systemId .. ".crt")
     end,
 
     afterEachTest = function(self)

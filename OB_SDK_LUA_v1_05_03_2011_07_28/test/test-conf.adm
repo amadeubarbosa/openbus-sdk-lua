@@ -1,0 +1,15 @@
+Category {
+  id = "OpenbusLegacyTest",
+  name = "Categoria para testes Legados",
+}
+
+Entity {
+  id = "TesteBarramento",
+  category = "OpenbusLegacyTest",
+  name = "Entidade de testes Legados",
+}
+
+Certificate {
+  id = "TesteBarramento",
+  certificate = "TesteBarramento.crt",
+}
