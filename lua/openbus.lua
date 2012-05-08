@@ -300,7 +300,7 @@ function Connection:__init()
   
   local legacy = self.legacy
   if legacy ~= nil then
-    local facet = assert(legacy:getFacetByName("ACS_v1_05"))
+    local facet = assert(legacy:getFacetByName("IAccessControlService_v1_05"))
     local oldidl = require "openbus.core.legacy.idl"
     local oldtypes = oldidl.types.access_control_service
     self.legacy = orb:narrow(facet, oldtypes.IAccessControlService)
