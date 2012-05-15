@@ -542,7 +542,7 @@ function openbus.connect(host, port, orb)
     ignored[thread] = true 
     if legacy:_non_existent() then
       legacy = nil
-      log:badaccess(msg.BusWithoutLegacySupport:tag{bus=self.busid})
+      log:badaccess(msg.BusWithoutLegacySupport:tag{host=host, port=port})
     end
     ignored[thread] = nil
   end
