@@ -7,7 +7,7 @@ fi
 
 ###############################################################################
 
-source ./test.properties
+. ./test.properties
 
 if [ -z "${host}" ]; then
   host="localhost"
