@@ -8,11 +8,6 @@ OPENBUSLIB= ${OPENBUS_HOME}/lib
 
 SRC= console.c
 
-LIBS= \
-  dl crypto \
-  lua5.1 luuid lce lfs luavararg luastruct luasocket \
-  loop luatuple luacoroutine luacothread luainspector luaidl oil luascs luaopenbus
-
 INCLUDES+= . $(SRCLUADIR) \
   $(OPENBUSINC)/luuid \
   $(OPENBUSINC)/lce \
@@ -41,3 +36,15 @@ ifeq "$(TEC_SYSNAME)" "SunOS"
   LFLAGS= $(CFLAGS) -xildoff
   LIBS += rt
 endif
+
+EXTRA_SLIB= ssl uuid
+OPENBUS_LIBS= crypto \
+  lua5.1 luuid lce lfs luavararg luastruct luasocket \
+  loop luatuple luacoroutine luacothread luainspector luaidl oil luascs luaopenbus
+
+ifdef USE_STATIC
+ SLIB= $(foreach libname, $(EXTRA_SLIB) $(OPENBUS_LIBS), $(OPENBUSLIB)/lib$(libname).a)
+else
+ LIBS+= dl $(OPENBUS_LIBS)
+endif
+
