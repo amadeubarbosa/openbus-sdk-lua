@@ -49,6 +49,7 @@ local tickets = require "openbus.util.tickets"
 local msg = require "openbus.core.messages"
 local idl = require "openbus.core.idl"
 local loadidl = idl.loadto
+local BusLogin = idl.const.BusLogin
 local EncryptedBlockSize = idl.const.EncryptedBlockSize
 local CredentialContextId = idl.const.credential.CredentialContextId
 local loginconst = idl.const.services.access_control
@@ -108,7 +109,7 @@ local function marshalCredential(self, request, credential, chain, remoteid)
   if chain==nil or chain.signature~=nil then -- no legacy chain (OpenBus 1.5)
     if remoteid then -- credential session is established
       legacy = nil -- do not send legacy credential (OpenBus 1.5)
-      if remoteid ~= self.busid then
+      if remoteid ~= BusLogin then
         if chain == nil then chain = self.emptyChain end
         chain = self.signedChainOf[chain]:get(remoteid)
       end
