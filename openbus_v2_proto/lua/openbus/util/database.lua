@@ -136,7 +136,7 @@ function Table:setentry(key, ...)
   return saveto(self.path..key..".lua", ...)
 end
 
-function Table:setentryfield(key, field, value)
+function Table:setentryfield(key, field, ...)
   local path = self.path..key..".lua"
   local result, errmsg = loadfrom(path)
   if result == nil then
@@ -144,6 +144,15 @@ function Table:setentryfield(key, field, value)
       return result, errmsg
     end
     result = {}
+  end
+  local count = select("#", ...)
+  local value = select(count, ...)
+  for i = 1, count-1 do
+    local field = select(i, ...)
+    local value = result[field]
+    if value == nil then value = {} end
+    result[field] = value
+    result = value
   end
   result[field] = value
   result, errmsg = saveto(path, result)

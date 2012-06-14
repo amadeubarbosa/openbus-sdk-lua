@@ -17,7 +17,22 @@ local function remove(table, key, ...)
   else
     local value = rawget(table, key)
     if value ~= nil then
-      return remove(value, ...)
+      local result = remove(value, ...)
+      if result ~= nil and next(value) == nil then
+        table[key] = nil
+      end
+      return result
+    end
+  end
+end
+
+local function get(table, key, ...)
+  if select("#", ...) == 0 then
+    return rawget(table, key)
+  else
+    local value = rawget(table, key)
+    if value ~= nil then
+      return get(value, ...)
     end
   end
 end
@@ -25,4 +40,5 @@ end
 return {
   create = create,
   remove = remove,
+  get = get,
 }
