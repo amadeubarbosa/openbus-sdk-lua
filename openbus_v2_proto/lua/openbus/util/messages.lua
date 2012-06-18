@@ -11,7 +11,13 @@ local table = require "loop.table"
 local memoize = table.memoize
 
 local Viewer = require "loop.debug.Viewer"
-local viewer = Viewer{ newline="", identation="", maxdepth=2 }
+local viewer = Viewer{
+  maxdepth = 2,
+  linebreak = false,
+  noindices = true,
+  nolabels = true,
+  metaonly = true,
+}
 
 function string:tag(values)
   if self:match(' $') then
@@ -21,7 +27,7 @@ function string:tag(values)
       i = i+1
       fields[i] = name..'=$'..name
     end
-    self = self..'('..concat(fields, ';')..')'
+    self = self..'('..concat(fields, ' ')..')'
   end
   return (self:gsub(
     '(%$+)([_%a][_%w]*)',
