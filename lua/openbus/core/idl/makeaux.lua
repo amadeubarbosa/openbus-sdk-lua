@@ -24,20 +24,22 @@ local function makeaux(def, types, consts, excepts)
       end
     end
   elseif def._type == "except" then
-    local message = { "$_repid:" }
-    for _, member in ipairs(def.members) do
-      local name = member.name
-      message[#message+1] = name..": $"..name
+    local message = def.absolute_name
+    local members = def.members
+    if #members > 0 then
+      local fields = {}
+      for index, member in ipairs(members) do
+        local name = member.name
+        fields[index] = name..": $"..name
+      end
+      message = message.." ("..concat(fields, ", ")..")"
     end
-    message = concat(message, " ")
     local repID = def.repID
     types[name] = repID
+    local logmsg = name.." "
     excepts[name] = function(fields)
-      log:exception(msg.ExceptionRaised:tag{
-        repid = repID,
-        fields = fields == nil and "none" or log.viewer:tostring(fields),
-      })
       if fields == nil then fields = {} end
+      log:exception(logmsg:tag(fields))
       fields[1] = message
       fields._repid = repID
       error(Exception(fields))

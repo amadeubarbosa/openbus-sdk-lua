@@ -43,7 +43,7 @@ local function defaultAdd(list, value)
 end
 
 local function report(msg)
-  stderr:write("CONFIG ERROR: ", msg, "\n")
+  stderr:write("CONFIG WARNING: ", msg, "\n")
 end
 
 function module.setuplog(log, level, path, mode)
