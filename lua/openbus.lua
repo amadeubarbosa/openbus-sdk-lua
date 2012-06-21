@@ -11,7 +11,6 @@ local tostring = _G.tostring
 
 local coroutine = require "coroutine"
 local newthread = coroutine.create
-local running = coroutine.running
 
 local math = require "math"
 local inf = math.huge
@@ -29,6 +28,8 @@ local memoize = table.memoize
 local LRUCache = require "loop.collection.LRUCache"
 local Wrapper = require "loop.object.Wrapper"
 
+local cothread = require "cothread"
+local running = cothread.running
 local Mutex = require "cothread.Mutex"
 
 local giop = require "oil.corba.giop"
@@ -48,6 +49,7 @@ local offertypes = idl.types.services.offer_registry
 local BusObjectKey = idl.const.BusObjectKey
 local access = require "openbus.core.Access"
 local neworb = access.initORB
+local setNoPermSysEx = access.setNoPermSysEx
 local CoreInterceptor = access.Interceptor
 local sendBusRequest = CoreInterceptor.sendrequest
 local receiveBusReply = CoreInterceptor.receivereply
@@ -161,14 +163,52 @@ local function newLoginRegistryWrapper(logins)
   return self
 end
 
+local function unmarshalBusId(self, contexts)
+  local decoder = self.orb:newdecoder(contexts[CredentialContextId])
+  return decoder:get(self.identifierType)
+end
+
+local function getBusId(self, contexts)
+  local ok, result = pcall(unmarshalBusId, self, contexts)
+  if ok then return result end
+end
+
 local function localLogout(self)
+  local busid = self.busid
+  local dispatcherOf = self.manager.dispatcherOf
+  if dispatcherOf[busid] == self then
+    dispatcherOf[busid] = nil
+  end
   self.login = nil
+  self.busid = nil
   self:resetCaches()
   local renewer = self.renewer
   if renewer ~= nil then
     self.renewer = nil
     unschedule(renewer)
   end
+end
+
+local function newRenewer(self, lease)
+  local thread
+  thread = newthread(function()
+    local login = self.login
+    local access = self.AccessControl
+    while self.login == login do
+      self.renewer = thread
+      deferuntil(time()+lease)
+      self.renewer = nil
+      log:action(msg.RenewLogin:tag{id=login.id,entity=login.entity})
+      local ok, result = pcall(access.renew, access)
+      if ok then
+        lease = result
+      else
+        log:exception(msg.FailedToRenewLogin:tag{error = result})
+      end
+    end
+  end)
+  self.manager.requesterOf[thread] = self
+  resume(thread)
 end
 
 local LoginServiceNames = {
@@ -184,97 +224,11 @@ local OfferServiceNames = {
 
 
 
-local WeakKeys = { __mode="k" }
-
-local Interceptor = class()
-
-function Interceptor:__init()
-  self.ignoredThreads = setmetatable({}, WeakKeys)
-end
-
-function Interceptor:addConnection(conn)
-  local current = self.connection
-  if current ~= nil then
-    error(msg.OrbAlreadyConnectedToBus:tag{bus=current.busid})
-  end
-  self.connection = conn
-end
-
-function Interceptor:removeConnection(conn)
-  local current = self.connection
-  if current ~= conn then
-    error(msg.AttemptToDisconnectInactiveBusConnection)
-  end
-  self.connection = nil
-end
-
-function Interceptor:sendrequest(request)
-  if self.ignoredThreads[running()] == nil then
-    local conn = self.connection
-    if conn ~= nil then
-      request.connection = conn
-      conn:sendrequest(request)
-    else
-      request.success = false
-      request.results = {self.orb:newexcept{
-        "CORBA::NO_PERMISSION",
-        completed = "COMPLETED_NO",
-        minor = loginconst.NoLoginCode,
-      }}
-      log:badaccess(msg.CallAfterDisconnection:tag{
-        operation = request.operation_name,
-      })
-    end
-  else
-    log:access(msg.OutsideBusCall:tag{
-      operation = request.operation_name,
-    })
-  end
-end
-
-function Interceptor:receivereply(request)
-  local conn = request.connection
-  if conn ~= nil then
-    conn:receivereply(request)
-    if request.success ~= nil then
-      request.connection = nil
-    end
-  end
-end
-
-function Interceptor:receiverequest(request)
-  local conn = self.connection
-  if conn ~= nil then
-    request.connection = conn
-    conn:receiverequest(request)
-  else
-    request.success = false
-    request.results = {self.orb:newexcept{
-      "CORBA::NO_PERMISSION",
-      completed = "COMPLETED_NO",
-      minor = loginconst.UnverifiedLoginCode,
-    }}
-    log:badaccess(msg.CallAfterDisconnection:tag{
-      operation = request.operation_name,
-    })
-  end
-end
-
-function Interceptor:sendreply(request)
-  local conn = request.connection
-  if conn.sendreply ~= nil then
-    request.connection = nil
-    conn:sendreply(request)
-  end
-end
-
-
-
 local Connection = class({}, CoreInterceptor)
 
 function Connection:__init()
-  -- retrieve IDL definitions for login
   local orb = self.orb
+  -- retrieve IDL definitions for login
   self.LoginAuthenticationInfo =
     assert(orb.types:lookup_id(logintypes.LoginAuthenticationInfo))
   -- retrieve core service references
@@ -291,10 +245,6 @@ function Connection:__init()
     local facet = assert(bus:getFacetByName(facetname), name)
     self[field] = orb:narrow(facet, typerepid)
   end
-  local access = self.AccessControl
-  self.busid = access:_get_busid()
-  self.buskey = assert(decodepubkey(access:_get_buskey()))
-  orb.OpenBusInterceptor:addConnection(self)
   -- create wrapper for core service LoginRegistry
   self.logins = newLoginRegistryWrapper(self.logins)
   
@@ -307,40 +257,12 @@ function Connection:__init()
   end
 end
 
-function Connection:newrenewer(lease)
-  local thread
-  thread = newthread(function()
-    local login = self.login
-    local manager = self.AccessControl
-    while self.login == login do
-      self.renewer = thread
-      deferuntil(time()+lease)
-      self.renewer = nil
-      log:action(msg.RenewLogin:tag{id=login.id,entity=login.entity})
-      local ok, result = pcall(manager.renew, manager)
-      if ok then
-        lease = result
-      else
-        log:badaccess(msg.FailToRenewLogin:tag{error = result})
-      end
-    end
-  end)
-  resume(thread)
-  return thread
-end
-
-
 function Connection:sendrequest(request)
   if self.login ~= nil then
     sendBusRequest(self, request)
   else
-    request.success = false
-    request.results = {self.orb:newexcept{
-      "CORBA::NO_PERMISSION",
-      completed = "COMPLETED_NO",
-      minor = loginconst.NoLoginCode,
-    }}
-    log:badaccess(msg.CallAfterDisconnection:tag{
+    setNoPermSysEx(request, loginconst.NoLoginCode)
+    log:exception(msg.AttemptToCallWhileNotLoggedIn:tag{
       operation = request.operation_name,
     })
   end
@@ -353,14 +275,15 @@ function Connection:receivereply(request)
     if except._repid == sysex.NO_PERMISSION
     and except.completed == "COMPLETED_NO"
     and except.minor == loginconst.InvalidLoginCode then
-      log:badaccess(msg.GotInvalidLoginException:tag{
+      log:exception(msg.GotInvalidLoginException:tag{
         operation = request.operation_name,
       })
       local login = self.login
+      local busid = self.busid
       localLogout(self)
-      if self:onInvalidLogin(login) then
+      if self:onInvalidLogin(login, busid) then
         request.success = nil -- reissue request to the same reference
-        log:badaccess(msg.ReissuingCallAfterCallback:tag{
+        log:action(msg.ReissueCallAfterInvalidLoginCallback:tag{
           operation = request.operation_name,
         })
       end
@@ -369,58 +292,55 @@ function Connection:receivereply(request)
 end
 
 function Connection:receiverequest(request)
-  if self:isLoggedIn() then
+  if self.login ~= nil then
     receiveBusRequest(self, request)
-    if request.success == nil then
-      if self:getCallerChain() == nil then
-        request.success = false
-        request.results = {self.orb:newexcept{
-          "CORBA::NO_PERMISSION",
-          completed = "COMPLETED_NO",
-          minor = loginconst.InvalidLoginCode,
-        }}
-      end
+    if request.success == nil and self:getCallerChain() == nil then
+      setNoPermSysEx(request, loginconst.NoCredentialCode)
+      log:exception(msg.DeniedOrdinaryCall:tag{
+        operation = request.operation.name,
+      })
     end
   else
-    log:badaccess(msg.GotCallFromConnectionWithoutLogin:tag{
+    log:exception(msg.GotCallWhileNotLoggedIn:tag{
       operation = request.operation_name,
     })
-    request.success = false
-    request.results = {self.orb:newexcept{
-      "CORBA::NO_PERMISSION",
-      completed = "COMPLETED_NO",
-      minor = loginconst.UnverifiedLoginCode,
-    }}
+    setNoPermSysEx(request, loginconst.UnverifiedLoginCode)
   end
 end
 
 
 function Connection:loginByPassword(entity, password)
-  if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
-  local manager = self.AccessControl
+  if self.login ~= nil then error(msg.ConnectionAlreadyLogged) end
+  local access = self.AccessControl
+  local busid = access:_get_busid()
+  local buskey = assert(decodepubkey(access:_get_buskey()))
   local pubkey = self.prvkey:encode("public")
   local idltype = self.LoginAuthenticationInfo
   local encoder = self.orb:newencoder()
   encoder:put({data=password,hash=sha256(pubkey)}, idltype)
   local encoded = encoder:getdata()
-  local encrypted, errmsg = self.buskey:encrypt(encoded)
+  local encrypted, errmsg = buskey:encrypt(encoded)
   if encrypted == nil then
     error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
   end
-  local login, lease = manager:loginByPassword(entity, pubkey, encrypted)
+  local login, lease = access:loginByPassword(entity, pubkey, encrypted)
   self.login = login
-  self:newrenewer(lease)
-  log:action(msg.LoginByPassword:tag{
-    bus = self.busid,
+  self.busid = busid
+  self.buskey = buskey
+  newRenewer(self, lease)
+  log:request(msg.LoginByPassword:tag{
+    bus = busid,
     login = login.id,
     entity = login.entity,
   })
 end
 
 function Connection:loginByCertificate(entity, privatekey)
-  if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
-  local manager = self.AccessControl
-  local attempt, challenge = manager:startLoginByCertificate(entity)
+  if self.login ~= nil then error(msg.ConnectionAlreadyLogged) end
+  local access = self.AccessControl
+  local busid = access:_get_busid()
+  local buskey = assert(decodepubkey(access:_get_buskey()))
+  local attempt, challenge = access:startLoginByCertificate(entity)
   local secret, errmsg = privatekey:decrypt(challenge)
   if secret == nil then
     attempt:cancel()
@@ -431,24 +351,26 @@ function Connection:loginByCertificate(entity, privatekey)
   local encoder = self.orb:newencoder()
   encoder:put({data=secret,hash=sha256(pubkey)}, idltype)
   local encoded = encoder:getdata()
-  local encrypted, errmsg = self.buskey:encrypt(encoded)
+  local encrypted, errmsg = buskey:encrypt(encoded)
   if encrypted == nil then
     attempt:cancel()
     error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
   end
   local login, lease = attempt:login(pubkey, encrypted)
   self.login = login
-  self:newrenewer(lease)
-  log:action(msg.LoginByCertificate:tag{
-    bus = self.busid,
+  self.busid = busid
+  self.buskey = buskey
+  newRenewer(self, lease)
+  log:request(msg.LoginByCertificate:tag{
+    bus = busid,
     login = login.id,
     entity = login.entity,
   })
 end
 
 function Connection:startSingleSignOn()
-  local manager = self.AccessControl
-  local attempt, challenge = manager:startLoginBySingleSignOn()
+  local access = self.AccessControl
+  local attempt, challenge = access:startLoginBySingleSignOn()
   local secret, errmsg = self.prvkey:decrypt(challenge)
   if secret == nil then
     attempt:cancel()
@@ -458,31 +380,46 @@ function Connection:startSingleSignOn()
 end
 
 function Connection:loginBySingleSignOn(attempt, secret)
-  if self:isLoggedIn() then error(msg.ConnectionAlreadyLogged) end
+  if self.login ~= nil then error(msg.ConnectionAlreadyLogged) end
+  local access = self.AccessControl
+  local busid = access:_get_busid()
+  local buskey = assert(decodepubkey(access:_get_buskey()))
   local pubkey = self.prvkey:encode("public")
   local idltype = self.LoginAuthenticationInfo
   local encoder = self.orb:newencoder()
   encoder:put({data=secret,hash=sha256(pubkey)}, idltype)
   local encoded = encoder:getdata()
-  local encrypted, errmsg = self.buskey:encrypt(encoded)
+  local encrypted, errmsg = buskey:encrypt(encoded)
   if encrypted == nil then
     attempt:cancel()
     error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
   end
   local login, lease = attempt:login(pubkey, encrypted)
   self.login = login
-  self:newrenewer(lease)
-  log:action(msg.LoginBySingleSignOn:tag{
-    bus = self.busid,
+  self.busid = busid
+  self.buskey = buskey
+  newRenewer(self, lease)
+  log:request(msg.LoginBySingleSignOn:tag{
+    bus = busid,
     login = login.id,
     entity = login.entity,
   })
 end
 
 function Connection:logout()
-  if self.login ~= nil then
+  local login = self.login
+  if login ~= nil then
+    log:request(msg.PerformLogout:tag{
+      bus = self.busid,
+      login = login.id,
+      entity = login.entity,
+    })
+    local manager = self.manager
+    local backup = manager:getRequester()
+    manager:setRequester(self)
     local access = self.AccessControl
     local result, except = pcall(access.logout, access)
+    manager:setRequester(backup)
     if not result and(except._repid ~= sysex.NO_PERMISSION
                    or except.minor ~= loginconst.InvalidLoginCode
                    or except.completed ~= "COMPLETED_NO") then error(except) end
@@ -492,66 +429,163 @@ function Connection:logout()
   return false
 end
 
-function Connection:close()
-  self:logout()
-  self.orb.OpenBusInterceptor:removeConnection(self)
-end
-
-function Connection:isLoggedIn()
-  return self.login ~= nil
-end
-
 function Connection:onInvalidLogin()
   -- does nothing by default
 end
 
 
 
--- allow login operations to be performed without credentials
-for _, name in ipairs{ "__init", "loginByPassword", "loginByCertificate" } do
-  local op = Connection[name]
-  Connection[name] = function(self, ...)
-    local ignored = self.orb.OpenBusInterceptor.ignoredThreads
-    local thread = running()
-    ignored[thread] = true 
-    local ok, errmsg = pcall(op, self, ...)
-    ignored[thread] = nil
-    if not ok then error(errmsg) end
+local IgnoredThreads = {}
+
+local WeakKeys = { __mode="k" }
+
+local ConnectionManager = class()
+
+function ConnectionManager:__init()
+  self.requesterOf = setmetatable({}, WeakKeyMeta) -- [thread]=connection
+  self.dispatcherOf = {} -- [busid]=connection
+end
+
+function ConnectionManager:sendrequest(request)
+  if IgnoredThreads[running()] == nil then
+    local conn = self.requesterOf[running()] or self.defaultConnection
+    if conn ~= nil then
+      request.openbusConnection = conn
+      conn:sendrequest(request)
+    else
+      log:exception(msg.AttemptToCallWithoutConnection:tag{
+        operation = request.operation_name,
+      })
+      setNoPermSysEx(request, loginconst.NoLoginCode)
+    end
+  else
+    log:access(self, msg.PerformIgnoredCall:tag{
+      operation = request.operation_name,
+    })
+  end
+end
+
+function ConnectionManager:receivereply(request)
+  local conn = request.openbusConnection
+  if conn ~= nil then
+    conn:receivereply(request)
+    if request.success ~= nil then
+      request.openbusConnection = nil
+    end
+  end
+end
+
+function ConnectionManager:receiverequest(request)
+  local busid = getBusId(self, request.service_context)
+  local conn = self.dispatcherOf[busid] or self.defaultConnection
+  if conn ~= nil then
+    request.openbusConnection = conn
+    self:setRequester(conn)
+    conn:receiverequest(request)
+  else
+    setNoPermSysEx(request, busid and loginconst.UnknownBusCode or 0)
+    log:exception(msg.GotCallWhileDisconnected:tag{
+      operation = request.operation_name,
+    })
+  end
+end
+
+function ConnectionManager:sendreply(request)
+  local conn = request.openbusConnection
+  if conn.sendreply ~= nil then
+    request.openbusConnection = nil
+    conn:sendreply(request)
   end
 end
 
 
-
-local function initORB(configs)
-  local orb = neworb(copy(configs))
-  orb.OpenBusInterceptor = Interceptor{ orb = orb }
-  orb:setinterceptor(orb.OpenBusInterceptor, "corba")
-  return orb
-end
-
-local openbus = { initORB = initORB }
-
-function openbus.connect(host, port, orb)
-  if orb == nil then orb = initORB() end
-  local legacy = true
+function ConnectionManager:createConnection(host, port, props)
+  if props == nil then props = {} end
+  local orb = self.orb
+  local legacy = not props.nolegacy
   if legacy then
     local legacyref = "corbaloc::"..host..":"..port.."/openbus_v1_05"
     legacy = orb:newproxy(legacyref, nil, "scs::core::IComponent")
-    local ignored = orb.OpenBusInterceptor.ignoredThreads
-    local thread = running()
-    ignored[thread] = true 
     if legacy:_non_existent() then
       legacy = nil
-      log:badaccess(msg.BusWithoutLegacySupport:tag{host=host, port=port})
+      log:exception(msg.BusDoesNotProvideLegacySupport:tag{host=host, port=port})
     end
-    ignored[thread] = nil
   end
   local ref = "corbaloc::"..host..":"..port.."/"..BusObjectKey
   return Connection{
+    manager = self,
     orb = orb,
     bus = orb:newproxy(ref, nil, "scs::core::IComponent"),
     legacy = legacy,
   }
+end
+
+function ConnectionManager:setDefaultConnection(conn)
+  self.defaultConnection = conn
+end
+
+function ConnectionManager:getDefaultConnection()
+  return self.defaultConnection
+end
+
+function ConnectionManager:setRequester(conn)
+  self.requesterOf[running()] = conn
+end
+
+function ConnectionManager:getRequester()
+  return self.requesterOf[running()]
+end
+
+function ConnectionManager:setDispatcher(conn)
+  local busid = conn.busid
+  if busid == nil then error(msg.DispatcherNotLoggedIn) end
+  self.dispatcherOf[busid] = conn
+end
+
+function ConnectionManager:getDispatcher(busid)
+  return self.dispatcherOf[busid]
+end
+
+function ConnectionManager:clearDispatcher(busid)
+  local dispatcherOf = self.dispatcherOf
+  local conn = dispatcherOf[busid]
+  dispatcherOf[busid] = nil
+  return conn
+end
+
+
+
+-- allow login operations to be performed without credentials
+local IgnoredMethods = {
+  [Connection] = { "__init", "loginByPassword", "loginByCertificate" },
+  [ConnectionManager] = { "createConnection" },
+}
+local function ignored_cont(thread, ok, ...)
+  IgnoredThreads[thread] = nil
+  if not ok then error((...)) end
+  return ...
+end
+for class, methods in pairs(IgnoredMethods) do
+  for _, name in ipairs(methods) do
+    local op = class[name]
+    class[name] = function(self, ...)
+      local thread = running()
+      IgnoredThreads[thread] = true 
+      return ignored_cont(thread, pcall(op, self, ...))
+    end
+  end
+end
+
+
+
+local openbus = {}
+
+function openbus.initORB(configs)
+  local orb = neworb(copy(configs))
+  local manager = ConnectionManager{ orb = orb }
+  orb.OpenBusConnectionManager = manager
+  orb:setinterceptor(manager, "corba")
+  return orb
 end
 
 
@@ -566,11 +600,19 @@ argcheck.convertclass(Connection, {
   joinChain = { "nil|table" },
   exitChain = {},
   getJoinedChain = {},
-  close = {},
+})
+argcheck.convertclass(ConnectionManager, {
+  createConnection = { "string", "string|number", "nil|table" },
+  setDefaultConnection = { "nil|table" },
+  getDefaultConnection = {},
+  setRequester = { "nil|table" },
+  getRequester = {},
+  setDispatcher = { "table" },
+  getDispatcher = { "string" },
+  clearDispatcher = { "string" },
 })
 argcheck.convertmodule(openbus, {
   initORB = { "nil|table" },
-  connect = { "string", "number", "nil|table" },
 })
 
 

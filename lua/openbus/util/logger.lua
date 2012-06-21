@@ -20,12 +20,13 @@ local log = Verbose{
     {"info"},           -- informações de depuração para o adminstrador
     {"debug"},          -- informações de depuração para usuários do serviço
     {"extra"},
+    {"multiplex"},
     
     error = { "unexpected", "failure" },
     warn = { "exception", "misconfig" },
     info = { "config", "admin", "uptime" },
     debug = { "request", "action" },
-    extra = { "access", "badaccess", "multiplexed" },
+    extra = { "access", "badaccess" },
     
     DEBUG = { "LOGIN_CACHE" } -- TODO:[maia] to be removed after all tests
   },

@@ -31,6 +31,7 @@ local oil = require "oil"
 local neworb = oil.init
 local giop = require "oil.corba.giop"
 local sysex = giop.SystemExceptionIDs
+local CORBAException = require "oil.corba.giop.Exception"
 local idl = require "oil.corba.idl"
 local OctetSeq = idl.OctetSeq
 
@@ -95,8 +96,7 @@ end
 
 local function setNoPermSysEx(request, minor)
   request.success = false
-  request.results = {{
-    _repid = sysex.NO_PERMISSION,
+  request.results = {CORBAException{"NO_PERMISSION",
     completed = "COMPLETED_NO",
     minor = minor,
   }}
@@ -140,7 +140,7 @@ local function unmarshalCredential(self, contexts)
   local orb = self.orb
   local data = contexts[CredentialContextId]
   if data ~= nil then
-    local credential = self.orb:newdecoder(data):get(types.CredentialData)
+    local credential = orb:newdecoder(data):get(types.CredentialData)
     local chain = credential.chain
     local encoded = chain.encoded
     if encoded == "" then
@@ -190,27 +190,19 @@ local function unmarshalReset(self, request)
   local data = request.reply_service_context[CredentialContextId]
   if data ~= nil then
     local reset = self.orb:newdecoder(data):get(self.types.CredentialReset)
-    if reset ~= nil then
-      local login = reset.login
-      local secret, errmsg = self.prvkey:decrypt(reset.challenge)
-      if secret ~= nil then
-        reset.secret = secret
-        return reset
-      else
-        log:badaccess(msg.CredentialResetBadChallenge:tag{
-          operation = request.operation_name,
-          error = errmsg,
-        })
-      end
+    local secret, errmsg = self.prvkey:decrypt(reset.challenge)
+    if secret ~= nil then
+      reset.secret = secret
+      return reset
     else
-      log:badaccess(msg.CredentialResetUnsupportedVersion:tag{
+      log:exception(msg.GotCredentialResetWihtBadChallenge:tag{
         operation = request.operation_name,
-        major = major,
-        minor = minor,
+        remote = reset.login,
+        error = errmsg,
       })
     end
   else
-    log:badaccess(msg.CredentialResetMissing:tag{
+    log:exception(msg.CredentialResetMissing:tag{
       operation = request.operation_name,
     })
   end
@@ -351,46 +343,37 @@ end
 
 
 function Interceptor:sendrequest(request)
-  -- check whether there is an active login
-  local login = self.login
-  if login ~= nil then
-    -- check whether there is an active credential session for this IOR profile
-    local sessionid, ticket, hash
-    local remoteid = self.profile2login:get(request.profile_data)
-    if remoteid then
-      local session = self.outgoingSessions:get(remoteid)
-      sessionid = session.id
-      ticket = session.ticket+1
-      session.ticket = ticket
-      hash = calculateHash(session.secret, ticket, request)
-      log:access(msg.BusCall:tag{
-        login = remoteid,
-        operation = request.operation_name,
-      })
-    else
-      sessionid = 0
-      ticket = 0
-      hash = NullHash
-      log:access(msg.InitializingCredentialSession:tag{
-        operation = request.operation_name,
-      })
-    end
-    local credential = {
-      bus = self.busid,
-      login = login.id,
-      session = sessionid,
-      ticket = ticket,
-      hash = hash,
-    }
-    local chain = self.joinedChainOf[running()]
-    -- marshal credential information
-    marshalCredential(self, request, credential, chain, remoteid)
+  -- check whether there is an active credential session for this IOR profile
+  local sessionid, ticket, hash
+  local remoteid = self.profile2login:get(request.profile_data)
+  if remoteid then
+    local session = self.outgoingSessions:get(remoteid)
+    sessionid = session.id
+    ticket = session.ticket+1
+    session.ticket = ticket
+    hash = calculateHash(session.secret, ticket, request)
+    log:access(self, msg.PerformBusCall:tag{
+      operation = request.operation_name,
+      remote = remoteid,
+    })
   else
-    -- not logged in yet
-    log:badaccess(msg.CallWithoutCredential:tag{
+    sessionid = 0
+    ticket = 0
+    hash = NullHash
+    log:access(self, msg.RequestCredentialReset:tag{
       operation = request.operation_name,
     })
   end
+  local credential = {
+    bus = self.busid,
+    login = self.login.id,
+    session = sessionid,
+    ticket = ticket,
+    hash = hash,
+  }
+  local chain = self.joinedChainOf[running()]
+  -- marshal credential information
+  marshalCredential(self, request, credential, chain, remoteid)
 end
 
 function Interceptor:receivereply(request)
@@ -411,11 +394,11 @@ function Interceptor:receivereply(request)
           remoteid = remoteid,
           ticket = -1,
         })
-        log:access(msg.CredentialSessionReset:tag{
-          login = remoteid,
-          operation = request.operation_name,
-        })
         request.success = nil -- reissue request to the same reference
+        log:access(self, msg.GotCredentialReset:tag{
+          operation = request.operation_name,
+          remote = remoteid,
+        })
       else
         except.minor = loginconst.InvalidRemoteCode
       end
@@ -424,38 +407,37 @@ function Interceptor:receivereply(request)
 end
 
 function Interceptor:receiverequest(request)
-  local login = self.login
-  if login ~= nil then
-    local service_context = request.service_context
-    local credential, chain = unmarshalCredential(self, service_context)
-    if credential ~= nil then
+  local service_context = request.service_context
+  local credential, chain = unmarshalCredential(self, service_context)
+  if credential ~= nil then
+    if credential.bus == self.busid then
       local caller = self.logins:getLoginEntry(credential.login)
       if caller ~= nil then
         if self:validateCredential(credential, request, caller) then
           chain = self:validateChain(chain, caller)
           if chain ~= nil then
-            log:access(msg.GotBusCall:tag{
-              login = caller.id,
-              entity = caller.entity,
+            log:access(self, msg.GotBusCall:tag{
               operation = request.operation_name,
+              remote = caller.id,
+              entity = caller.entity,
             })
             self.callerChainOf[running()] = chain
           else
             -- invalid call chain
-            setNoPermSysEx(request, loginconst.InvalidChainCode)
-            log:badaccess(msg.GotCallWithInvalidChain:tag{
-              login = caller.id,
-              entity = caller.entity,
+            log:exception(msg.GotCallWithInvalidChain:tag{
               operation = request.operation_name,
+              remote = caller.id,
+              entity = caller.entity,
             })
+            setNoPermSysEx(request, loginconst.InvalidChainCode)
           end
         elseif credential.hash == nil then
           -- invalid legacy credential (OpenBus 1.5)
-          log:badaccess(msg.GotLegacyCallWithInvalidCredential:tag{
-            login = caller.id,
-            entity = caller.entity,
-            delegate = chain.callers[1].entity,
+          log:exception(msg.GotLegacyCallWithInvalidCredential:tag{
             operation = request.operation_name,
+            remote = caller.id,
+            entity = caller.entity,
+            delegate = #chain.callers > 1 and chain.callers[1].entity or nil,
           })
         else
           -- invalid credential, try to reset credetial session
@@ -463,44 +445,48 @@ function Interceptor:receiverequest(request)
           local newsession = sessions:get(#sessions.map+1)
           local challenge, errmsg = caller.pubkey:encrypt(newsession.secret)
           if challenge ~= nil then
+            log:access(self, msg.SendCredentialReset:tag{
+              operation = request.operation_name,
+              remote = caller.id,
+              entity = caller.entity,
+            })
             marshalReset(self, request, newsession.id, challenge)
             setNoPermSysEx(request, loginconst.InvalidCredentialCode)
-            log:badaccess(msg.GotCallWithInvalidCredential:tag{
-              login = caller.id,
-              entity = caller.entity,
-              operation = request.operation_name,
-            })
           else
-            setNoPermSysEx(request, loginconst.InvalidPublicKeyCode)
-            log:badaccess(msg.UnableToEncryptSecretWithCallerKey:tag{
-              login = caller.id,
-              entity = caller.entity,
+            log:exception(msg.UnableToEncryptSecretWithCallerKey:tag{
               operation = request.operation_name,
+              remote = caller.id,
+              entity = caller.entity,
               error = errmsg,
             })
+            setNoPermSysEx(request, loginconst.InvalidPublicKeyCode)
           end
         end
-      elseif credential.hash == nil then
-        -- legacy credential with invalid login (OpenBus 1.5)
-        log:badaccess(msg.GotLegacyCallWithInvalidLogin:tag{
-          login = credential.login,
-          operation = request.operation_name,
-        })
-      else
+      elseif credential.hash ~= nil then
         -- credential with invalid login
-        setNoPermSysEx(request, loginconst.InvalidLoginCode)
-        log:badaccess(msg.GotCallWithInvalidLogin:tag{
-          login = credential.login,
+        log:exception(msg.GotCallWithInvalidLogin:tag{
           operation = request.operation_name,
+          remote = credential.login,
+        })
+        setNoPermSysEx(request, loginconst.InvalidLoginCode)
+      else
+        -- legacy credential with invalid login (OpenBus 1.5)
+        log:exception(msg.GotLegacyCallWithInvalidLogin:tag{
+          operation = request.operation_name,
+          remote = credential.login,
         })
       end
     else
-      log:badaccess(msg.GotCallWithoutCredential:tag{
+      -- credential for another bus
+      log:exception(msg.GotCallFromAnotherBus:tag{
         operation = request.operation_name,
+        remote = credential.login,
+        bus = credential.bus,
       })
+      setNoPermSysEx(request, loginconst.UnknownBusCode)
     end
   else
-    log:badaccess(msg.GotCallBeforeLogin:tag{
+    log:access(self, msg.GotOrdinaryCall:tag{
       operation = request.operation_name,
     })
   end
@@ -512,8 +498,33 @@ end
 
 
 
+function log.custom:access(conn, ...)
+  local viewer = self.viewer
+  local output = viewer.output
+  if self.flags.multiplex ~= nil then
+    local login, busid = conn.login, conn.busid
+    if login ~= nil then
+      output:write(msg.CurrentLogin:tag{
+        bus = busid,
+        login = login.id,
+        entity = login.entity,
+      },"  ")
+    end
+  end
+  for i = 1, select("#", ...) do
+    local value = select(i, ...)
+    if type(value) == "string"
+      then output:write(value)
+      else viewer:write(value)
+    end
+  end
+end
+
+
+
 local module = {
   Interceptor = Interceptor,
+  setNoPermSysEx = setNoPermSysEx,
 }
 
 function module.initORB(configs)
