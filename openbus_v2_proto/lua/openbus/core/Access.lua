@@ -124,9 +124,9 @@ local function marshalCredential(self, request, credential, chain, remoteid)
     local login = self.login
     encoder:string(login.id)
     encoder:string(login.entity)
-    local callers = chain and chain.callers
-    if callers ~= nil and #callers > 1 then
-      encoder:string(callers[1].entity)
+    local caller = chain and chain.caller
+    if caller ~= nil then
+      encoder:string(caller.entity)
     else
       encoder:string("")
     end
@@ -148,9 +148,10 @@ local function unmarshalCredential(self, contexts)
     else
       local decoder = orb:newdecoder(encoded)
       local decoded = decoder:get(types.CallChain)
-      local callers = decoded.callers
-      callers.n = nil -- remove field 'n' created by OiL unmarshal
-      chain.callers = callers
+      local originators = decoded.originators
+      originators.n = nil -- remove field 'n' created by OiL unmarshal
+      chain.originators = originators
+      chain.caller = decoded.caller
       chain.target = decoded.target
       chain.busid = credential.bus
     end
@@ -163,13 +164,18 @@ local function unmarshalCredential(self, contexts)
       local loginId = credential.identifier
       local entity = credential.owner
       local delegate = credential.delegate
-      local callers = {{id=loginId, entity=entity}}
+      local caller = {id=loginId, entity=entity}
+      local originators = {}
       if delegate ~= "" then
-        callers[1], callers[2] = {id="<unknown>",entity=delegate},callers[1]
+        originators[1] = {id="<unknown>",entity=delegate}
       end
       credential.bus = self.busid
       credential.login = loginId
-      return credential, { busid = self.busid, callers = callers }
+      return credential, {
+        busid = self.busid,
+        originators = originators,
+        caller = caller,
+      }
     end
   end
 end
@@ -248,7 +254,7 @@ function Interceptor:__init()
 end
 
 function Interceptor:resetCaches()
-  self.emptyChain = { callers = {} }
+  self.emptyChain = { originators = {} }
   self.callerChainOf = setmetatable({}, WeakKeys) -- [thread] = callerChain
   self.joinedChainOf = setmetatable({}, WeakKeys) -- [thread] = joinedChain
   self.signedChainOf = memoize(function(chain) -- [chain] = SignedChainCache
@@ -305,8 +311,7 @@ function Interceptor:validateChain(chain, caller)
                                    -- legacy chain is always created correctly
       local signed = self.buskey:verify(sha256(chain.encoded), chain.signature)
       if signed and chain.target == self.login.id then
-        local callers = chain.callers
-        if callers[#callers].id ~= caller.id then
+        if chain.caller.id ~= caller.id then
           chain = nil -- invalid chain: last caller is not the current caller
         end
       else
@@ -437,7 +442,9 @@ function Interceptor:receiverequest(request)
             operation = request.operation_name,
             remote = caller.id,
             entity = caller.entity,
-            delegate = #chain.callers > 1 and chain.callers[1].entity or nil,
+            delegate = #chain.originators > 0
+                   and chain.originators[1].entity
+                    or nil,
           })
         else
           -- invalid credential, try to reset credetial session
