@@ -141,7 +141,7 @@ end
 --TODO: metodos q eram loginByCredential ainda precisam de testes porque o metodo encodeLogin nao esta implementado
 --[[
 local function shareLogin(self)
-  Check.assertFalse(self.connection:isLoggedIn())
+  Check.assertFalse(self.connection.login ~= nil)
   Check.assertTrue(self.connection:loginByPassword(user, password))
   local credential = openbus:getCredential()
   Check.assertNotNil(credential)
@@ -162,14 +162,14 @@ local function loginByCredentialInvalidCredential(self)
 end
 --]]
 local function isLoggedIn(self)
-  Check.assertFalse(self.connection:isLoggedIn())
+  Check.assertFalse(self.connection.login ~= nil)
   Check.assertNil(self.connection:loginByPassword(user, password))
-  Check.assertTrue(self.connection:isLoggedIn())
+  Check.assertTrue(self.connection.login ~= nil)
   Check.assertTrue(self.connection:logout())
 end
 
 local function loggedOut(self)
-  Check.assertFalse(self.connection:isLoggedIn())
+  Check.assertFalse(self.connection.login ~= nil)
 end
 
 local function getOrb(self)
@@ -218,7 +218,7 @@ local function loginBecameInvalidDuringCall(self)
   Check.assertEquals(idl.const.services.access_control.InvalidLoginCode, ex.minor)
 
   Check.assertTrue(isInvalid)
-  Check.assertFalse(conn:isLoggedIn())
+  Check.assertFalse(conn.login ~= nil)
 end
 
 local function loginBecameInvalidDuringRenew(self)
@@ -236,7 +236,7 @@ local function loginBecameInvalidDuringRenew(self)
   oil.sleep(validity+2) -- wait for the attempt to renew the login
 
   Check.assertTrue(isInvalid)
-  Check.assertFalse(conn:isLoggedIn())
+  Check.assertFalse(conn.login ~= nil)
 end
 
 local function reconnectOnInvalidLoginDuringCall(self)
@@ -306,7 +306,7 @@ local function onInvalidLoginErrorDuringRenew(self)
   local validity = conn.logins:getValidity{conn.login.id}[1]
   conn.logins:invalidateLogin(conn.login.id) -- force login to become invalid
   oil.sleep(validity+2) -- wait for the attempt to renew the login
-  Check.assertFalse(conn:isLoggedIn())
+  Check.assertFalse(conn.login ~= nil)
 end
 
 local function connectByCertificate(self)

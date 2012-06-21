@@ -82,11 +82,11 @@ local function loadfrom(path)
 end
 
 local function saveto(path, ...)
-  local temp = path.."-"..uuid.new("time")..".tmp" -- must be in the same path
-                                                   -- of the final file because
-                                                   -- 'os.rename' can only
-                                                   -- rename files in the same
-                                                   -- file system.
+  local temp = path..".tmp" -- must be in the same path
+                            -- of the final file because
+                            -- 'os.rename' can only
+                            -- rename files in the same
+                            -- file system.
   local result, errmsg = open(temp, "w")
   if result == nil then
     errmsg = "unable to create temporary file '"..temp.."' ("..errmsg..")"
