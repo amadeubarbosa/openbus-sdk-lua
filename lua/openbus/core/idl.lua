@@ -5,6 +5,9 @@ local ipairs = _G.ipairs
 local array = require "table"
 local unpack = array.unpack or _G.unpack
 
+local debug = require "debug"
+local traceback = debug.traceback
+
 local makeaux = require "openbus.core.idl.makeaux"
 local parsed = require "openbus.core.idl.parsed"
 
@@ -23,7 +26,16 @@ local idl = {
   throw = throw.tecgraf.openbus.core.v2_00,
 }
 
-local ServiceFailure = idl.throw.services.ServiceFailure
+local ServiceFailure
+do
+  local failure = idl.throw.services.ServiceFailure
+  function ServiceFailure(fields)
+    fields.stacktrace = traceback()
+    return failure(fields)
+  end
+  idl.throw.services.ServiceFailure = ServiceFailure
+end
+
 function idl.serviceAssertion(ok, errmsg, ...)
   if not ok then ServiceFailure{message = errmsg or "assertion failed"} end
   return ok, errmsg, ...
