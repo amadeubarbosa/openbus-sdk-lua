@@ -8,9 +8,8 @@ OPENBUSLIB= ${OPENBUS_HOME}/lib
 
 SRC= console.c
 
-LIBS:= crypto \
-  lua5.1 luuid lce lfs luavararg luastruct luasocket \
-  loop luatuple luacoroutine luacothread luainspector luaidl oil luascs luaopenbus
+LIBS:= lce luuid lfs luavararg luastruct  luasocket loop luatuple \
+  luacoroutine luacothread luainspector luaidl oil luascs luaopenbus lua5.1
 
 INCLUDES+= . $(SRCLUADIR) \
   $(OPENBUSINC)/luuid \
@@ -25,9 +24,6 @@ INCLUDES+= . $(SRCLUADIR) \
   $(OPENBUSINC)/openbus/lua
 LDIR+= $(OPENBUSLIB)
 
-ifneq "$(TEC_SYSNAME)" "Darwin"
-  LIBS += uuid
-endif
 ifeq "$(TEC_SYSNAME)" "Linux"
   LFLAGS = -Wl,-E
 endif
@@ -38,14 +34,19 @@ ifeq "$(TEC_SYSNAME)" "SunOS"
     CFLAGS+= -m64
   endif
   LFLAGS= $(CFLAGS) -xildoff
-  LIBS += rt
 endif
 
 ifdef USE_STATIC
- SLIB:= uuid $(LIBS) 
- SLIB:= $(foreach libname, $(SLIB), $(OPENBUSLIB)/lib$(libname).a)
- LIBS:=
+  SLIB:= $(foreach libname, $(LIBS) uuid crypto, $(OPENBUSLIB)/lib$(libname).a)
+  ifeq "$(TEC_SYSNAME)" "SunOS"
+    LIBS:= rt nsl socket resolv
+  else
+    LIBS:= 
+  endif
 else
- LIBS+= dl
+  ifneq "$(TEC_SYSNAME)" "Darwin"
+    LIBS+= uuid
+  endif
 endif
 
+LIBS+= dl
