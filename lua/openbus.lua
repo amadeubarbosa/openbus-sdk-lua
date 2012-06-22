@@ -41,6 +41,7 @@ local oo = require "openbus.util.oo"
 local class = oo.class
 
 local idl = require "openbus.core.idl"
+local ServiceFailure = idl.throw.services.ServiceFailure
 local loginthrow = idl.throw.services.access_control
 local loginconst = idl.const.services.access_control
 local logintypes = idl.types.services.access_control
@@ -189,6 +190,29 @@ local function localLogout(self)
   end
 end
 
+local pcallWithin do
+  local function continuation(manager, backup, ...)
+    manager:setRequester(backup)
+    return ...
+  end
+  function pcallWithin(self, obj, op, ...)
+    local manager = self.manager
+    local backup = manager:getRequester()
+    manager:setRequester(self)
+    return continuation(manager, backup, pcall(obj[op], obj, ...))
+  end
+end
+
+local callWithin do
+  local function continuation(ok, errmsg, ...)
+    if not ok then error(errmsg, 3) end
+    return errmsg, ...
+  end
+  function callWithin(...)
+    return continuation(pcallWithin(...))
+  end
+end
+
 local function newRenewer(self, lease)
   local thread
   thread = newthread(function()
@@ -310,7 +334,7 @@ end
 
 
 function Connection:loginByPassword(entity, password)
-  if self.login ~= nil then error(msg.ConnectionAlreadyLogged) end
+  if self.login ~= nil then error(msg.AlreadyLoggedIn) end
   local access = self.AccessControl
   local busid = access:_get_busid()
   local buskey = assert(decodepubkey(access:_get_buskey()))
@@ -321,7 +345,7 @@ function Connection:loginByPassword(entity, password)
   local encoded = encoder:getdata()
   local encrypted, errmsg = buskey:encrypt(encoded)
   if encrypted == nil then
-    error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
+    ServiceFailure{message=msg.InvalidBusKey:tag{ errmsg = errmsg }}
   end
   local login, lease = access:loginByPassword(entity, pubkey, encrypted)
   self.login = login
@@ -336,7 +360,7 @@ function Connection:loginByPassword(entity, password)
 end
 
 function Connection:loginByCertificate(entity, privatekey)
-  if self.login ~= nil then error(msg.ConnectionAlreadyLogged) end
+  if self.login ~= nil then error(msg.AlreadyLoggedIn) end
   local access = self.AccessControl
   local busid = access:_get_busid()
   local buskey = assert(decodepubkey(access:_get_buskey()))
@@ -344,7 +368,7 @@ function Connection:loginByCertificate(entity, privatekey)
   local secret, errmsg = privatekey:decrypt(challenge)
   if secret == nil then
     attempt:cancel()
-    error(msg.CorruptedPrivateKey:tag{ errmsg = errmsg })
+    error(msg.WrongPrivateKey:tag{ errmsg = errmsg })
   end
   local pubkey = self.prvkey:encode("public")
   local idltype = self.LoginAuthenticationInfo
@@ -354,7 +378,7 @@ function Connection:loginByCertificate(entity, privatekey)
   local encrypted, errmsg = buskey:encrypt(encoded)
   if encrypted == nil then
     attempt:cancel()
-    error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
+    ServiceFailure{ message = msg.InvalidBusKey:tag{ errmsg = errmsg } }
   end
   local login, lease = attempt:login(pubkey, encrypted)
   self.login = login
@@ -369,8 +393,8 @@ function Connection:loginByCertificate(entity, privatekey)
 end
 
 function Connection:startSingleSignOn()
-  local access = self.AccessControl
-  local attempt, challenge = access:startLoginBySingleSignOn()
+  local attempt, challenge = callWithin(self, self.AccessControl,
+                                        "startLoginBySingleSignOn")
   local secret, errmsg = self.prvkey:decrypt(challenge)
   if secret == nil then
     attempt:cancel()
@@ -379,8 +403,12 @@ function Connection:startSingleSignOn()
   return attempt, secret
 end
 
+function Connection:cancelSingleSignOn(attempt)
+  attempt:cancel()
+end
+
 function Connection:loginBySingleSignOn(attempt, secret)
-  if self.login ~= nil then error(msg.ConnectionAlreadyLogged) end
+  if self.login ~= nil then error(msg.AlreadyLoggedIn) end
   local access = self.AccessControl
   local busid = access:_get_busid()
   local buskey = assert(decodepubkey(access:_get_buskey()))
@@ -414,12 +442,7 @@ function Connection:logout()
       login = login.id,
       entity = login.entity,
     })
-    local manager = self.manager
-    local backup = manager:getRequester()
-    manager:setRequester(self)
-    local access = self.AccessControl
-    local result, except = pcall(access.logout, access)
-    manager:setRequester(backup)
+    local result, except = pcallWithin(self, self.AccessControl, "logout")
     if not result and(except._repid ~= sysex.NO_PERMISSION
                    or except.minor ~= loginconst.InvalidLoginCode
                    or except.completed ~= "COMPLETED_NO") then error(except) end
@@ -556,22 +579,31 @@ end
 
 
 -- allow login operations to be performed without credentials
-local IgnoredMethods = {
-  [Connection] = { "__init", "loginByPassword", "loginByCertificate" },
-  [ConnectionManager] = { "createConnection" },
-}
-local function ignored_cont(thread, ok, ...)
-  IgnoredThreads[thread] = nil
-  if not ok then error((...)) end
-  return ...
-end
-for class, methods in pairs(IgnoredMethods) do
-  for _, name in ipairs(methods) do
-    local op = class[name]
-    class[name] = function(self, ...)
-      local thread = running()
-      IgnoredThreads[thread] = true 
-      return ignored_cont(thread, pcall(op, self, ...))
+do
+  local IgnoredMethods = {
+    [Connection] = {
+      "loginByPassword",
+      "loginByCertificate",
+      "loginBySingleSignOn",
+      "cancelSingleSignOn",
+    },
+    [ConnectionManager] = {
+      "createConnection",
+    },
+  }
+  local function continuation(thread, ok, ...)
+    IgnoredThreads[thread] = nil
+    if not ok then error((...)) end
+    return ...
+  end
+  for class, methods in pairs(IgnoredMethods) do
+    for _, name in ipairs(methods) do
+      local op = class[name]
+      class[name] = function(self, ...)
+        local thread = running()
+        IgnoredThreads[thread] = true 
+        return continuation(thread, pcall(op, self, ...))
+      end
     end
   end
 end
@@ -602,7 +634,7 @@ argcheck.convertclass(Connection, {
   getJoinedChain = {},
 })
 argcheck.convertclass(ConnectionManager, {
-  createConnection = { "string", "string|number", "nil|table" },
+  createConnection = { "string", "number|string", "nil|table" },
   setDefaultConnection = { "nil|table" },
   getDefaultConnection = {},
   setRequester = { "nil|table" },

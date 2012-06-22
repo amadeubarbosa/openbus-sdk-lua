@@ -1,0 +1,419 @@
+local _G = require "_G"
+local assert = _G.assert
+local error = _G.error
+local ipairs = _G.ipairs
+local pairs = _G.pairs
+local pcall = _G.pcall
+local type = _G.type
+local unpack = _G.unpack
+local coroutine = require "coroutine"
+local string = require "string"
+local io = require "io"
+local pubkey = require "lce.pubkey"
+local giop = require "oil.corba.giop"
+local cothread = require "cothread"
+local openbus = require "openbus"
+local msg = require "openbus.util.messages"
+local idl = require "openbus.core.idl"
+local log = require "openbus.util.logger"
+
+log:level(0)
+log:flag("TEST", true)
+
+-- Configurações --------------------------------------------------------------
+local bushost = "localhost"
+local busport = 2089
+local admin = "admin"
+local admpsw = admin
+local entity = "TesteBarramento"
+local password = entity
+local keypath = "TesteBarramento.key"
+
+local file = assert(io.open(keypath, "rb"))
+local privatekey = assert(pubkey.decodeprivate(assert(file:read("*a"))))
+file:close()
+
+local thread = coroutine.running()
+local userdata = io.stdout
+local sleep = cothread.delay
+
+local sysex = giop.SystemExceptionIDs
+
+local FourHex = string.rep("%x", 4)
+local RamdonUuid = string.format("^%s%%-%s%%-%s%%-%s%%-%s$",
+  FourHex:rep(2), FourHex, "4%x%x%x", "[89AB]%x%x%x", FourHex:rep(3))
+
+local orb = openbus.initORB()
+local manager = orb.OpenBusConnectionManager
+assert(manager.orb == orb)
+local conns = {}
+
+local function catcherr(...)
+  local ok, err = pcall(...)
+  assert(not ok)
+  return err
+end
+
+local callwithin do
+  local function continuation(backup, ...)
+    manager:setRequester(backup)
+    return ...
+  end
+  function callwithin(conn, func, ...)
+    local backup = manager:getRequester()
+    manager:setRequester(conn)
+    return continuation(backup, func(...))
+  end
+end
+
+local invalidate, shutdown, leasetime do
+  local manager = openbus.initORB().OpenBusConnectionManager
+  local conn = manager:createConnection(bushost, busport)
+  local logins = conn.logins
+  conn:loginByPassword(admin, admpsw)
+  manager:setDefaultConnection(conn)
+  leasetime = conn.AccessControl:renew()
+  function invalidate(loginId)
+    local validity = logins:getValidity({loginId})[1]
+    if validity < 1 then
+      sleep(2) -- wait for the renewer thread to renew the login
+    end
+    logins:invalidateLogin(loginId)
+  end
+  function shutdown()
+    conn:logout()
+  end
+end
+
+local loginways = {
+  loginByPassword = function() return entity, password end,
+  loginByCertificate = function() return entity, privatekey end,
+  loginBySingleSignOn = function()
+    return { -- dummy login process object
+      login = function()
+        return {
+          id = "60D57646-33A4-4108-88DD-AE9B7A9E3C7A",
+          entity = entity,
+        }, leasetime
+      end,
+      cancel = function () end,
+    },
+    "fake secret"
+  end,
+}
+local function assertlogged(conn)
+  -- check constant attributes
+  local offers = conn.offers
+  assert(offers ~= nil)
+  assert(conn.orb == orb)
+  -- check logged in only attributes
+  assert(conn.login.entity == entity)
+  assert(conn.login.id:match(RamdonUuid))
+  assert(conn.busid:match(RamdonUuid))
+  local loginid = conn.login.id
+  local busid = conn.busid
+  -- check the attempt to login again
+  for opname, getparams in pairs(loginways) do
+    local ex = catcherr(conn[opname], conn, getparams())
+    assert(ex:find(msg.AlreadyLoggedIn, 1, true))
+    assert(conn.login.entity == entity)
+    assert(conn.login.id == loginid)
+    assert(conn.busid == busid)
+  end
+  -- check the failure of 'startSingleSignOn'
+  conn:cancelSingleSignOn(conn:startSingleSignOn())
+  -- check the login is valid to perform calls
+  callwithin(conn, offers.findServices, offers, {})
+  return conn
+end
+
+local function assertlogoff(conn)
+  -- check constant attributes
+  local offers = conn.offers
+  assert(offers ~= nil)
+  assert(conn.orb == orb)
+  -- check logged in only attributes
+  assert(conn.login == nil)
+  assert(conn.busid == nil)
+  -- check the attempt to logoff again
+  assert(conn:logout() == false)
+  -- check the failure of 'startSingleSignOn'
+  local ex = catcherr(conn.startSingleSignOn, conn)
+  assert(ex._repid == sysex.NO_PERMISSION)
+  assert(ex.completed == "COMPLETED_NO")
+  assert(ex.minor == idl.const.services.access_control.NoLoginCode)
+  -- check the login is invalid to perform calls
+  local ex = callwithin(conn, catcherr, offers.findServices, offers, {})
+  assert(ex._repid == sysex.NO_PERMISSION)
+  assert(ex.completed == "COMPLETED_NO")
+  assert(ex.minor == idl.const.services.access_control.NoLoginCode)
+  return conn
+end
+
+log:TEST(true, "ConnectionManager::createConnection")
+
+do log:TEST "connect with invalid host"
+  for _, invalid in ipairs{true,false,123,{},error,thread,userdata} do
+    local badtype = type(invalid)
+    local ex = catcherr(manager.createConnection, manager, invalid, busport)
+    assert(ex:match("bad argument #2 to 'createConnection' %(expected string, got "..badtype.."%)$"))
+  end
+end
+
+do log:TEST "connect with invalid port"
+  for _, invalid in ipairs{true,false,{},error,thread,userdata} do
+    local badtype = type(invalid)
+    local ex = catcherr(manager.createConnection, manager, bushost, invalid)
+    assert(ex:match("bad argument #3 to 'createConnection' %(expected number|string, got "..badtype.."%)$"))
+  end
+end
+
+do log:TEST "connect with invalid properties"
+  for _, invalid in ipairs{true,false,123,"nolegacy",error,thread,userdata} do
+    local badtype = type(invalid)
+    local ex = catcherr(manager.createConnection, manager, bushost, busport, invalid)
+    assert(ex:match("bad argument #4 to 'createConnection' %(expected nil|table, got "..badtype.."%)$"))
+  end
+end
+
+do log:TEST "connect to unavailable host"
+  local ex = catcherr(manager.createConnection, manager, "unavailable", busport)
+  assert(ex._repid == sysex.TRANSIENT)
+  assert(ex.completed == "COMPLETED_NO")
+end
+
+do log:TEST "connect to unavailable port"
+  local ex = catcherr(manager.createConnection, manager, bushost, 0)
+  assert(ex._repid == sysex.TRANSIENT)
+  assert(ex.completed == "COMPLETED_NO")
+end
+
+do log:TEST "connect to bus"
+  for i = 1, 2 do
+    conns[i] = assertlogoff(manager:createConnection(bushost, busport))
+  end
+end
+
+for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
+  local connIdx = 0
+  repeat
+    
+    log:TEST(true, "Connection::loginBy* (",connOp,"=",connIdx==0 and "nil" or "conn"..connIdx,")")
+    
+    do log:TEST "login with invalid entity"
+      local conn = conns[1]
+      for _, invalid in ipairs{nil,true,false,123,{},error,thread,userdata} do
+        local badtype = type(invalid)
+        for _, op in ipairs{"loginByPassword", "loginByCertificate"} do
+          local ex = catcherr(conn[op], conn, invalid, select(2, loginways[op]()))
+          assert(ex:match("bad argument #1 to '"..op.."' %(expected string, got "..badtype.."%)$"))
+          assertlogoff(conn)
+        end
+      end
+    end
+    
+    do log:TEST "login with invalid password"
+      local conn = conns[1]
+      for _, invalid in ipairs{nil,true,false,123,{},error,thread,userdata} do
+        local badtype = type(invalid)
+        local ex = catcherr(conn.loginByPassword, conn, entity, invalid)
+        assert(ex:match("bad argument #2 to 'loginByPassword' %(expected string, got "..badtype.."%)$"))
+        assertlogoff(conn)
+      end
+    end
+    
+    do log:TEST "login with invalid private key"
+      local conn = conns[1]
+      for _, invalid in ipairs{nil,true,false,123,"key",{},error,thread} do
+        local badtype = type(invalid)
+        local ex = catcherr(conn.loginByCertificate, conn, entity, invalid)
+        assert(ex:match("bad argument #2 to 'loginByCertificate' %(expected userdata, got "..badtype.."%)$"))
+        assertlogoff(conn)
+      end
+    end
+    
+    do log:TEST "login with wrong password"
+      local conn = conns[1]
+      local ex = catcherr(conn.loginByPassword, conn, entity, "WrongPassword")
+      assert(ex._repid == idl.types.services.access_control.AccessDenied)
+      assertlogoff(conn)
+    end
+    
+    do log:TEST "login with entity without certificate"
+      local conn = conns[1]
+      local ex = catcherr(conn.loginByCertificate, conn, "NoCertif.", privatekey)
+      assert(ex._repid == idl.types.services.access_control.MissingCertificate)
+      assert(ex.entity == "NoCertif.")
+      assertlogoff(conn)
+    end
+    
+    do log:TEST "login with wrong private key"
+      local conn = conns[1]
+      local ex = catcherr(conn.loginByCertificate, conn, entity,
+                          pubkey.create(idl.const.EncryptedBlockSize))
+      assert(ex:find(msg.WrongPrivateKey, 1, true))
+      assertlogoff(conn)
+    end
+    
+    do
+      local function testlogin(conn, op, getparams)
+        
+        log:TEST("successful Connection::",op)
+        if getparams == nil then getparams = loginways[op] end
+        -- first login
+        conn[op](conn, getparams())
+        assertlogged(conn)
+        local loginid = conn.login.id
+        local busid = conn.busid
+        -- first logout
+        conn:logout()
+        assertlogoff(conn)
+        -- second login
+        local function relogin()
+          conn[op](conn, getparams())
+          assertlogged(conn)
+          assert(conn.login.id ~= loginid)
+          assert(conn.busid == busid)
+          loginid = conn.login.id
+        end
+        relogin()
+        -- automatic login renew
+        sleep(2*leasetime)
+        assertlogged(conn)
+        assert(conn.login.id == loginid)
+        assert(conn.busid == busid)
+        
+        for otherIdx, other in ipairs(conns) do
+          if other.login == nil then
+            
+            log:TEST(true, "Connection::loginBySingleSignOn (from=Connection::",op,")")
+            
+            do log:TEST "login with wrong secret"
+              local attempt = conn:startSingleSignOn()
+              local ex = catcherr(other.loginBySingleSignOn, other, attempt, "WrongSecret")
+              assert(ex._repid == idl.types.services.access_control.AccessDenied)
+              assertlogoff(other)
+              assertlogged(conn)
+            end
+            do log:TEST "login with canceled attempt"
+              local attempt, secret = conn:startSingleSignOn()
+              conn:cancelSingleSignOn(attempt)
+              local ex = catcherr(other.loginBySingleSignOn, other, attempt, secret)
+              assert(ex._repid == sysex.OBJECT_NOT_EXIST)
+              assertlogoff(other)
+              assertlogged(conn)
+            end
+            do log:TEST "login with expired attempt"
+              local attempt, secret = conn:startSingleSignOn()
+              sleep(2*leasetime)
+              local ex = catcherr(other.loginBySingleSignOn, other, attempt, secret)
+              assert(ex._repid == sysex.OBJECT_NOT_EXIST)
+              assertlogoff(other)
+              assertlogged(conn)
+            end
+            do
+              testlogin(other, "loginBySingleSignOn", function()
+                return conn:startSingleSignOn()
+              end)
+              assertlogged(conn)
+            end
+            
+            log:TEST(false)
+            
+            break
+          end
+        end
+        
+        log:TEST(true, "Connection::onInvalidLogin (how=",op,")")
+        
+        local offers = conn.offers
+        local called
+        local function assertCallback(self, login, busid)
+          assert(self == conn)
+          assert(login.id == loginid)
+          assert(login.entity == entity)
+          assert(busid == busid)
+          assertlogoff(conn)
+          called = true
+        end
+        
+        do log:TEST "become invalid"
+          conn.onInvalidLogin = assertCallback
+          -- during renew
+          invalidate(conn.login.id)
+          assert(called == nil)
+          sleep(leasetime+2) -- wait renew
+          assert(called); called = nil
+          assertlogoff(conn)
+          relogin()
+          -- during call
+          invalidate(conn.login.id)
+          assert(called == nil)
+          local ex = callwithin(conn, catcherr, offers.findServices, offers, {})
+          assert(ex._repid == sysex.NO_PERMISSION)
+          assert(ex.completed == "COMPLETED_NO")
+          assert(ex.minor == idl.const.services.access_control.InvalidLoginCode)
+          assert(called); called = nil
+          assertlogoff(conn)
+          relogin()
+        end
+        
+        do log:TEST "reconnect"
+          function conn:onInvalidLogin(login, busid)
+            assertCallback(self, login, busid)
+            relogin()
+            return true
+          end
+          -- during renew
+          invalidate(conn.login.id)
+          assert(called == nil)
+          sleep(leasetime+2) -- wait renew
+          assert(called); called = nil
+          -- during call
+          invalidate(conn.login.id)
+          assert(called == nil)
+          callwithin(conn, offers.findServices, offers, {})
+          assert(called); called = nil
+        end
+        
+        do log:TEST "raise error"
+          local raised = {"Oops!"}
+          function conn:onInvalidLogin(login, busid)
+            assertCallback(self, login, busid)
+            error(raised)
+          end
+          -- during renew
+          invalidate(conn.login.id)
+          assert(called == nil)
+          sleep(leasetime+2) -- wait renew
+          assert(called); called = nil
+          assertlogoff(conn)
+          relogin()
+          -- during call
+          invalidate(conn.login.id)
+          assert(called == nil)
+          local ex = callwithin(conn, catcherr, offers.findServices, offers, {})
+          assert(ex == raised)
+          assert(called); called = nil
+        end
+        
+        log:TEST(false)
+        
+      end
+      
+      testlogin(conns[1], "loginByPassword")
+      testlogin(conns[1], "loginByCertificate")
+    end
+    
+    log:TEST(false)
+    
+    assert(manager["get"..connOp](manager) == conns[connIdx])
+    connIdx = connIdx+1
+    local nextConn = conns[connIdx]
+    manager["set"..connOp](manager, nextConn)
+  until nextConn == nil
+end
+
+log:TEST(false)
+
+shutdown()
