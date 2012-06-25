@@ -10,6 +10,6 @@ openbus/LoginLogout \
 "
 for case in ${LUACASES}; do
 	echo -n "Test '${case}' ... "
-	${CONSOLE} ${TESTDIR}/${case}.lua $@
+	${CONSOLE} ${TESTDIR}/${case}.lua $@ || exit $?
 	echo "OK"
 done
