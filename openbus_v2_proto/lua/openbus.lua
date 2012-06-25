@@ -282,8 +282,10 @@ function Connection:__init()
 end
 
 function Connection:sendrequest(request)
-  if self.login ~= nil then
+  local login = self.login
+  if login ~= nil then
     sendBusRequest(self, request)
+    request.login = login
   else
     setNoPermSysEx(request, loginconst.NoLoginCode)
     log:exception(msg.AttemptToCallWhileNotLoggedIn:tag{
@@ -299,17 +301,28 @@ function Connection:receivereply(request)
     if except._repid == sysex.NO_PERMISSION
     and except.completed == "COMPLETED_NO"
     and except.minor == loginconst.InvalidLoginCode then
+      local reqlogin = request.login
       log:exception(msg.GotInvalidLoginException:tag{
         operation = request.operation_name,
+        login = reqlogin.id,
+        entity = reqlogin.entity,
       })
       local login = self.login
-      local busid = self.busid
-      localLogout(self)
-      if self:onInvalidLogin(login, busid) then
+      if reqlogin == login then
+        local busid = self.busid
+        localLogout(self)
+        self:onInvalidLogin(login, busid)
+      end
+      login = self.login
+      if login ~= nil then
         request.success = nil -- reissue request to the same reference
-        log:action(msg.ReissueCallAfterInvalidLoginCallback:tag{
+        log:action(msg.ReissueCallAfterInvalidLogin:tag{
           operation = request.operation_name,
+          login = login.id,
+          entity = login.entity,
         })
+      else
+        except.minor = loginconst.NoLoginCode
       end
     end
   end
