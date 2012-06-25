@@ -1,7 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 
 CONSOLE="${OPENBUS_HOME}/bin/busconsole"
-TESTDIR=${OPENBUS_HOME}/test
 
 LUACASES="\
 openbus/util/tickets \
@@ -10,6 +9,6 @@ openbus/LoginLogout \
 "
 for case in ${LUACASES}; do
 	echo -n "Test '${case}' ... "
-	${CONSOLE} ${TESTDIR}/${case}.lua $@ || exit $?
+	${CONSOLE} ${case}.lua $@ || exit $?
 	echo "OK"
 done
