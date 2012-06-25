@@ -9,29 +9,19 @@ local unpack = _G.unpack
 local coroutine = require "coroutine"
 local string = require "string"
 local io = require "io"
+local uuid = require "uuid"
 local pubkey = require "lce.pubkey"
 local giop = require "oil.corba.giop"
 local cothread = require "cothread"
 local openbus = require "openbus"
-local msg = require "openbus.util.messages"
 local idl = require "openbus.core.idl"
+local msg = require "openbus.util.messages"
 local log = require "openbus.util.logger"
 
-log:level(0)
-log:flag("TEST", true)
+bushost, busport, verbose = ...
+require "openbus.util.testcfg"
 
--- Configurações --------------------------------------------------------------
-local bushost = "localhost"
-local busport = 2089
-local admin = "admin"
-local admpsw = admin
-local entity = "TesteBarramento"
-local password = entity
-local keypath = "TesteBarramento.key"
-
-local file = assert(io.open(keypath, "rb"))
-local privatekey = assert(pubkey.decodeprivate(assert(file:read("*a"))))
-file:close()
+log:flag("TEST", verbose~=nil)
 
 local thread = coroutine.running()
 local userdata = io.stdout
@@ -39,10 +29,7 @@ local sleep = cothread.delay
 
 local sysex = giop.SystemExceptionIDs
 
-local FourHex = string.rep("%x", 4)
-local RamdonUuid = string.format("^%s%%-%s%%-%s%%-%s%%-%s$",
-  FourHex:rep(2), FourHex, "4%x%x%x", "[89AB]%x%x%x", FourHex:rep(3))
-
+local entity = nil -- defined later
 local orb = openbus.initORB()
 local manager = orb.OpenBusConnectionManager
 assert(manager.orb == orb)
@@ -74,10 +61,6 @@ local invalidate, shutdown, leasetime do
   manager:setDefaultConnection(conn)
   leasetime = conn.AccessControl:renew()
   function invalidate(loginId)
-    local validity = logins:getValidity({loginId})[1]
-    if validity < 1 then
-      sleep(2) -- wait for the renewer thread to renew the login
-    end
     logins:invalidateLogin(loginId)
   end
   function shutdown()
@@ -86,14 +69,14 @@ local invalidate, shutdown, leasetime do
 end
 
 local loginways = {
-  loginByPassword = function() return entity, password end,
-  loginByCertificate = function() return entity, privatekey end,
+  loginByPassword = function() return user, password end,
+  loginByCertificate = function() return system, syskey end,
   loginBySingleSignOn = function()
     return { -- dummy login process object
       login = function()
         return {
           id = "60D57646-33A4-4108-88DD-AE9B7A9E3C7A",
-          entity = entity,
+          entity = system,
         }, leasetime
       end,
       cancel = function () end,
@@ -108,8 +91,8 @@ local function assertlogged(conn)
   assert(conn.orb == orb)
   -- check logged in only attributes
   assert(conn.login.entity == entity)
-  assert(conn.login.id:match(RamdonUuid))
-  assert(conn.busid:match(RamdonUuid))
+  assert(uuid.isvalid(conn.login.id))
+  assert(uuid.isvalid(conn.busid))
   local loginid = conn.login.id
   local busid = conn.busid
   -- check the attempt to login again
@@ -216,7 +199,7 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
       local conn = conns[1]
       for _, invalid in ipairs{nil,true,false,123,{},error,thread,userdata} do
         local badtype = type(invalid)
-        local ex = catcherr(conn.loginByPassword, conn, entity, invalid)
+        local ex = catcherr(conn.loginByPassword, conn, user, invalid)
         assert(ex:match("bad argument #2 to 'loginByPassword' %(expected string, got "..badtype.."%)$"))
         assertlogoff(conn)
       end
@@ -226,7 +209,7 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
       local conn = conns[1]
       for _, invalid in ipairs{nil,true,false,123,"key",{},error,thread} do
         local badtype = type(invalid)
-        local ex = catcherr(conn.loginByCertificate, conn, entity, invalid)
+        local ex = catcherr(conn.loginByCertificate, conn, system, invalid)
         assert(ex:match("bad argument #2 to 'loginByCertificate' %(expected userdata, got "..badtype.."%)$"))
         assertlogoff(conn)
       end
@@ -234,14 +217,14 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
     
     do log:TEST "login with wrong password"
       local conn = conns[1]
-      local ex = catcherr(conn.loginByPassword, conn, entity, "WrongPassword")
+      local ex = catcherr(conn.loginByPassword, conn, user, "WrongPassword")
       assert(ex._repid == idl.types.services.access_control.AccessDenied)
       assertlogoff(conn)
     end
     
     do log:TEST "login with entity without certificate"
       local conn = conns[1]
-      local ex = catcherr(conn.loginByCertificate, conn, "NoCertif.", privatekey)
+      local ex = catcherr(conn.loginByCertificate, conn, "NoCertif.", syskey)
       assert(ex._repid == idl.types.services.access_control.MissingCertificate)
       assert(ex.entity == "NoCertif.")
       assertlogoff(conn)
@@ -249,7 +232,7 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
     
     do log:TEST "login with wrong private key"
       local conn = conns[1]
-      local ex = catcherr(conn.loginByCertificate, conn, entity,
+      local ex = catcherr(conn.loginByCertificate, conn, system,
                           pubkey.create(idl.const.EncryptedBlockSize))
       assert(ex:find(msg.WrongPrivateKey, 1, true))
       assertlogoff(conn)
@@ -352,7 +335,7 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
           local ex = callwithin(conn, catcherr, offers.findServices, offers, {})
           assert(ex._repid == sysex.NO_PERMISSION)
           assert(ex.completed == "COMPLETED_NO")
-          assert(ex.minor == idl.const.services.access_control.InvalidLoginCode)
+          assert(ex.minor == idl.const.services.access_control.NoLoginCode)
           assert(called); called = nil
           assertlogoff(conn)
           relogin()
@@ -362,7 +345,6 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
           function conn:onInvalidLogin(login, busid)
             assertCallback(self, login, busid)
             relogin()
-            return true
           end
           -- during renew
           invalidate(conn.login.id)
@@ -401,8 +383,8 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
         
       end
       
-      testlogin(conns[1], "loginByPassword")
-      testlogin(conns[1], "loginByCertificate")
+      entity = user; testlogin(conns[1], "loginByPassword")
+      entity = system; testlogin(conns[1], "loginByCertificate")
     end
     
     log:TEST(false)
