@@ -21,9 +21,9 @@ for _, parsed in ipairs(parsed) do
 end
 
 local idl = {
-  types = types.tecgraf.openbus.core.v2_00,
-  const = const.tecgraf.openbus.core.v2_00,
-  throw = throw.tecgraf.openbus.core.v2_00,
+  types = types.tecgraf.openbus.core.v2_0,
+  const = const.tecgraf.openbus.core.v2_0,
+  throw = throw.tecgraf.openbus.core.v2_0,
 }
 
 local ServiceFailure
