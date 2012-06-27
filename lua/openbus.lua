@@ -29,7 +29,11 @@ local LRUCache = require "loop.collection.LRUCache"
 local Wrapper = require "loop.object.Wrapper"
 
 local cothread = require "cothread"
+local resume = cothread.next
 local running = cothread.running
+local threadtrap = cothread.trap
+local unschedule = cothread.unschedule
+
 local Mutex = require "cothread.Mutex"
 
 local giop = require "oil.corba.giop"
@@ -58,12 +62,8 @@ local receiveBusRequest = CoreInterceptor.receiverequest
 
 -- must be loaded after OiL is loaded because OiL is the one that installs
 -- the cothread plug-in that supports the 'now' operation.
-local cothread = require "cothread"
-local resume = cothread.next
-local unschedule = cothread.unschedule
-local deferuntil = cothread.defer
+local delay = cothread.delay
 local time = cothread.now
-local threadtrap = cothread.trap
 
 
 
@@ -220,7 +220,7 @@ local function newRenewer(self, lease)
     local access = self.AccessControl
     while self.login == login do
       self.renewer = thread
-      deferuntil(time()+lease)
+      delay(lease)
       self.renewer = nil
       log:action(msg.RenewLogin:tag{id=login.id,entity=login.entity})
       local ok, result = pcall(access.renew, access)
@@ -623,7 +623,13 @@ end
 
 
 
-local openbus = {}
+local openbus = { sleep = delay }
+
+function openbus.newthread(func, ...)
+  local thread = newthread(func)
+  cothread.next(thread, ...)
+  return thread
+end
 
 function openbus.initORB(configs)
   local orb = neworb(copy(configs))
@@ -657,6 +663,8 @@ argcheck.convertclass(ConnectionManager, {
   clearDispatcher = { "string" },
 })
 argcheck.convertmodule(openbus, {
+  sleep = { "number" },
+  newthread = { "function" },
   initORB = { "nil|table" },
 })
 
