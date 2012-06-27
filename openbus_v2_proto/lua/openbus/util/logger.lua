@@ -4,9 +4,11 @@ local Verbose = require "loop.debug.Verbose"
 local Viewer = require "loop.debug.Viewer"
 local oillog = require "oil.verbose"
 
+local TimeFormat = "%d/%m/%Y %H:%M:%S"
+
 oillog.showthread = true
 oillog.timed = true
-oillog:settimeformat("%d/%m/%Y %H:%M:%S") -- inclui data e hora no log do OiL
+oillog:settimeformat(TimeFormat) -- inclui data e hora no log do OiL
 
 local log = Verbose{
   timed = true,
@@ -31,6 +33,6 @@ local log = Verbose{
     DEBUG = { "LOGIN_CACHE" } -- TODO:[maia] to be removed after all tests
   },
 }
-log:settimeformat("%d/%m/%Y %H:%M:%S") -- inclui data e hora no log
+log:settimeformat(TimeFormat) -- inclui data e hora no log
 log:flag("print", true)
 return log
