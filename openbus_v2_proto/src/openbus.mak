@@ -15,7 +15,6 @@ LUASRC= \
   $(LUADIR)/openbus/core/legacy/parsed.lua \
   $(LUADIR)/openbus/core/legacy/idl.lua \
   $(LUADIR)/openbus/core/messages.lua \
-  $(LUADIR)/openbus/multiplexed.lua \
   $(LUADIR)/openbus/util/argcheck.lua \
   $(LUADIR)/openbus/util/autotable.lua \
   $(LUADIR)/openbus/util/database.lua \
