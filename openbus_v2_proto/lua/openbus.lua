@@ -405,9 +405,9 @@ function Connection:loginByCertificate(entity, privatekey)
   })
 end
 
-function Connection:startSingleSignOn()
+function Connection:startSharedAuth()
   local attempt, challenge = callWithin(self, self.AccessControl,
-                                        "startLoginBySingleSignOn")
+                                        "startLoginBySharedAuth")
   local secret, errmsg = self.prvkey:decrypt(challenge)
   if secret == nil then
     attempt:cancel()
@@ -416,11 +416,11 @@ function Connection:startSingleSignOn()
   return attempt, secret
 end
 
-function Connection:cancelSingleSignOn(attempt)
+function Connection:cancelSharedAuth(attempt)
   attempt:cancel()
 end
 
-function Connection:loginBySingleSignOn(attempt, secret)
+function Connection:loginBySharedAuth(attempt, secret)
   if self.login ~= nil then error(msg.AlreadyLoggedIn) end
   local access = self.AccessControl
   local busid = access:_get_busid()
@@ -440,7 +440,7 @@ function Connection:loginBySingleSignOn(attempt, secret)
   self.busid = busid
   self.buskey = buskey
   newRenewer(self, lease)
-  log:request(msg.LoginBySingleSignOn:tag{
+  log:request(msg.LoginBySharedAuth:tag{
     bus = busid,
     login = login.id,
     entity = login.entity,
@@ -597,8 +597,8 @@ do
     [Connection] = {
       "loginByPassword",
       "loginByCertificate",
-      "loginBySingleSignOn",
-      "cancelSingleSignOn",
+      "loginBySharedAuth",
+      "cancelSharedAuth",
     },
     [ConnectionManager] = {
       "createConnection",

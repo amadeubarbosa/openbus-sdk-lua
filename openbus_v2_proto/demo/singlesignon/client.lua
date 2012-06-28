@@ -12,8 +12,8 @@ local conn2 = openbus.connect("localhost", 2089, orb2)
 conn1:loginByPassword("demo", "demo")
 
 -- login to the bus using single sign-on
-local logger, secret = conn1:startSingleSignOn()
-conn2:loginBySingleSignOn(logger, secret)
+local logger, secret = conn1:startSharedAuth()
+conn2:loginBySharedAuth(logger, secret)
 
 -- find the offered service
 for _, conn in ipairs{conn1, conn2} do
