@@ -553,6 +553,7 @@ function ConnectionManager:createConnection(host, port, props)
     orb = orb,
     bus = orb:newproxy(ref, nil, "scs::core::IComponent"),
     legacy = legacy,
+    prvkey = props.privatekey,
   }
 end
 
