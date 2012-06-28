@@ -71,7 +71,7 @@ end
 local loginways = {
   loginByPassword = function() return user, password end,
   loginByCertificate = function() return system, syskey end,
-  loginBySingleSignOn = function()
+  loginBySharedAuth = function()
     return { -- dummy login process object
       login = function()
         return {
@@ -103,8 +103,8 @@ local function assertlogged(conn)
     assert(conn.login.id == loginid)
     assert(conn.busid == busid)
   end
-  -- check the failure of 'startSingleSignOn'
-  conn:cancelSingleSignOn(conn:startSingleSignOn())
+  -- check the failure of 'startSharedAuth'
+  conn:cancelSharedAuth(conn:startSharedAuth())
   -- check the login is valid to perform calls
   callwithin(conn, offers.findServices, offers, {})
   return conn
@@ -120,8 +120,8 @@ local function assertlogoff(conn)
   assert(conn.busid == nil)
   -- check the attempt to logoff again
   assert(conn:logout() == false)
-  -- check the failure of 'startSingleSignOn'
-  local ex = catcherr(conn.startSingleSignOn, conn)
+  -- check the failure of 'startSharedAuth'
+  local ex = catcherr(conn.startSharedAuth, conn)
   assert(ex._repid == sysex.NO_PERMISSION)
   assert(ex.completed == "COMPLETED_NO")
   assert(ex.minor == idl.const.services.access_control.NoLoginCode)
@@ -269,34 +269,34 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
         for otherIdx, other in ipairs(conns) do
           if other.login == nil then
             
-            log:TEST(true, "Connection::loginBySingleSignOn (from=Connection::",op,")")
+            log:TEST(true, "Connection::loginBySharedAuth (from=Connection::",op,")")
             
             do log:TEST "login with wrong secret"
-              local attempt = conn:startSingleSignOn()
-              local ex = catcherr(other.loginBySingleSignOn, other, attempt, "WrongSecret")
+              local attempt = conn:startSharedAuth()
+              local ex = catcherr(other.loginBySharedAuth, other, attempt, "WrongSecret")
               assert(ex._repid == idl.types.services.access_control.AccessDenied)
               assertlogoff(other)
               assertlogged(conn)
             end
             do log:TEST "login with canceled attempt"
-              local attempt, secret = conn:startSingleSignOn()
-              conn:cancelSingleSignOn(attempt)
-              local ex = catcherr(other.loginBySingleSignOn, other, attempt, secret)
+              local attempt, secret = conn:startSharedAuth()
+              conn:cancelSharedAuth(attempt)
+              local ex = catcherr(other.loginBySharedAuth, other, attempt, secret)
               assert(ex._repid == sysex.OBJECT_NOT_EXIST)
               assertlogoff(other)
               assertlogged(conn)
             end
             do log:TEST "login with expired attempt"
-              local attempt, secret = conn:startSingleSignOn()
+              local attempt, secret = conn:startSharedAuth()
               sleep(2*leasetime)
-              local ex = catcherr(other.loginBySingleSignOn, other, attempt, secret)
+              local ex = catcherr(other.loginBySharedAuth, other, attempt, secret)
               assert(ex._repid == sysex.OBJECT_NOT_EXIST)
               assertlogoff(other)
               assertlogged(conn)
             end
             do
-              testlogin(other, "loginBySingleSignOn", function()
-                return conn:startSingleSignOn()
+              testlogin(other, "loginBySharedAuth", function()
+                return conn:startSharedAuth()
               end)
               assertlogged(conn)
             end
