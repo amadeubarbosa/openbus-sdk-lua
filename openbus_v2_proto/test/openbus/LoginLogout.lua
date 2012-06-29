@@ -53,21 +53,6 @@ local callwithin do
   end
 end
 
-local invalidate, shutdown, leasetime do
-  local manager = openbus.initORB().OpenBusConnectionManager
-  local conn = manager:createConnection(bushost, busport)
-  local logins = conn.logins
-  conn:loginByPassword(admin, admpsw)
-  manager:setDefaultConnection(conn)
-  leasetime = conn.AccessControl:renew()
-  function invalidate(loginId)
-    logins:invalidateLogin(loginId)
-  end
-  function shutdown()
-    conn:logout()
-  end
-end
-
 local loginways = {
   loginByPassword = function() return user, password end,
   loginByCertificate = function() return system, syskey end,
@@ -77,7 +62,7 @@ local loginways = {
         return {
           id = "60D57646-33A4-4108-88DD-AE9B7A9E3C7A",
           entity = system,
-        }, leasetime
+        }, 1
       end,
       cancel = function () end,
     },
@@ -177,6 +162,26 @@ do log:TEST "connect to bus"
   end
 end
 
+-- create a valid key to be used as a wrong key in the tests below.
+-- the generation of this key is too time consuming and may delay the renewer
+-- thread of the admin account to renew the admin login in time.
+local WrongKey = pubkey.create(idl.const.EncryptedBlockSize)
+-- login as admin and provide additional functionality for the test
+local invalidate, shutdown, leasetime do
+  local manager = openbus.initORB().OpenBusConnectionManager
+  local conn = manager:createConnection(bushost, busport)
+  local logins = conn.logins
+  conn:loginByPassword(admin, admpsw)
+  manager:setDefaultConnection(conn)
+  leasetime = conn.AccessControl:renew()
+  function invalidate(loginId)
+    logins:invalidateLogin(loginId)
+  end
+  function shutdown()
+    conn:logout()
+  end
+end
+
 for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
   local connIdx = 0
   repeat
@@ -232,8 +237,7 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
     
     do log:TEST "login with wrong private key"
       local conn = conns[1]
-      local ex = catcherr(conn.loginByCertificate, conn, system,
-                          pubkey.create(idl.const.EncryptedBlockSize))
+      local ex = catcherr(conn.loginByCertificate, conn, system, WrongKey)
       assert(ex:find(msg.WrongPrivateKey, 1, true))
       assertlogoff(conn)
     end
