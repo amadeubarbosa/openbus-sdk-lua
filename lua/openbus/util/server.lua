@@ -180,7 +180,7 @@ module.ConfigArgs = class({
   -- mensagens de erro nos argumentos de linha de comando
   _badnumber = "valor do parâmetro '%s' é inválido (número esperado ao invés de '%s')",
   _missing = "nenhum valor definido para o parâmetro '%s'",
-  _unknown = "parâmetro inválido '%s'",
+  _unknown = "parâmetro '%s' é desconhecido",
   _norepeat = "parâmetro '%s' só pode ser definido uma vez",
 }, Arguments)
 
