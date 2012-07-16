@@ -75,6 +75,7 @@ local function assertlogged(conn)
   assert(offers ~= nil)
   assert(conn.orb == orb)
   -- check logged in only attributes
+  assert(conn.login ~= nil)
   assert(conn.login.entity == entity)
   assert(uuid.isvalid(conn.login.id))
   assert(uuid.isvalid(conn.busid))
@@ -95,26 +96,28 @@ local function assertlogged(conn)
   return conn
 end
 
-local function assertlogoff(conn)
+local function assertlogoff(conn, invalid)
   -- check constant attributes
   local offers = conn.offers
   assert(offers ~= nil)
   assert(conn.orb == orb)
   -- check logged in only attributes
   assert(conn.login == nil)
-  assert(conn.busid == nil)
-  -- check the attempt to logoff again
-  assert(conn:logout() == false)
-  -- check the failure of 'startSharedAuth'
-  local ex = catcherr(conn.startSharedAuth, conn)
-  assert(ex._repid == sysex.NO_PERMISSION)
-  assert(ex.completed == "COMPLETED_NO")
-  assert(ex.minor == idl.const.services.access_control.NoLoginCode)
-  -- check the login is invalid to perform calls
-  local ex = callwithin(conn, catcherr, offers.findServices, offers, {})
-  assert(ex._repid == sysex.NO_PERMISSION)
-  assert(ex.completed == "COMPLETED_NO")
-  assert(ex.minor == idl.const.services.access_control.NoLoginCode)
+  assert(uuid.isvalid(conn.busid))
+  if not invalid then
+    -- check the attempt to logoff again
+    assert(conn:logout() == false)
+    -- check the failure of 'startSharedAuth'
+    local ex = catcherr(conn.startSharedAuth, conn)
+    assert(ex._repid == sysex.NO_PERMISSION)
+    assert(ex.completed == "COMPLETED_NO")
+    assert(ex.minor == idl.const.services.access_control.NoLoginCode)
+    -- check the login is invalid to perform calls
+    local ex = callwithin(conn, catcherr, offers.findServices, offers, {})
+    assert(ex._repid == sysex.NO_PERMISSION)
+    assert(ex.completed == "COMPLETED_NO")
+    assert(ex.minor == idl.const.services.access_control.NoLoginCode)
+  end
   return conn
 end
 
@@ -315,27 +318,26 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
         
         local offers = conn.offers
         local called
-        local function assertCallback(self, login, busid)
+        local function assertCallback(self, login)
           assert(self == conn)
           assert(login.id == loginid)
           assert(login.entity == entity)
-          assert(busid == busid)
-          assertlogoff(conn)
+          assertlogoff(conn, "invalid login")
           called = true
         end
         
         do log:TEST "become invalid"
           conn.onInvalidLogin = assertCallback
           -- during renew
-          invalidate(conn.login.id)
           assert(called == nil)
+          invalidate(conn.login.id)
           sleep(leasetime+2) -- wait renew
           assert(called); called = nil
           assertlogoff(conn)
           relogin()
           -- during call
-          invalidate(conn.login.id)
           assert(called == nil)
+          invalidate(conn.login.id)
           local ex = callwithin(conn, catcherr, offers.findServices, offers, {})
           assert(ex._repid == sysex.NO_PERMISSION)
           assert(ex.completed == "COMPLETED_NO")
@@ -346,38 +348,42 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
         end
         
         do log:TEST "reconnect"
-          function conn:onInvalidLogin(login, busid)
-            assertCallback(self, login, busid)
-            relogin()
+          function conn:onInvalidLogin(login)
+            assertCallback(self, login)
+            local ok, ex = pcall(relogin)
+            if not ok then
+              assert(ex:find(msg.AlreadyLoggedIn, 1, true) == 1+#ex-#msg.AlreadyLoggedIn, ex)
+            end
+            assertlogged(self)
           end
           -- during renew
-          invalidate(conn.login.id)
           assert(called == nil)
+          invalidate(conn.login.id)
           sleep(leasetime+2) -- wait renew
           assert(called); called = nil
           -- during call
-          invalidate(conn.login.id)
           assert(called == nil)
+          invalidate(conn.login.id)
           callwithin(conn, offers.findServices, offers, {})
           assert(called); called = nil
         end
         
         do log:TEST "raise error"
           local raised = {"Oops!"}
-          function conn:onInvalidLogin(login, busid)
-            assertCallback(self, login, busid)
+          function conn:onInvalidLogin(login)
+            assertCallback(self, login)
             error(raised)
           end
           -- during renew
-          invalidate(conn.login.id)
           assert(called == nil)
+          invalidate(conn.login.id)
           sleep(leasetime+2) -- wait renew
           assert(called); called = nil
           assertlogoff(conn)
           relogin()
           -- during call
-          invalidate(conn.login.id)
           assert(called == nil)
+          invalidate(conn.login.id)
           local ex = callwithin(conn, catcherr, offers.findServices, offers, {})
           assert(ex == raised)
           assert(called); called = nil

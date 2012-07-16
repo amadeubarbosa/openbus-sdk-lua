@@ -43,8 +43,10 @@ local log = require "openbus.util.logger"
 local msg = require "openbus.util.messages"
 local oo = require "openbus.util.oo"
 local class = oo.class
+local sysexthrow = require "openbus.util.sysex"
 
 local idl = require "openbus.core.idl"
+local BusLogin = idl.const.BusLogin
 local ServiceFailure = idl.throw.services.ServiceFailure
 local loginthrow = idl.throw.services.access_control
 local loginconst = idl.const.services.access_control
@@ -164,30 +166,19 @@ local function newLoginRegistryWrapper(logins)
   return self
 end
 
+local function unmarshalChain(self, signed)
+  local decoder = self.orb:newdecoder(signed.encoded)
+  return decoder:get(self.types.CallChain)
+end
+
 local function unmarshalBusId(self, contexts)
   local decoder = self.orb:newdecoder(contexts[CredentialContextId])
-  return decoder:get(self.identifierType)
+  return decoder:get(self.types.Identifier)
 end
 
 local function getBusId(self, contexts)
   local ok, result = pcall(unmarshalBusId, self, contexts)
   if ok then return result end
-end
-
-local function localLogout(self)
-  local busid = self.busid
-  local dispatcherOf = self.manager.dispatcherOf
-  if dispatcherOf[busid] == self then
-    dispatcherOf[busid] = nil
-  end
-  self.login = nil
-  self.busid = nil
-  self:resetCaches()
-  local renewer = self.renewer
-  if renewer ~= nil then
-    self.renewer = nil
-    unschedule(renewer)
-  end
 end
 
 local pcallWithin do
@@ -235,6 +226,44 @@ local function newRenewer(self, lease)
   resume(thread)
 end
 
+local function localLogout(self)
+  self.login = nil
+  self:resetCaches()
+  local renewer = self.renewer
+  if renewer ~= nil then
+    self.renewer = nil
+    unschedule(renewer)
+  end
+end
+
+local function localLogin(self, busid, login, lease)
+  if self.busid ~= busid then error(msg.InvalidBus) end
+  if self.login ~= nil then error(msg.AlreadyLoggedIn) end
+  self.invalidLogin = nil
+  self.login = login
+  newRenewer(self, lease)
+end
+
+local function getLogin(self)
+  local login = self.login
+  if login == nil then
+    -- try to recover from an invalid login
+    local invlogin = self.invalidLogin
+    while invlogin ~= nil do
+      self:onInvalidLogin(invlogin)
+      local current = self.invalidLogin
+      if current == invlogin then
+        self.invalidLogin = nil
+        invlogin = nil
+      else
+        invlogin = current
+      end
+    end
+    login = self.login
+  end
+  return login
+end
+
 local LoginServiceNames = {
   AccessControl = "AccessControl",
   certificates = "CertificateRegistry",
@@ -253,7 +282,9 @@ local Connection = class({}, CoreInterceptor)
 function Connection:__init()
   local orb = self.orb
   -- retrieve IDL definitions for login
-  self.LoginAuthenticationInfo =
+  self.types.Identifier =
+    assert(orb.types:lookup_id(idl.types.Identifier))
+  self.types.LoginAuthenticationInfo =
     assert(orb.types:lookup_id(logintypes.LoginAuthenticationInfo))
   -- retrieve core service references
   local bus = self.bus
@@ -271,6 +302,9 @@ function Connection:__init()
   end
   -- create wrapper for core service LoginRegistry
   self.logins = newLoginRegistryWrapper(self.logins)
+  local access = self.AccessControl
+  self.busid = access:_get_busid()
+  self.buskey = assert(decodepubkey(access:_get_buskey()))
   
   local legacy = self.legacy
   if legacy ~= nil then
@@ -281,11 +315,28 @@ function Connection:__init()
   end
 end
 
+function Connection:joinedChainFor(remoteid, chain)
+  if remoteid ~= BusLogin then
+    local access = self.AccessControl
+    repeat
+      chain = access:signChainFor(remoteid)
+      local login = getLogin(self)
+      if login == nil then
+        sysexthrow.NO_PERMISSION{
+          completed = "COMPLETED_NO",
+          minor = loginconst.NoLoginCode,
+        }
+      end
+    until unmarshalChain(self, chain).caller.id == login.id
+  end
+  return chain
+end
+
 function Connection:sendrequest(request)
-  local login = self.login
+  local login = getLogin(self)
   if login ~= nil then
-    sendBusRequest(self, request)
     request.login = login
+    sendBusRequest(self, request)
   else
     setNoPermSysEx(request, loginconst.NoLoginCode)
     log:exception(msg.AttemptToCallWhileNotLoggedIn:tag{
@@ -301,19 +352,17 @@ function Connection:receivereply(request)
     if except._repid == sysex.NO_PERMISSION
     and except.completed == "COMPLETED_NO"
     and except.minor == loginconst.InvalidLoginCode then
-      local reqlogin = request.login
+      local invlogin = request.login
+      if self.login == invlogin then
+        localLogout(self)
+        self.invalidLogin = invlogin
+      end
       log:exception(msg.GotInvalidLoginException:tag{
         operation = request.operation_name,
-        login = reqlogin.id,
-        entity = reqlogin.entity,
+        login = invlogin.id,
+        entity = invlogin.entity,
       })
-      local login = self.login
-      if reqlogin == login then
-        local busid = self.busid
-        localLogout(self)
-        self:onInvalidLogin(login, busid)
-      end
-      login = self.login
+      local login = getLogin(self)
       if login ~= nil then
         request.success = nil -- reissue request to the same reference
         log:action(msg.ReissueCallAfterInvalidLogin:tag{
@@ -341,7 +390,7 @@ function Connection:receiverequest(request)
     log:exception(msg.GotCallWhileNotLoggedIn:tag{
       operation = request.operation_name,
     })
-    setNoPermSysEx(request, loginconst.UnverifiedLoginCode)
+    setNoPermSysEx(request, loginconst.UnknownBusCode)
   end
 end
 
@@ -349,24 +398,18 @@ end
 function Connection:loginByPassword(entity, password)
   if self.login ~= nil then error(msg.AlreadyLoggedIn) end
   local access = self.AccessControl
-  local busid = access:_get_busid()
-  local buskey = assert(decodepubkey(access:_get_buskey()))
   local pubkey = self.prvkey:encode("public")
-  local idltype = self.LoginAuthenticationInfo
   local encoder = self.orb:newencoder()
-  encoder:put({data=password,hash=sha256(pubkey)}, idltype)
+  encoder:put({data=password,hash=sha256(pubkey)},
+    self.types.LoginAuthenticationInfo)
   local encoded = encoder:getdata()
-  local encrypted, errmsg = buskey:encrypt(encoded)
+  local encrypted, errmsg = self.buskey:encrypt(encoded)
   if encrypted == nil then
     ServiceFailure{message=msg.InvalidBusKey:tag{ errmsg = errmsg }}
   end
   local login, lease = access:loginByPassword(entity, pubkey, encrypted)
-  self.login = login
-  self.busid = busid
-  self.buskey = buskey
-  newRenewer(self, lease)
+  localLogin(self, access:_get_busid(), login, lease)
   log:request(msg.LoginByPassword:tag{
-    bus = busid,
     login = login.id,
     entity = login.entity,
   })
@@ -375,8 +418,6 @@ end
 function Connection:loginByCertificate(entity, privatekey)
   if self.login ~= nil then error(msg.AlreadyLoggedIn) end
   local access = self.AccessControl
-  local busid = access:_get_busid()
-  local buskey = assert(decodepubkey(access:_get_buskey()))
   local attempt, challenge = access:startLoginByCertificate(entity)
   local secret, errmsg = privatekey:decrypt(challenge)
   if secret == nil then
@@ -384,22 +425,18 @@ function Connection:loginByCertificate(entity, privatekey)
     error(msg.WrongPrivateKey:tag{ errmsg = errmsg })
   end
   local pubkey = self.prvkey:encode("public")
-  local idltype = self.LoginAuthenticationInfo
   local encoder = self.orb:newencoder()
-  encoder:put({data=secret,hash=sha256(pubkey)}, idltype)
+  encoder:put({data=secret,hash=sha256(pubkey)},
+    self.types.LoginAuthenticationInfo)
   local encoded = encoder:getdata()
-  local encrypted, errmsg = buskey:encrypt(encoded)
+  local encrypted, errmsg = self.buskey:encrypt(encoded)
   if encrypted == nil then
     attempt:cancel()
     ServiceFailure{ message = msg.InvalidBusKey:tag{ errmsg = errmsg } }
   end
   local login, lease = attempt:login(pubkey, encrypted)
-  self.login = login
-  self.busid = busid
-  self.buskey = buskey
-  newRenewer(self, lease)
+  localLogin(self, access:_get_busid(), login, lease)
   log:request(msg.LoginByCertificate:tag{
-    bus = busid,
     login = login.id,
     entity = login.entity,
   })
@@ -423,25 +460,19 @@ end
 function Connection:loginBySharedAuth(attempt, secret)
   if self.login ~= nil then error(msg.AlreadyLoggedIn) end
   local access = self.AccessControl
-  local busid = access:_get_busid()
-  local buskey = assert(decodepubkey(access:_get_buskey()))
   local pubkey = self.prvkey:encode("public")
-  local idltype = self.LoginAuthenticationInfo
   local encoder = self.orb:newencoder()
-  encoder:put({data=secret,hash=sha256(pubkey)}, idltype)
+  encoder:put({data=secret,hash=sha256(pubkey)},
+    self.types.LoginAuthenticationInfo)
   local encoded = encoder:getdata()
-  local encrypted, errmsg = buskey:encrypt(encoded)
+  local encrypted, errmsg = self.buskey:encrypt(encoded)
   if encrypted == nil then
     attempt:cancel()
     error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
   end
   local login, lease = attempt:login(pubkey, encrypted)
-  self.login = login
-  self.busid = busid
-  self.buskey = buskey
-  newRenewer(self, lease)
+  localLogin(self, access:_get_busid(), login, lease)
   log:request(msg.LoginBySharedAuth:tag{
-    bus = busid,
     login = login.id,
     entity = login.entity,
   })
@@ -451,7 +482,6 @@ function Connection:logout()
   local login = self.login
   if login ~= nil then
     log:request(msg.PerformLogout:tag{
-      bus = self.busid,
       login = login.id,
       entity = login.entity,
     })
@@ -462,6 +492,7 @@ function Connection:logout()
     localLogout(self)
     return result
   end
+  self.invalidLogin = nil
   return false
 end
 
@@ -574,9 +605,7 @@ function ConnectionManager:getRequester()
 end
 
 function ConnectionManager:setDispatcher(conn)
-  local busid = conn.busid
-  if busid == nil then error(msg.DispatcherNotLoggedIn) end
-  self.dispatcherOf[busid] = conn
+  self.dispatcherOf[conn.busid] = conn
 end
 
 function ConnectionManager:getDispatcher(busid)
