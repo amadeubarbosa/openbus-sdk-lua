@@ -326,7 +326,7 @@ function Interceptor:sendrequest(request)
     encoder:string(login.entity)
     if chain == nil then
       encoder:string("")
-    elseif #chain.originators > 0 then
+    elseif #chain.originators > 0 and self.legacyDelegOrig then
       encoder:string(chain.originators[1].entity)
     else
       encoder:string(chain.caller.entity)
