@@ -590,7 +590,14 @@ function ConnectionManager:createConnection(host, port, props)
   if props == nil then props = {} end
   local orb = self.orb
   local legacy = not props.nolegacy
+  local delegorig
   if legacy then
+    local delegorig = props.legacydelegate
+    if delegorig == "originator" then
+      delegorig = true
+    elseif delegorig ~= "caller" then
+      error(msg.InvalidLegacyDelegateOption:tag{value=delegorig})
+    end
     local legacyref = "corbaloc::"..host..":"..port.."/openbus_v1_05"
     legacy = orb:newproxy(legacyref, nil, "scs::core::IComponent")
     if legacy:_non_existent() then
@@ -604,6 +611,7 @@ function ConnectionManager:createConnection(host, port, props)
     orb = orb,
     bus = orb:newproxy(ref, nil, "scs::core::IComponent"),
     legacy = legacy,
+    legacyDelegOrig = delegorig,
     prvkey = props.privatekey,
   }
 end
