@@ -253,12 +253,6 @@ function Interceptor:resetCaches()
   }
 end
 
-function Interceptor:buildChain(chain, caller)
-  if chain ~= nil and chain.caller.id == caller.id then
-    return chain
-  end
-end
-
 
 
 function Interceptor:getCallerChain()
@@ -394,63 +388,63 @@ function Interceptor:receiverequest(request)
     if credential.bus == self.busid then
       local caller = self.logins:getLoginEntry(credential.login)
       if caller ~= nil then
-        local chain = validateChain(self, credential.chain, caller)
-        if chain ~= nil then
-          if validateCredential(self, credential, caller, request) then
+        if validateCredential(self, credential, caller, request) then
+          local chain = validateChain(self, credential.chain, caller)
+          if chain ~= nil then
             log:access(self, msg.GotBusCall:tag{
               operation = request.operation_name,
               remote = caller.id,
               entity = caller.entity,
             })
             self.callerChainOf[running()] = chain
-          elseif credential.hash == nil then
-            -- invalid legacy credential (OpenBus 1.5)
-            log:exception(msg.GotLegacyCallWithInvalidCredential:tag{
+          else
+            -- invalid call chain
+            log:exception(msg.GotCallWithInvalidChain:tag{
               operation = request.operation_name,
               remote = caller.id,
               entity = caller.entity,
-              delegate = credential.delegate,
             })
-          else
-            -- invalid credential, try to reset credetial session
-            local sessions = self.incomingSessions
-            local newsession = sessions:get(#sessions.map+1)
-            local challenge, errmsg = caller.pubkey:encrypt(newsession.secret)
-            if challenge ~= nil then
-              -- marshall credential reset
-              log:access(self, msg.SendCredentialReset:tag{
-                operation = request.operation_name,
-                remote = caller.id,
-                entity = caller.entity,
-              })
-              local encoder = self.orb:newencoder()
-              encoder:put({
-                login = self.login.id,
-                session = newsession.id,
-                challenge = challenge,
-              }, self.types.CredentialReset)
-              request.reply_service_context = {
-                [CredentialContextId] = encoder:getdata(),
-              }
-              setNoPermSysEx(request, loginconst.InvalidCredentialCode)
-            else
-              log:exception(msg.UnableToEncryptSecretWithCallerKey:tag{
-                operation = request.operation_name,
-                remote = caller.id,
-                entity = caller.entity,
-                error = errmsg,
-              })
-              setNoPermSysEx(request, loginconst.InvalidPublicKeyCode)
-            end
+            setNoPermSysEx(request, loginconst.InvalidChainCode)
           end
-        else
-          -- invalid call chain
-          log:exception(msg.GotCallWithInvalidChain:tag{
+        elseif credential.hash == nil then
+          -- invalid legacy credential (OpenBus 1.5)
+          log:exception(msg.GotLegacyCallWithInvalidCredential:tag{
             operation = request.operation_name,
             remote = caller.id,
             entity = caller.entity,
+            delegate = credential.delegate,
           })
-          setNoPermSysEx(request, loginconst.InvalidChainCode)
+        else
+          -- invalid credential, try to reset credetial session
+          local sessions = self.incomingSessions
+          local newsession = sessions:get(#sessions.map+1)
+          local challenge, errmsg = caller.pubkey:encrypt(newsession.secret)
+          if challenge ~= nil then
+            -- marshall credential reset
+            log:access(self, msg.SendCredentialReset:tag{
+              operation = request.operation_name,
+              remote = caller.id,
+              entity = caller.entity,
+            })
+            local encoder = self.orb:newencoder()
+            encoder:put({
+              login = self.login.id,
+              session = newsession.id,
+              challenge = challenge,
+            }, self.types.CredentialReset)
+            request.reply_service_context = {
+              [CredentialContextId] = encoder:getdata(),
+            }
+            setNoPermSysEx(request, loginconst.InvalidCredentialCode)
+          else
+            log:exception(msg.UnableToEncryptSecretWithCallerKey:tag{
+              operation = request.operation_name,
+              remote = caller.id,
+              entity = caller.entity,
+              error = errmsg,
+            })
+            setNoPermSysEx(request, loginconst.InvalidPublicKeyCode)
+          end
         end
       elseif credential.hash ~= nil then
         -- credential with invalid login
