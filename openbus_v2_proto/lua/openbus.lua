@@ -315,6 +315,12 @@ function Connection:__init()
   end
 end
 
+function Connection:buildChain(chain, caller)
+  if chain ~= nil and chain.caller.id == caller.id then
+    return chain
+  end
+end
+
 function Connection:joinedChainFor(remoteid, chain)
   if remoteid ~= BusLogin then
     local access = self.AccessControl
@@ -379,12 +385,26 @@ end
 
 function Connection:receiverequest(request)
   if self.login ~= nil then
-    receiveBusRequest(self, request)
-    if request.success == nil and self:getCallerChain() == nil then
-      setNoPermSysEx(request, loginconst.NoCredentialCode)
-      log:exception(msg.DeniedOrdinaryCall:tag{
-        operation = request.operation.name,
-      })
+    local ok, ex = pcall(receiveBusRequest, self, request)
+    if ok then
+      if request.success == nil and self:getCallerChain() == nil then
+        log:exception(msg.DeniedOrdinaryCall:tag{
+          operation = request.operation.name,
+        })
+        setNoPermSysEx(request, loginconst.NoCredentialCode)
+      end
+    else
+      if ex._repid == sysex.NO_PERMISSION
+      and ex.completed == "COMPLETED_NO"
+      and ex.minor == loginconst.NoLoginCode
+      then
+        log:exception(msg.LostLoginDuringCallDispatch:tag{
+          operation = request.operation.name,
+        })
+        setNoPermSysEx(request, loginconst.UnknownBusCode)
+      else
+        error(ex)
+      end
     end
   else
     log:exception(msg.GotCallWhileNotLoggedIn:tag{

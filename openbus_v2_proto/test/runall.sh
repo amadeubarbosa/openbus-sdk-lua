@@ -6,6 +6,8 @@ LUACASES="\
 openbus/util/tickets \
 openbus/util/database \
 openbus/LoginLogout \
+openbus/Concurrency \
+openbus/NoLoginIceptorCalls \
 "
 for case in ${LUACASES}; do
 	echo -n "Test '${case}' ... "
