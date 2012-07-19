@@ -103,52 +103,6 @@ local function setNoPermSysEx(request, minor)
   }}
 end
 
-local function unmarshalCredential(self, contexts)
-  local types = self.types
-  local orb = self.orb
-  local data = contexts[CredentialContextId]
-  if data ~= nil then
-    local credential = orb:newdecoder(data):get(types.CredentialData)
-    local chain = credential.chain
-    local encoded = chain.encoded
-    if encoded == "" then
-      credential.chain = nil
-    else
-      local decoder = orb:newdecoder(encoded)
-      local decoded = decoder:get(types.CallChain)
-      local originators = decoded.originators
-      originators.n = nil -- remove field 'n' created by OiL unmarshal
-      chain.originators = originators
-      chain.caller = decoded.caller
-      chain.target = decoded.target
-      chain.busid = credential.bus
-    end
-    return credential
-  end
-  if self.legacy ~= nil then
-    local data = contexts[LegacyCredentialContextId]
-    if data ~= nil then
-      local credential = orb:newdecoder(data):get(types.LegacyCredential)
-      local loginId = credential.identifier
-      local entity = credential.owner
-      local delegate = credential.delegate
-      local caller = {id=loginId, entity=entity}
-      local originators = {}
-      if delegate ~= "" then
-        originators[1] = {id="<unknown>",entity=delegate}
-      end
-      credential.bus = self.busid
-      credential.login = loginId
-      credential.chain = {
-        busid = self.busid,
-        originators = originators,
-        caller = caller,
-      }
-      return credential
-    end
-  end
-end
-
 local function validateCredential(self, credential, login, request)
   local hash = credential.hash
   if hash ~= nil then
@@ -181,15 +135,13 @@ local function validateCredential(self, credential, login, request)
 end
 
 local function validateChain(self, chain, caller)
-  if chain == nil then
-    return self:buildChain(nil, caller)
-  else
+  if chain ~= nil then
     local signature = chain.signature
-    if signature == nil then -- legacy chain (OpenBus 1.5)
-      return chain
-    elseif self.buskey:verify(sha256(chain.encoded), signature) then
-      return self:buildChain(chain, caller)
+    if signature then -- no legacy chain (OpenBus 1.5)
+      return self.buskey:verify(sha256(chain.encoded), signature)
+         and chain.caller.id == caller.id
     end
+    return true
   end
 end
 
@@ -253,6 +205,50 @@ function Interceptor:resetCaches()
       }
     end,
   }
+end
+
+function Interceptor:unmarshalCredential(contexts)
+  local types = self.types
+  local orb = self.orb
+  local data = contexts[CredentialContextId]
+  if data ~= nil then
+    local credential = orb:newdecoder(data):get(types.CredentialData)
+    local chain = credential.chain
+    local encoded = chain.encoded
+    if encoded == "" then
+      credential.chain = nil
+    else
+      local decoder = orb:newdecoder(encoded)
+      local decoded = decoder:get(types.CallChain)
+      local originators = decoded.originators
+      originators.n = nil -- remove field 'n' created by OiL unmarshal
+      chain.originators = originators
+      chain.caller = decoded.caller
+      chain.target = decoded.target
+    end
+    return credential
+  end
+  if self.legacy ~= nil then
+    local data = contexts[LegacyCredentialContextId]
+    if data ~= nil then
+      local credential = orb:newdecoder(data):get(types.LegacyCredential)
+      local loginId = credential.identifier
+      local entity = credential.owner
+      local delegate = credential.delegate
+      local caller = {id=loginId, entity=entity}
+      local originators = {}
+      if delegate ~= "" then
+        originators[1] = {id="<unknown>",entity=delegate}
+      end
+      credential.bus = self.busid
+      credential.login = loginId
+      credential.chain = {
+        originators = originators,
+        caller = caller,
+      }
+      return credential
+    end
+  end
 end
 
 
@@ -385,14 +381,14 @@ end
 
 function Interceptor:receiverequest(request)
   local service_context = request.service_context
-  local credential = unmarshalCredential(self, service_context)
+  local credential = self:unmarshalCredential(service_context)
   if credential ~= nil then
     if credential.bus == self.busid then
       local caller = self.logins:getLoginEntry(credential.login)
       if caller ~= nil then
         if validateCredential(self, credential, caller, request) then
-          local chain = validateChain(self, credential.chain, caller)
-          if chain ~= nil then
+          local chain = credential.chain
+          if validateChain(self, chain, caller) then
             log:access(self, msg.GotBusCall:tag{
               operation = request.operation_name,
               remote = caller.id,

@@ -315,12 +315,6 @@ function Connection:__init()
   end
 end
 
-function Connection:buildChain(chain, caller)
-  if chain ~= nil and chain.caller.id == caller.id then
-    return chain
-  end
-end
-
 function Connection:joinedChainFor(remoteid, chain)
   if remoteid ~= BusLogin then
     local access = self.AccessControl
@@ -341,8 +335,8 @@ end
 function Connection:sendrequest(request)
   local login = getLogin(self)
   if login ~= nil then
-    request.login = login
     sendBusRequest(self, request)
+    request.login = login
   else
     setNoPermSysEx(request, loginconst.NoLoginCode)
     log:exception(msg.AttemptToCallWhileNotLoggedIn:tag{
