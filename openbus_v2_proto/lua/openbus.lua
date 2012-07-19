@@ -595,7 +595,7 @@ function ConnectionManager:createConnection(host, port, props)
     local delegorig = props.legacydelegate
     if delegorig == "originator" then
       delegorig = true
-    elseif delegorig ~= "caller" then
+    elseif delegorig ~= nil and delegorig ~= "caller" then
       error(msg.InvalidLegacyDelegateOption:tag{value=delegorig})
     end
     local legacyref = "corbaloc::"..host..":"..port.."/openbus_v1_05"
