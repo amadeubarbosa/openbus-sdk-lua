@@ -70,6 +70,8 @@ local NullHash = NullChar:rep(idl.const.HashValueSize)
 local NullChain = {
   encoded = "",
   signature = NullChar:rep(EncryptedBlockSize),
+  originators = {},
+  caller = nil,
 }
 
 local WeakKeys = {__mode = "k"}
