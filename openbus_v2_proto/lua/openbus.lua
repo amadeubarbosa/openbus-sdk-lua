@@ -250,7 +250,10 @@ local function getLogin(self)
     -- try to recover from an invalid login
     local invlogin = self.invalidLogin
     while invlogin ~= nil do
-      self:onInvalidLogin(invlogin)
+      local ok, ex = pcall(self.onInvalidLogin, self, invlogin)
+      if not ok then
+        log:exception(msg.OnInvalidLoginCallbackError:tag{error=ex})
+      end
       local current = self.invalidLogin
       if current == invlogin then
         self.invalidLogin = nil

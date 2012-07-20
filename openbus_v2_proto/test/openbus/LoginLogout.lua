@@ -84,7 +84,7 @@ local function assertlogged(conn)
   -- check the attempt to login again
   for opname, getparams in pairs(loginways) do
     local ex = catcherr(conn[opname], conn, getparams())
-    assert(ex:find(msg.AlreadyLoggedIn, 1, true))
+    assert(ex:find(msg.AlreadyLoggedIn, 1, true), ex)
     assert(conn.login.entity == entity)
     assert(conn.login.id == loginid)
     assert(conn.busid == busid)
@@ -352,7 +352,7 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
             assertCallback(self, login)
             local ok, ex = pcall(relogin)
             if not ok then
-              assert(ex:find(msg.AlreadyLoggedIn, 1, true) == 1+#ex-#msg.AlreadyLoggedIn, ex)
+              assert(ex:find(msg.AlreadyLoggedIn, 1, true), ex)
             end
             assertlogged(self)
           end
@@ -385,7 +385,9 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
           assert(called == nil)
           invalidate(conn.login.id)
           local ex = callwithin(conn, catcherr, offers.findServices, offers, {})
-          assert(ex == raised)
+          assert(ex._repid == sysex.NO_PERMISSION)
+          assert(ex.completed == "COMPLETED_NO")
+          assert(ex.minor == idl.const.services.access_control.NoLoginCode)
           assert(called); called = nil
         end
         

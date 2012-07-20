@@ -115,7 +115,7 @@ do log:TEST("Relog while performing a call")
   function conn:onInvalidLogin(login)
     local ok, ex = pcall(conn.loginByPassword, conn, user, password)
     if not ok then
-      assert(ex:find(msg.AlreadyLoggedIn, 1, true) == 1+#ex-#msg.AlreadyLoggedIn, ex)
+      assert(ex:find(msg.AlreadyLoggedIn, 1, true), ex)
     end
   end
 

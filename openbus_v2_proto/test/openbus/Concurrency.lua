@@ -55,7 +55,7 @@ do log:TEST("Two threads logging in")
     threads = threads-1
     if not ok then
       failures = failures+1
-      assert(ex:find(msg.AlreadyLoggedIn, 1, true) == 1+#ex-#msg.AlreadyLoggedIn, ex)
+      assert(ex:find(msg.AlreadyLoggedIn, 1, true), ex)
     end
   end
   
@@ -190,7 +190,7 @@ do log:TEST("Two threads getting invalid login and trying to relog")
     local ok, ex = pcall(conn.loginByPassword, conn, user, password)
     if not ok then
       alreadylogged = alreadylogged+1
-      assert(ex:find(msg.AlreadyLoggedIn, 1, true) == 1+#ex-#msg.AlreadyLoggedIn, ex)
+      assert(ex:find(msg.AlreadyLoggedIn, 1, true), ex)
     end
   end
   
