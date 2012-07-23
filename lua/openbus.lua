@@ -47,6 +47,7 @@ local sysexthrow = require "openbus.util.sysex"
 
 local idl = require "openbus.core.idl"
 local BusLogin = idl.const.BusLogin
+local CredentialContextId = idl.const.credential.CredentialContextId
 local ServiceFailure = idl.throw.services.ServiceFailure
 local loginthrow = idl.throw.services.access_control
 local loginconst = idl.const.services.access_control
@@ -285,10 +286,7 @@ local Connection = class({}, CoreInterceptor)
 function Connection:__init()
   local orb = self.orb
   -- retrieve IDL definitions for login
-  self.types.Identifier =
-    assert(orb.types:lookup_id(idl.types.Identifier))
-  self.types.LoginAuthenticationInfo =
-    assert(orb.types:lookup_id(logintypes.LoginAuthenticationInfo))
+  copy(self.manager.types, self.types)
   -- retrieve core service references
   local bus = self.bus
   for field, name in pairs(LoginServiceNames) do
@@ -528,6 +526,13 @@ local ConnectionManager = class()
 function ConnectionManager:__init()
   self.requesterOf = setmetatable({}, WeakKeyMeta) -- [thread]=connection
   self.dispatcherOf = {} -- [busid]=connection
+  local orb = self.orb
+  self.types = {
+    Identifier =
+      assert(orb.types:lookup_id(idl.types.Identifier)),
+    LoginAuthenticationInfo =
+      assert(orb.types:lookup_id(logintypes.LoginAuthenticationInfo)),
+  }
 end
 
 function ConnectionManager:sendrequest(request)
@@ -576,7 +581,7 @@ end
 
 function ConnectionManager:sendreply(request)
   local conn = request.openbusConnection
-  if conn.sendreply ~= nil then
+  if conn ~= nil then
     request.openbusConnection = nil
     conn:sendreply(request)
   end

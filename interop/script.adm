@@ -1,0 +1,31 @@
+require "openbus.util.testcfg"
+
+Category {
+  id = category,
+  name = "OpenBus 2.0 Test Entities",
+}
+Entity {
+  id = system,
+  category = category,
+  name = "OpenBus 2.0 Test System",
+}
+Certificate {
+  id = system,
+  certificate = syscrt,
+}
+Interface {
+  id = "IDL:tecgraf/openbus/interop/simple/Hello:1.0",
+}
+Grant {
+  id = system,
+  interfaces = { "IDL:tecgraf/openbus/interop/simple/Hello:1.0" },
+}
+
+for _, name in ipairs{"Messenger","Broadcaster","Forwarder"} do
+  local entity = name:lower()
+  local ifaceId = "IDL:tecgraf/openbus/interop/delegation/"..name..":1.0"
+  Entity { id = entity, category = category, name = "Test "..name.." Service" }
+  Certificate { id = entity, certificate = syscrt }
+  Interface { id = ifaceId }
+  Grant { id = entity, interfaces = { ifaceId } }
+end

@@ -225,6 +225,7 @@ function Interceptor:unmarshalCredential(contexts)
       chain.originators = originators
       chain.caller = decoded.caller
       chain.target = decoded.target
+      chain.busid = self.busid
     end
     return credential
   end
@@ -245,6 +246,7 @@ function Interceptor:unmarshalCredential(contexts)
       credential.chain = {
         originators = originators,
         caller = caller,
+        busid = self.busid,
       }
       return credential
     end

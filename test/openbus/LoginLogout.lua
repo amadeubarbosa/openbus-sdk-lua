@@ -21,8 +21,6 @@ local log = require "openbus.util.logger"
 bushost, busport, verbose = ...
 require "openbus.util.testcfg"
 
-log:flag("TEST", verbose~=nil)
-
 local thread = coroutine.running()
 local userdata = io.stdout
 local sleep = cothread.delay
