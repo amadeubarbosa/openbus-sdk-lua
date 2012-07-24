@@ -7,7 +7,6 @@ require "openbus.util.testcfg"
 
 -- setup and start the ORB
 local orb = openbus.initORB()
-orb:loadidlfile("encoding.idl")
 orb:loadidlfile("hello.idl")
 openbus.newthread(orb.run, orb)
 
@@ -45,6 +44,7 @@ log:TEST("hello service ready!")
 
 local attempt, secret = conn:startSharedAuth()
 
+orb:loadidlfile("encoding.idl")
 local idltype = orb.types:lookup("tecgraf::openbus::interop::sharedauth::EncodedSharedAuth")
 local encoder = orb:newencoder()
 encoder:put({attempt=attempt,secret=secret}, idltype)

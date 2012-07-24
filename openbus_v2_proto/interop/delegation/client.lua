@@ -56,8 +56,8 @@ log:TEST(false, "required services found!")
 -- logout from the bus
 conn:logout()
 
-conn:loginByPassword("willian", "willian")
-forwarder:setForward("bill")
+conn:loginByPassword("bill", "bill")
+forwarder:setForward("willian")
 broadcaster:subscribe()
 conn:logout()
 
@@ -77,7 +77,7 @@ conn:logout()
 log:TEST("waiting for messages to propagate")
 for i = 1, 10 do openbus.sleep(1) end
 
-function showPostsOf(user, posts)
+local function showPostsOf(user, posts)
   log:TEST(true, user," received ",#posts," messages:")
   for index, post in ipairs(posts) do
     log:TEST(index,") ",post.from,": ",post.message)
@@ -85,13 +85,51 @@ function showPostsOf(user, posts)
   log:TEST(false)
 end
 
+local expected = {
+  willian = {
+    {
+      from = "forwarder",
+      message = "forwared message by broadcaster:steve: Testing the list!",
+    },
+    n = 1,
+  },
+  bill = {
+    n = 0,
+  },
+  paul = {
+    {
+      from = "broadcaster:steve",
+      message = "Testing the list!",
+    },
+    n = 1,
+  },
+  mary = {
+    {
+      from = "broadcaster:steve",
+      message = "Testing the list!",
+    },
+    n = 1,
+  },
+  steve = {
+    {
+      from = "broadcaster:steve",
+      message = "Testing the list!",
+    },
+    n = 1,
+  },
+}
+local actual = {}
 for _, user in ipairs{"willian", "bill", "paul", "mary", "steve"} do
   conn:loginByPassword(user, user)
-  showPostsOf(user, messenger:receivePosts())
+  actual[user] = messenger:receivePosts()
+  log:TEST(user," got posts: ",actual[user])
   broadcaster:unsubscribe()
   conn:logout()
 end
 
-conn:loginByPassword("willian", "willian")
-forwarder:cancelForward("bill")
+conn:loginByPassword("bill", "bill")
+forwarder:cancelForward("willian")
 conn:logout()
+
+
+assert(require("loop.debug.Matcher"){metatable=false}:match(actual, expected))
