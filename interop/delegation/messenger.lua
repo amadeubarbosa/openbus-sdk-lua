@@ -31,8 +31,8 @@ function Messenger:post(to, message)
 end
 function Messenger:receivePosts()
   local chain = conn:getCallerChain()
-  local owner = chain.caller.entity
-  log:TEST("downdoad of messsages by ",chain2str(chain))
+  local owner = (chain.originators[1] or chain.caller).entity
+  log:TEST("downdoad of messsages of ",owner," by ",chain2str(chain))
   local inbox = self.inboxOf[owner]
   self.inboxOf[owner] = nil
   return inbox

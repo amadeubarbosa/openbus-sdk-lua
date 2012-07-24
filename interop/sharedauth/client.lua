@@ -6,7 +6,6 @@ require "openbus.util.testcfg"
 
 -- setup the ORB
 local orb = openbus.initORB()
-orb:loadidlfile("encoding.idl")
 orb:loadidlfile("hello.idl")
 
 -- connect to the bus
@@ -22,6 +21,7 @@ for i = 1, tries do
   local data = oil.readfrom("sharedauth.dat", "rb")
   if data ~= nil then
     os.remove("sharedauth.dat")
+    orb:loadidlfile("encoding.idl")
     local idltype = orb.types:lookup("tecgraf::openbus::interop::sharedauth::EncodedSharedAuth")
     local sharedauth = orb:newdecoder(data):get(idltype)
     attempt, secret = orb:narrow(sharedauth.attempt), sharedauth.secret

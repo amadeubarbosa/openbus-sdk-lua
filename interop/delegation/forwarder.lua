@@ -52,13 +52,12 @@ end
 timer = Timer{ rate = 5 }
 function timer:action()
   for user, forward in pairs(Forwarder.forwardsOf) do
-    local to = forward.to
-    log:TEST("checking messages of ",to)
+    log:TEST("checking messages of ",user)
     conn:joinChain(forward.chain)
     local posts = Messenger:receivePosts()
     conn:exitChain()
     for _, post in ipairs(posts) do
-      Messenger:post(to, "forwared from "..post.from..": "..post.message)
+      Messenger:post(forward.to, "forwared message by "..post.from..": "..post.message)
     end
   end
 end

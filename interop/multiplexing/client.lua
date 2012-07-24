@@ -58,7 +58,7 @@ for _, businfo in ipairs{
   
   log:TEST("invoking ",businfo.offers," services from bus ",conn.busid,"!")
   for login, hello in pairs(services) do
-    assert(hello:sayHello() == "Hello from "..user.."!")
+    assert(hello:sayHello() == "Hello from "..user.."@"..conn.busid.."!")
   end
   
   -- logout from the bus
