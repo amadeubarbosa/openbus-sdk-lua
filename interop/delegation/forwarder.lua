@@ -57,7 +57,7 @@ function timer:action()
     local posts = Messenger:receivePosts()
     conn:exitChain()
     for _, post in ipairs(posts) do
-      Messenger:post(forward.to, "forwared message by "..post.from..": "..post.message)
+      Messenger:post(forward.to, "forwarded message by "..post.from..": "..post.message)
     end
   end
 end

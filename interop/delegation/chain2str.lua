@@ -1,7 +1,8 @@
 return function(chain)
-  local entities = {chain.caller.entity}
+  local entities = {}
   for index, login in ipairs(chain.originators) do
-    entities[1+index] = login.entity
+    entities[index] = login.entity
   end
-  return table.concat(entities, ":")
+  entities[#entities+1] = chain.caller.entity
+  return table.concat(entities, "->")
 end

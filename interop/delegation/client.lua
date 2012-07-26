@@ -89,7 +89,7 @@ local expected = {
   willian = {
     {
       from = "forwarder",
-      message = "forwared message by broadcaster:steve: Testing the list!",
+      message = "forwarded message by steve->broadcaster: Testing the list!",
     },
     n = 1,
   },
@@ -98,21 +98,21 @@ local expected = {
   },
   paul = {
     {
-      from = "broadcaster:steve",
+      from = "steve->broadcaster",
       message = "Testing the list!",
     },
     n = 1,
   },
   mary = {
     {
-      from = "broadcaster:steve",
+      from = "steve->broadcaster",
       message = "Testing the list!",
     },
     n = 1,
   },
   steve = {
     {
-      from = "broadcaster:steve",
+      from = "steve->broadcaster",
       message = "Testing the list!",
     },
     n = 1,
