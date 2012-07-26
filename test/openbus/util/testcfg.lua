@@ -7,7 +7,7 @@ local getenv = os.getenv
 local oillog = require "oil.verbose"
 local log = require "openbus.util.logger"
 local server = require "openbus.util.server"
-local prvkey = server.readprivatekey
+local readfl = server.readfrom
 local setuplog = server.setuplog
 
 propsfile = getenv("OPENBUS_TESTCFG") or "test.properties"
@@ -37,7 +37,7 @@ admpsw =               props:getTagOrDefault("admin.password"      , admin)
 user =                 props:getTagOrDefault("user.entity.name"    , "testuser")
 password =             props:getTagOrDefault("user.password"       , user)
 system =               props:getTagOrDefault("system.entity.name"  , "testsyst")
-syskey = assert(prvkey(props:getTagOrDefault("system.private.key"  , testbase.."testsyst.key")))
+syskey = assert(readfl(props:getTagOrDefault("system.private.key"  , testbase.."testsyst.key"), "rb"))
 syscrt =               props:getTagOrDefault("system.certificate"  , testbase.."testsyst.crt")
 category =             props:getTagOrDefault("entity.category.name", "testents")
 ldapurl =              props:getTagOrDefault("ldap.url.tcp"        , "ldap://ldap-teste:389")

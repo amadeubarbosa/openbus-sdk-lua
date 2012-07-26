@@ -14,6 +14,7 @@ local pubkey = require "lce.pubkey"
 local giop = require "oil.corba.giop"
 local cothread = require "cothread"
 local openbus = require "openbus"
+local libidl = require "openbus.idl"
 local idl = require "openbus.core.idl"
 local msg = require "openbus.util.messages"
 local log = require "openbus.util.logger"
@@ -82,7 +83,7 @@ local function assertlogged(conn)
   -- check the attempt to login again
   for opname, getparams in pairs(loginways) do
     local ex = catcherr(conn[opname], conn, getparams())
-    assert(ex:find(msg.AlreadyLoggedIn, 1, true), ex)
+    assert(ex._repid == libidl.types.AlreadyLoggedIn, ex)
     assert(conn.login.entity == entity)
     assert(conn.login.id == loginid)
     assert(conn.busid == busid)
@@ -166,7 +167,7 @@ end
 -- create a valid key to be used as a wrong key in the tests below.
 -- the generation of this key is too time consuming and may delay the renewer
 -- thread of the admin account to renew the admin login in time.
-local WrongKey = pubkey.create(idl.const.EncryptedBlockSize)
+local WrongKey = pubkey.create(idl.const.EncryptedBlockSize):encode()
 -- login as admin and provide additional functionality for the test
 local invalidate, shutdown, leasetime do
   local manager = openbus.initORB().OpenBusConnectionManager
@@ -239,7 +240,7 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
     do log:TEST "login with wrong private key"
       local conn = conns[1]
       local ex = catcherr(conn.loginByCertificate, conn, system, WrongKey)
-      assert(ex:find(msg.WrongPrivateKey, 1, true))
+      assert(ex._repid == idl.types.services.access_control.AccessDenied)
       assertlogoff(conn)
     end
     
@@ -287,7 +288,7 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
               local attempt, secret = conn:startSharedAuth()
               conn:cancelSharedAuth(attempt)
               local ex = catcherr(other.loginBySharedAuth, other, attempt, secret)
-              assert(ex._repid == sysex.OBJECT_NOT_EXIST)
+              assert(ex._repid == libidl.types.InvalidLoginProcess)
               assertlogoff(other)
               assertlogged(conn)
             end
@@ -295,7 +296,7 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
               local attempt, secret = conn:startSharedAuth()
               sleep(2*leasetime)
               local ex = catcherr(other.loginBySharedAuth, other, attempt, secret)
-              assert(ex._repid == sysex.OBJECT_NOT_EXIST)
+              assert(ex._repid == libidl.types.InvalidLoginProcess)
               assertlogoff(other)
               assertlogged(conn)
             end
@@ -350,7 +351,7 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
             assertCallback(self, login)
             local ok, ex = pcall(relogin)
             if not ok then
-              assert(ex:find(msg.AlreadyLoggedIn, 1, true), ex)
+              assert(ex._repid == libidl.types.AlreadyLoggedIn)
             end
             assertlogged(self)
           end

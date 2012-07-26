@@ -12,6 +12,9 @@ local tostring = _G.tostring
 local coroutine = require "coroutine"
 local newthread = coroutine.create
 
+local string = require "string"
+local strrep = string.rep
+
 local math = require "math"
 local inf = math.huge
 
@@ -19,6 +22,7 @@ local hash = require "lce.hash"
 local sha256 = hash.sha256
 
 local pubkey = require "lce.pubkey"
+local decodeprvkey = pubkey.decodeprivate
 local decodepubkey = pubkey.decodepublic
 
 local table = require "loop.table"
@@ -45,16 +49,18 @@ local oo = require "openbus.util.oo"
 local class = oo.class
 local sysexthrow = require "openbus.util.sysex"
 
-local idl = require "openbus.core.idl"
-local BusLogin = idl.const.BusLogin
-local CredentialContextId = idl.const.credential.CredentialContextId
-local ServiceFailure = idl.throw.services.ServiceFailure
-local loginthrow = idl.throw.services.access_control
-local loginconst = idl.const.services.access_control
-local logintypes = idl.types.services.access_control
-local offerconst = idl.const.services.offer_registry
-local offertypes = idl.types.services.offer_registry
-local BusObjectKey = idl.const.BusObjectKey
+local libidl = require "openbus.idl"
+local throw = libidl.throw
+local coreidl = require "openbus.core.idl"
+local BusLogin = coreidl.const.BusLogin
+local CredentialContextId = coreidl.const.credential.CredentialContextId
+local ServiceFailure = coreidl.throw.services.ServiceFailure
+local loginthrow = coreidl.throw.services.access_control
+local loginconst = coreidl.const.services.access_control
+local logintypes = coreidl.types.services.access_control
+local offerconst = coreidl.const.services.offer_registry
+local offertypes = coreidl.types.services.offer_registry
+local BusObjectKey = coreidl.const.BusObjectKey
 local access = require "openbus.core.Access"
 local neworb = access.initORB
 local setNoPermSysEx = access.setNoPermSysEx
@@ -238,8 +244,8 @@ local function localLogout(self)
 end
 
 local function localLogin(self, busid, login, lease)
-  if self.busid ~= busid then error(msg.InvalidBus) end
-  if self.login ~= nil then error(msg.AlreadyLoggedIn) end
+  if self.busid ~= busid then throw.BusChanged{ busid = busid } end
+  if self.login ~= nil then throw.AlreadyLoggedIn() end
   self.invalidLogin = nil
   self.login = login
   newRenewer(self, lease)
@@ -411,7 +417,7 @@ end
 
 
 function Connection:loginByPassword(entity, password)
-  if self.login ~= nil then error(msg.AlreadyLoggedIn) end
+  if self.login ~= nil then throw.AlreadyLoggedIn() end
   local access = self.AccessControl
   local pubkey = self.prvkey:encode("public")
   local encoder = self.orb:newencoder()
@@ -420,7 +426,7 @@ function Connection:loginByPassword(entity, password)
   local encoded = encoder:getdata()
   local encrypted, errmsg = self.buskey:encrypt(encoded)
   if encrypted == nil then
-    ServiceFailure{message=msg.InvalidBusKey:tag{ errmsg = errmsg }}
+    ServiceFailure{message=msg.InvalidBusKey:tag{message=errmsg}}
   end
   local login, lease = access:loginByPassword(entity, pubkey, encrypted)
   localLogin(self, access:_get_busid(), login, lease)
@@ -430,14 +436,16 @@ function Connection:loginByPassword(entity, password)
   })
 end
 
-function Connection:loginByCertificate(entity, privatekey)
-  if self.login ~= nil then error(msg.AlreadyLoggedIn) end
+function Connection:loginByCertificate(entity, encoded)
+  local privatekey, errmsg = decodeprvkey(encoded)
+  if privatekey == nil then throw.InvalidPrivateKey{message=errmsg} end
+  if self.login ~= nil then throw.AlreadyLoggedIn() end
   local access = self.AccessControl
   local attempt, challenge = access:startLoginByCertificate(entity)
   local secret, errmsg = privatekey:decrypt(challenge)
   if secret == nil then
-    attempt:cancel()
-    error(msg.WrongPrivateKey:tag{ errmsg = errmsg })
+    pcall(attempt.cancel, attempt)
+    loginthrow.AccessDenied{message=errmsg}
   end
   local pubkey = self.prvkey:encode("public")
   local encoder = self.orb:newencoder()
@@ -446,10 +454,16 @@ function Connection:loginByCertificate(entity, privatekey)
   local encoded = encoder:getdata()
   local encrypted, errmsg = self.buskey:encrypt(encoded)
   if encrypted == nil then
-    attempt:cancel()
-    ServiceFailure{ message = msg.InvalidBusKey:tag{ errmsg = errmsg } }
+    pcall(attempt.cancel, attempt)
+    ServiceFailure{message=msg.InvalidBusKey:tag{message=errmsg}}
   end
-  local login, lease = attempt:login(pubkey, encrypted)
+  local ok, login, lease = pcall(attempt.login, attempt, pubkey, encrypted)
+  if not ok then
+    if login._repid == sysex.OBJECT_NOT_EXIST then
+      ServiceFailure{message=msg.UnableToCompleteLoginByCertificateInTime}
+    end
+    error(login)
+  end
   localLogin(self, access:_get_busid(), login, lease)
   log:request(msg.LoginByCertificate:tag{
     login = login.id,
@@ -462,18 +476,18 @@ function Connection:startSharedAuth()
                                         "startLoginBySharedAuth")
   local secret, errmsg = self.prvkey:decrypt(challenge)
   if secret == nil then
-    attempt:cancel()
-    error(msg.CorruptedPrivateKey:tag{ errmsg = errmsg })
+    pcall(attempt.cancel, attempt)
+    ServiceFailure{message=msg.InvalidAccessKey:tag{message=errmsg}}
   end
   return attempt, secret
 end
 
 function Connection:cancelSharedAuth(attempt)
-  attempt:cancel()
+  return pcall(attempt.cancel, attempt)
 end
 
 function Connection:loginBySharedAuth(attempt, secret)
-  if self.login ~= nil then error(msg.AlreadyLoggedIn) end
+  if self.login ~= nil then throw.AlreadyLoggedIn() end
   local access = self.AccessControl
   local pubkey = self.prvkey:encode("public")
   local encoder = self.orb:newencoder()
@@ -482,10 +496,16 @@ function Connection:loginBySharedAuth(attempt, secret)
   local encoded = encoder:getdata()
   local encrypted, errmsg = self.buskey:encrypt(encoded)
   if encrypted == nil then
-    attempt:cancel()
-    error(msg.InvalidBusPublicKey:tag{ errmsg = errmsg })
+    pcall(attempt.cancel, attempt)
+    ServiceFailure{message=msg.InvalidBusKey:tag{message=errmsg}}
   end
-  local login, lease = attempt:login(pubkey, encrypted)
+  local ok, login, lease = pcall(attempt.login, attempt, pubkey, encrypted)
+  if not ok then
+    if login._repid == sysex.OBJECT_NOT_EXIST then
+      throw.InvalidLoginProcess()
+    end
+    error(login)
+  end
   localLogin(self, access:_get_busid(), login, lease)
   log:request(msg.LoginBySharedAuth:tag{
     login = login.id,
@@ -529,7 +549,7 @@ function ConnectionManager:__init()
   local orb = self.orb
   self.types = {
     Identifier =
-      assert(orb.types:lookup_id(idl.types.Identifier)),
+      assert(orb.types:lookup_id(coreidl.types.Identifier)),
     LoginAuthenticationInfo =
       assert(orb.types:lookup_id(logintypes.LoginAuthenticationInfo)),
   }
@@ -588,6 +608,17 @@ function ConnectionManager:sendreply(request)
 end
 
 
+local MaxEncryptedData = strrep("\255", coreidl.const.EncryptedBlockSize-11)
+
+local function busaddress2component(orb, host, port, key)
+  local ref = "corbaloc::"..host..":"..port.."/"..key
+  local ok, result = pcall(orb.newproxy, orb, ref, nil, "scs::core::IComponent")
+  if not ok then
+    throw.InvalidBusAddress{host=host,port=port,message=tostring(result)}
+  end
+  return result
+end
+
 function ConnectionManager:createConnection(host, port, props)
   if props == nil then props = {} end
   local orb = self.orb
@@ -598,23 +629,46 @@ function ConnectionManager:createConnection(host, port, props)
     if delegorig == "originator" then
       delegorig = true
     elseif delegorig ~= nil and delegorig ~= "caller" then
-      error(msg.InvalidLegacyDelegateOption:tag{value=delegorig})
+      throw.InvalidPropertyValue{property="legacydelegate",value=delegorig}
     end
-    local legacyref = "corbaloc::"..host..":"..port.."/openbus_v1_05"
-    legacy = orb:newproxy(legacyref, nil, "scs::core::IComponent")
+    legacy = busaddress2component(orb, host, port, "openbus_v1_05")
     if legacy:_non_existent() then
       legacy = nil
       log:exception(msg.BusDoesNotProvideLegacySupport:tag{host=host, port=port})
     end
   end
-  local ref = "corbaloc::"..host..":"..port.."/"..BusObjectKey
+  -- validate access key if provided
+  local prvkey = props.accesskey
+  if prvkey ~= nil then
+    local result, errmsg = decodepubkey(prvkey:encode("public"))
+    if result == nil then
+      throw.InvalidPropertyValue{
+        property = "accesskey",
+        value = msg.UnableToObtainThePublicKey:tag{error=errmsg},
+      }
+    end
+    result, errmsg = result:encrypt(MaxEncryptedData)
+    if result == nil then
+      throw.InvalidPropertyValue{
+        property = "accesskey",
+        value = msg.UnableToEncodeDataUsingPublicKey:tag{error=errmsg},
+      }
+    end
+    result, errmsg = prvkey:decrypt(result)
+    if result == nil then
+      throw.InvalidPropertyValue{
+        property = "accesskey",
+        value = msg.UnableToDecodeDataUsingTheKey:tag{error=errmsg},
+      }
+    end
+  end
   return Connection{
     manager = self,
     orb = orb,
-    bus = orb:newproxy(ref, nil, "scs::core::IComponent"),
+    bus = busaddress2component(orb, host, port, BusObjectKey),
     legacy = legacy,
     legacyDelegOrig = delegorig,
-    prvkey = props.privatekey,
+    prvkey = prvkey,
   }
 end
 
@@ -705,7 +759,7 @@ end
 local argcheck = require "openbus.util.argcheck"
 argcheck.convertclass(Connection, {
   loginByPassword = { "string", "string" },
-  loginByCertificate = { "string", "userdata" },
+  loginByCertificate = { "string", "string" },
   logout = {},
   getCallerChain = {},
   joinChain = { "nil|table" },
