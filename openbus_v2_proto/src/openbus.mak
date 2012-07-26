@@ -5,6 +5,7 @@ SRC= $(PRELOAD_DIR)/$(LIBNAME).c
 
 OPENBUSOLDIDL= ${OPENBUS_HOME}/idl/v1_05
 OPENBUSNEWIDL= ${OPENBUS_HOME}/idl/v2_0
+OPENBUSLIBIDL= ${OPENBUS_HOME}/idl/lib
 
 LUADIR= ../lua
 LUASRC= \
@@ -15,6 +16,8 @@ LUASRC= \
   $(LUADIR)/openbus/core/legacy/parsed.lua \
   $(LUADIR)/openbus/core/legacy/idl.lua \
   $(LUADIR)/openbus/core/messages.lua \
+  $(LUADIR)/openbus/idl/parsed.lua \
+  $(LUADIR)/openbus/idl.lua \
   $(LUADIR)/openbus/util/argcheck.lua \
   $(LUADIR)/openbus/util/autotable.lua \
   $(LUADIR)/openbus/util/database.lua \
@@ -26,6 +29,8 @@ LUASRC= \
   $(LUADIR)/openbus/util/tickets.lua \
   $(LUADIR)/openbus.lua
 
+LIBIDL= $(OPENBUSLIBIDL)/openbus.idl
+
 NEWIDL= \
   $(OPENBUSNEWIDL)/access_control.idl \
   $(OPENBUSNEWIDL)/offer_registry.idl
@@ -36,6 +41,9 @@ OLDIDL= \
   $(OPENBUSOLDIDL)/fault_tolerance.idl
 
 include ${OIL_HOME}/openbus/base.mak
+
+$(LUADIR)/openbus/idl/parsed.lua: $(IDL2LUA) $(LIBIDL)
+	$(OILBIN) $(IDL2LUA) -o $@ $(LIBIDL)
 
 $(LUADIR)/openbus/core/idl/parsed.lua: $(IDL2LUA) $(NEWIDL)
 	$(OILBIN) $(IDL2LUA) -o $@ $(NEWIDL)

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CONSOLE="${OPENBUS_HOME}/bin/busconsole"
+CONSOLE="${OPENBUS_HOME}/bin/busconsole -d"
 
 echo "Starting service"
 $CONSOLE server.lua $@ &

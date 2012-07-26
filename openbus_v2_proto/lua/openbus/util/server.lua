@@ -58,8 +58,8 @@ function module.setuplog(log, level, path, mode)
   end
 end
 
-function module.readfilecontents(path)
-  local result, errmsg = openfile(path, "rb")
+function module.readfrom(path, mode)
+  local result, errmsg = openfile(path, mode)
   if result then
     local file = result
     result, errmsg = file:read("*a")

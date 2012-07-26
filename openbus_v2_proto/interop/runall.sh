@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CORESERV="${OPENBUS_HOME}/bin/busservices"
+CORESERV="${OPENBUS_HOME}/bin/busservices DEBUG"
 echo "Starting core bus services"
 if [ -d openbus.db ]; then
   INITBUS=no
@@ -28,7 +28,7 @@ trap "kill $pid > /dev/null 2> /dev/null" 0
 
 
 echo "Waiting core bus services to be accessible"
-CONSOLE="${OPENBUS_HOME}/bin/busconsole"
+CONSOLE="${OPENBUS_HOME}/bin/busconsole -d"
 $CONSOLE -l oil -e '
 for _, port in ipairs{2089,2090} do
   local bus = oil.init():newproxy("corbaloc::localhost:"..port.."/OpenBus_2_0",
@@ -41,7 +41,7 @@ end
 
 
 
-ADMINCMD="${OPENBUS_HOME}/bin/busadmin"
+ADMINCMD="${OPENBUS_HOME}/bin/busadmin DEBUG"
 if [ "$INITBUS" != "no" ]; then
   echo "Setting up core bus services"
   $ADMINCMD --login=admin --script=script.adm

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CONSOLE="${OPENBUS_HOME}/bin/busconsole"
+CONSOLE="${OPENBUS_HOME}/bin/busconsole -d"
 
 LUACASES="\
 openbus/util/tickets \

@@ -14,6 +14,7 @@ local pubkey = require "lce.pubkey"
 local giop = require "oil.corba.giop"
 local cothread = require "cothread"
 local openbus = require "openbus"
+local libidl = require "openbus.idl"
 local idl = require "openbus.core.idl"
 local msg = require "openbus.util.messages"
 local log = require "openbus.util.logger"
@@ -57,7 +58,7 @@ end
 local orb = openbus.initORB()
 local manager = orb.OpenBusConnectionManager
 assert(manager.orb == orb)
-local connprops = { privatekey = pubkey.create(idl.const.EncryptedBlockSize) }
+local connprops = { accesskey = pubkey.create(idl.const.EncryptedBlockSize) }
 
 
 
@@ -115,7 +116,7 @@ do log:TEST("Relog while performing a call")
   function conn:onInvalidLogin(login)
     local ok, ex = pcall(conn.loginByPassword, conn, user, password)
     if not ok then
-      assert(ex:find(msg.AlreadyLoggedIn, 1, true), ex)
+      assert(ex._repid == libidl.types.AlreadyLoggedIn)
     end
   end
 
@@ -137,7 +138,7 @@ do log:TEST("Relog while dispathing a call")
   function conn:onInvalidLogin(login)
     local ok, ex = pcall(conn.loginByPassword, conn, user, password)
     if not ok then
-      assert(ex:find(msg.AlreadyLoggedIn, 1, true) == 1+#ex-#msg.AlreadyLoggedIn, ex)
+      assert(ex._repid == libidl.types.AlreadyLoggedIn)
     end
   end
   
