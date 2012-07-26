@@ -27,6 +27,7 @@ trap "kill $pid > /dev/null 2> /dev/null" 0
 
 
 
+echo "Waiting core bus services to be accessible"
 CONSOLE="${OPENBUS_HOME}/bin/busconsole"
 $CONSOLE -l oil -e '
 for _, port in ipairs{2089,2090} do
