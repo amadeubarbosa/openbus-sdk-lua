@@ -42,8 +42,8 @@ OLDIDL= \
 
 include ${OIL_HOME}/openbus/base.mak
 
-$(LUADIR)/openbus/idl/parsed.lua: $(IDL2LUA) $(LIBIDL)
-	$(OILBIN) $(IDL2LUA) -o $@ $(LIBIDL)
+$(LUADIR)/openbus/idl/parsed.lua: $(IDL2LUA) $(LIBIDL) $(NEWIDL)
+	$(OILBIN) $(IDL2LUA) -I $(OPENBUSNEWIDL) -o $@ $(LIBIDL)
 
 $(LUADIR)/openbus/core/idl/parsed.lua: $(IDL2LUA) $(NEWIDL)
 	$(OILBIN) $(IDL2LUA) -o $@ $(NEWIDL)
