@@ -18,9 +18,11 @@ local libidl = require "openbus.idl"
 local idl = require "openbus.core.idl"
 local msg = require "openbus.util.messages"
 local log = require "openbus.util.logger"
+local server = require "openbus.util.server"
 
-bushost, busport, verbose = ...
-require "openbus.util.testcfg"
+require "openbus.test.configs"
+
+syskey = assert(server.readfrom(syskey))
 
 local thread = coroutine.running()
 local userdata = io.stdout

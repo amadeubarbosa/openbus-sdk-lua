@@ -1,13 +1,15 @@
 local log = require "openbus.util.logger"
 local openbus = require "openbus"
 
-bushost, busport, verbose = ...
-require "openbus.util.testcfg"
+require "openbus.test.util"
 
 -- setup the ORB
 local orb = openbus.initORB()
 orb:loadidlfile("hello.idl")
-local repid = orb.types:lookup("tecgraf::openbus::interop::simple::Hello").repID
+local iface = orb.types:lookup("tecgraf::openbus::interop::simple::Hello")
+
+-- customize test configuration for this case
+settestcfg(iface, ...)
 
 -- connect to the bus
 local manager = orb.OpenBusConnectionManager
@@ -18,37 +20,17 @@ manager:setDefaultConnection(conn)
 conn:loginByPassword(user, password)
 
 -- define service properties
-local props = {
-  {name="openbus.component.interface",value=repid},
-  {name="offer.domain",value="Interoperability Tests"},
-}
-
-local function findProp(properties, name)
-  for _, prop in ipairs(properties) do
-    if prop.name == name then return prop.value end
-  end
-end
+local props = {{name="openbus.component.interface",value=iface.repID}}
 
 -- find the offered service
 log:TEST("retrieve hello service")
-local tries = 10
-for i = 1, tries do
-  local found
-  local offers = conn.offers:findServices(props)
-  for _, offer in ipairs(offers) do
-    local entity = findProp(offer.properties, "openbus.offer.entity")
-    local service = offer.service_ref
-    if not service:_non_existent() then
-      log:TEST("found service of ",entity,"!")
-      found = true
-      local hello = service:getFacetByName("Hello"):__narrow(repid)
-      assert(hello:sayHello() == "Hello "..user.."!",
-        "wrong result from service of "..entity)
-      log:TEST("test successful for service of ",entity)
-    end
-  end
-  if found then break end
-  log:TEST("hello service not found yet (try ",i," of ",tries,")")
-  openbus.sleep(1)
+for _, offer in ipairs(findoffers(conn.offers, props)) do
+  local entity = getprop(offer.properties, "openbus.offer.entity")
+  log:TEST("found service of ",entity,"!")
+  local hello = offer.service_ref:getFacetByName(iface.name):__narrow(iface)
+  local result = hello:sayHello()
+  assert(result == "Hello "..user.."!", result)
+  log:TEST("test successful for service of ",entity)
 end
+
 conn:logout()

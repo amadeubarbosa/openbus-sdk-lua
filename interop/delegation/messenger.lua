@@ -1,27 +1,27 @@
 local log = require "openbus.util.logger"
+local server = require "openbus.util.server"
 local openbus = require "openbus"
 local ComponentContext = require "scs.core.ComponentContext"
-local chain2str = require "chain2str"
 local table = require "loop.table"
 
-bushost, busport, verbose = ...
-require "openbus.util.testcfg"
+require "openbus.test.util"
 
 -- setup and start the ORB
 local orb = openbus.initORB()
 orb:loadidlfile("messages.idl")
 openbus.newthread(orb.run, orb)
+local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::Messenger")
 
 -- connect to the bus
 local manager = orb.OpenBusConnectionManager
 local conn = manager:createConnection(bushost, busport)
 manager:setDefaultConnection(conn)
 
+-- customize test configuration for this case
+settestcfg(iface, ...)
+
 -- create service implementation
-local Messenger = {
-  __type = orb.types:lookup("tecgraf::openbus::interop::delegation::Messenger"),
-  inboxOf = table.memoize(function() return {} end),
-}
+local Messenger = { inboxOf = table.memoize(function() return {} end) }
 function Messenger:post(to, message)
   local chain = conn:getCallerChain()
   local from = chain2str(chain)
@@ -46,14 +46,12 @@ local component = ComponentContext(orb, {
   patch_version = 0,
   platform_spec = "",
 })
-component:addFacet("messenger", Messenger.__type.repID, Messenger)
+component:addFacet(iface.name, iface.repID, Messenger)
 
 -- login to the bus
-conn:loginByCertificate("messenger", syskey)
+conn:loginByCertificate(system, assert(server.readfrom(syskey)))
 
 -- offer messenger service
-conn.offers:registerService(component.IComponent, {
-  {name="offer.domain",value="Interoperability Tests"}, -- provided property
-})
+conn.offers:registerService(component.IComponent, properties)
 
 log:TEST("messenger service ready!")
