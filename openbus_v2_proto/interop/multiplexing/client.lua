@@ -1,15 +1,23 @@
+local table = require "loop.table"
+
 local log = require "openbus.util.logger"
 local openbus = require "openbus"
 
-bushost, busport, verbose = ...
-require "openbus.util.testcfg"
+require "openbus.test.util"
 
 -- setup and start the ORB
 local orb = openbus.initORB()
 orb:loadidlfile("hello.idl")
+local iface = orb.types:lookup("tecgraf::openbus::interop::simple::Hello")
 
--- connect to the bus
+-- customize test configuration for this case
+settestcfg(iface, ...)
+
+-- obtain connection manager
 local manager = orb.OpenBusConnectionManager
+
+-- define service properties
+local props = {{name="openbus.component.interface",value=iface.repID}}
 
 for _, businfo in ipairs{
   {host=bushost, port=busport, offers=3},
@@ -23,42 +31,27 @@ for _, businfo in ipairs{
   -- login to the bus
   conn:loginByPassword(user, password)
   
-  -- retrieve required services
-  log:TEST(true, "retrieve required services from bus ",conn.busid)
-  local services = {}
-  local tries = 10
-  for i = 1, tries do
-    local offers = conn.offers:findServices({
-      {name="openbus.component.facet",value="Hello"}, -- automatic property
-      {name="offer.domain",value="Interoperability Tests"}, -- provided property
-    })
-    local count = 0
-    for _, offer in ipairs(offers) do
-      local service = offer.service_ref
-      if not service:_non_existent() then
-        for _, prop in ipairs(offer.properties) do
-          if prop.name == "openbus.offer.login" then
-            local login = prop.value
-            assert(services[login] == nil)
-            services[login] = service:getFacetByName("Hello"):__narrow()
-            count = count+1
-            break
-          end
-        end
-      end
-    end
-    if count < businfo.offers then
-      log:TEST(count," services found after ",i," seconds, ",businfo.offers-count," missing")
-      openbus.sleep(1)
-    else
-      break
-    end
+  -- find the offered service
+  log:TEST("retrieve hello services from bus ",conn.busid,"!")
+  local expected = businfo.offers
+  local services = table.memoize(function() return {} end)
+  for _, offer in ipairs(findoffers(conn.offers, props, expected)) do
+    local entity = getprop(offer.properties, "openbus.offer.entity")
+    local login = getprop(offer.properties, "openbus.offer.login")
+    log:TEST("found service of ",entity,"! (",login,")")
+    assert(services[entity][login] == nil)
+    services[entity][login] =
+      offer.service_ref:getFacetByName(iface.name):__narrow(iface)
   end
-  log:TEST(false, "required services found at bus ",conn.busid,"!")
   
-  log:TEST("invoking ",businfo.offers," services from bus ",conn.busid,"!")
-  for login, hello in pairs(services) do
-    assert(hello:sayHello() == "Hello from "..user.."@"..conn.busid.."!")
+  log:TEST("invoking services from bus ",conn.busid,"!")
+  for entity, services in pairs(services) do
+    local count = 0
+    for login, hello in pairs(services) do
+      assert(hello:sayHello() == "Hello from "..user.."@"..conn.busid.."!")
+      count = count+1
+    end
+    assert(count == expected, entity..": found "..count.." of "..expected)
   end
   
   -- logout from the bus

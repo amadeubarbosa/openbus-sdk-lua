@@ -1,31 +1,28 @@
-require "openbus.util.testcfg"
+require "openbus.test.configs"
 
 Category {
   id = category,
   name = "OpenBus 2.0 Test Entities",
 }
-Entity {
-  id = system,
-  category = category,
-  name = "OpenBus 2.0 Test System",
-}
-Certificate {
-  id = system,
-  certificate = syscrt,
-}
-Interface {
-  id = "IDL:tecgraf/openbus/interop/simple/Hello:1.0",
-}
-Grant {
-  id = system,
-  interfaces = { "IDL:tecgraf/openbus/interop/simple/Hello:1.0" },
-}
 
-for _, name in ipairs{"Messenger","Broadcaster","Forwarder"} do
-  local entity = name:lower()
-  local ifaceId = "IDL:tecgraf/openbus/interop/delegation/"..name..":1.0"
-  Entity { id = entity, category = category, name = "Test "..name.." Service" }
-  Certificate { id = entity, certificate = syscrt }
-  Interface { id = ifaceId }
-  Grant { id = entity, interfaces = { ifaceId } }
+for case, services in pairs{
+  Simple = { "Hello" },
+  Multiplexing = { "Hello" },
+  SharedAuth = { "Hello" },
+  Delegation = { "Messenger","Broadcaster","Forwarder" },
+} do
+  for _, iface in ipairs(services) do
+    local module = case:lower()
+    local name = iface:lower()
+    if iface == "Hello" then
+      module = "simple"
+      name = "server"
+    end
+    local ifaceId = "IDL:tecgraf/openbus/interop/"..module.."/"..iface..":1.0"
+    local entity = "interop_"..case:lower().."_"..name.."_lua"
+    Entity { id = entity, category = category, name = "Lua "..case.." "..iface }
+    Certificate { id = entity, certificate = syscrt }
+    Interface { id = ifaceId }
+    Grant { id = entity, interfaces = { ifaceId } }
+  end
 end

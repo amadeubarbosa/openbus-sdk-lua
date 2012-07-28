@@ -1,15 +1,19 @@
 local log = require "openbus.util.logger"
+local server = require "openbus.util.server"
 local openbus = require "openbus"
 local ComponentContext = require "scs.core.ComponentContext"
-local chain2str = require "chain2str"
+local table = require "loop.table"
 
-bushost, busport, verbose = ...
-require "openbus.util.testcfg"
+require "openbus.test.util"
 
 -- setup and start the ORB
 local orb = openbus.initORB()
 orb:loadidlfile("messages.idl")
 openbus.newthread(orb.run, orb)
+local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::Broadcaster")
+
+-- customize test configuration for this case
+settestcfg(iface, ...)
 
 -- connect to the bus
 local manager = orb.OpenBusConnectionManager
@@ -17,10 +21,7 @@ local conn = manager:createConnection(bushost, busport)
 manager:setDefaultConnection(conn)
 
 -- create service implementation
-Broadcaster = {
-  __type = orb.types:lookup("tecgraf::openbus::interop::delegation::Broadcaster"),
-  subscribers = {},
-}
+Broadcaster = { subscribers = {} }
 function Broadcaster:post(message)
   conn:joinChain() -- joins the current caller chain
   for user in pairs(self.subscribers) do
@@ -48,38 +49,24 @@ local component = ComponentContext(orb, {
   patch_version = 0,
   platform_spec = "",
 })
-component:addFacet("broadcaster", Broadcaster.__type.repID, Broadcaster)
-
-local msgIface = orb.types:lookup("tecgraf::openbus::interop::delegation::Messenger")
+component:addFacet(iface.name, iface.repID, Broadcaster)
 
 -- login to the bus
-conn:loginByCertificate("broadcaster", syskey)
+conn:loginByCertificate(system, assert(server.readfrom(syskey)))
+
+-- define service properties
+local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::Messenger")
+local props = {{name="openbus.component.interface",value=iface.repID}}
 
 -- retrieve messenger service
-log:TEST(true, "retrieve messenger service")
-Messenger = nil
-repeat
-  offers = conn.offers:findServices({
-    {name="openbus.offer.entity",value="messenger"}, -- automatic property
-    {name="openbus.component.interface",value=msgIface.repID}, -- automatic property
-    {name="offer.domain",value="Interoperability Tests"}, -- provided property
-  })
-  for _, offer in ipairs(offers) do
-    local service = offer.service_ref
-    if not service:_non_existent() then
-      Messenger = orb:narrow(service:getFacet(msgIface.repID), msgIface)
-      break
-    end
-  end
-  if Messenger then break end
-  log:TEST("mesenger service not found yet...")
-  openbus.sleep(1)
-until false
-log:TEST(false, "messenger service found!")
+log:TEST("retrieve messenger service")
+for _, offer in ipairs(findoffers(conn.offers, props)) do
+  local entity = getprop(offer.properties, "openbus.offer.entity")
+  log:TEST("found messenger service of ",entity,"!")
+  Messenger = orb:narrow(offer.service_ref:getFacet(iface.repID), iface)
+end
 
 -- offer broadcast service
-conn.offers:registerService(component.IComponent, {
-  {name="offer.domain",value="Interoperability Tests"}, -- provided property
-})
+conn.offers:registerService(component.IComponent, properties)
 
 log:TEST("broadcast service ready!")

@@ -23,7 +23,7 @@ local sysex = giop.SystemExceptionIDs
 local LoginObserverRepId = idl.types.services.access_control.LoginObserver
 
 bushost, busport, verbose = ...
-require "openbus.util.testcfg"
+require "openbus.test.configs"
 
 local smalltime = .1
 

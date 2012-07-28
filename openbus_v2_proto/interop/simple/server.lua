@@ -1,14 +1,18 @@
 local log = require "openbus.util.logger"
+local server = require "openbus.util.server"
 local openbus = require "openbus"
 local ComponentContext = require "scs.core.ComponentContext"
 
-bushost, busport, verbose = ...
-require "openbus.util.testcfg"
+require "openbus.test.util"
 
 -- setup and start the ORB
 local orb = openbus.initORB()
 orb:loadidlfile("hello.idl")
 openbus.newthread(orb.run, orb)
+local iface = orb.types:lookup("tecgraf::openbus::interop::simple::Hello")
+
+-- customize test configuration for this case
+settestcfg(iface, ...)
 
 -- connect to the bus
 local manager = orb.OpenBusConnectionManager
@@ -29,15 +33,12 @@ local component = ComponentContext(orb, {
   patch_version = 0,
   platform_spec = "Lua",
 })
-local iface = "tecgraf::openbus::interop::simple::Hello"
-component:addFacet("Hello", orb.types:lookup(iface).repID, hello)
+component:addFacet(iface.name, iface.repID, hello)
 
 -- login to the bus
-conn:loginByCertificate(system, syskey)
+conn:loginByCertificate(system, assert(server.readfrom(syskey)))
 
 -- offer service
-conn.offers:registerService(component.IComponent, {
-  {name="offer.domain",value="Interoperability Tests"}, -- provided property
-})
+conn.offers:registerService(component.IComponent, properties)
 
 log:TEST("hello service ready!")

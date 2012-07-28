@@ -22,7 +22,7 @@ local log = require "openbus.util.logger"
 local sysex = giop.SystemExceptionIDs
 
 bushost, busport, verbose = ...
-require "openbus.util.testcfg"
+require "openbus.test.configs"
 
 local smalltime = .1
 

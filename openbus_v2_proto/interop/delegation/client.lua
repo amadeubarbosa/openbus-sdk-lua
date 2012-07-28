@@ -1,13 +1,15 @@
 local log = require "openbus.util.logger"
 local openbus = require "openbus"
-local ComponentContext = require "scs.core.ComponentContext"
 
-bushost, busport, verbose = ...
-require "openbus.util.testcfg"
+require "openbus.test.util"
 
 -- setup and start the ORB
 local orb = openbus.initORB()
 orb:loadidlfile("messages.idl")
+local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::Messenger")
+
+-- customize test configuration for this case
+settestcfg(iface, ...)
 
 -- connect to the bus
 local manager = orb.OpenBusConnectionManager
@@ -17,79 +19,55 @@ manager:setDefaultConnection(conn)
 -- login to the bus
 conn:loginByPassword(user, password)
 
--- find the offered services
-log:TEST(true, "retrieve required services")
-local tries = 10
-for i = 1, tries do
-  offers = conn.offers:findServices({
-    {name="offer.domain",value="Interoperability Tests"}, -- provided property
-  })
-  for _, offer in ipairs(offers) do
-    local service = offer.service_ref
-    if not service:_non_existent() then
-      local name, iface
-      for _, prop in ipairs(offer.properties) do
-        if prop.name == "openbus.component.facet" then
-          assert(name == nil)
-          name = prop.value
-        elseif prop.name == "openbus.component.interface" then
-          assert(iface == nil)
-          iface = prop.value
-        end
-      end
-      _G[name] = orb:narrow(service:getFacet(iface), iface)
-    end
-  end
-  if messenger == nil or broadcaster == nil or forwarder == nil then
-    log:TEST("not all service found after ",i,(" seconds "):tag{
-      messenger = messenger~=nil and "OK" or nil,
-      broadcaster = broadcaster~=nil and "OK" or nil,
-      forwarder = forwarder~=nil and "OK" or nil,
-    })
-    openbus.sleep(1)
-  else
-    break
+-- retrieve services
+local services = {}
+for _, name in ipairs{"Messenger", "Broadcaster", "Forwarder"} do
+  -- define service properties
+  local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::"..name)
+  local props = {{name="openbus.component.interface",value=iface.repID}}
+  -- retrieve service
+  log:TEST("retrieve messenger service")
+  for _, offer in ipairs(findoffers(conn.offers, props)) do
+    local entity = getprop(offer.properties, "openbus.offer.entity")
+    log:TEST("found messenger service of ",entity,"!")
+    services[name] = {
+      entity = entity,
+      ref = orb:narrow(offer.service_ref:getFacet(iface.repID), iface),
+    }
   end
 end
-log:TEST(false, "required services found!")
+
+
 
 -- logout from the bus
 conn:logout()
 
 conn:loginByPassword("bill", "bill")
-forwarder:setForward("willian")
-broadcaster:subscribe()
+services.Forwarder.ref:setForward("willian")
+services.Broadcaster.ref:subscribe()
 conn:logout()
 
 conn:loginByPassword("paul", "paul")
-broadcaster:subscribe()
+services.Broadcaster.ref:subscribe()
 conn:logout()
 
 conn:loginByPassword("mary", "mary")
-broadcaster:subscribe()
+services.Broadcaster.ref:subscribe()
 conn:logout()
 
 conn:loginByPassword("steve", "steve")
-broadcaster:subscribe()
-broadcaster:post("Testing the list!")
+services.Broadcaster.ref:subscribe()
+services.Broadcaster.ref:post("Testing the list!")
 conn:logout()
 
 log:TEST("waiting for messages to propagate")
-for i = 1, 10 do openbus.sleep(1) end
-
-local function showPostsOf(user, posts)
-  log:TEST(true, user," received ",#posts," messages:")
-  for index, post in ipairs(posts) do
-    log:TEST(index,") ",post.from,": ",post.message)
-  end
-  log:TEST(false)
-end
+openbus.sleep(leasetime)
 
 local expected = {
   willian = {
     {
-      from = "forwarder",
-      message = "forwarded message by steve->broadcaster: Testing the list!",
+      from = services.Forwarder.entity,
+      message = "forwarded message by steve->"..services.Broadcaster.entity..": Testing the list!",
     },
     n = 1,
   },
@@ -98,21 +76,21 @@ local expected = {
   },
   paul = {
     {
-      from = "steve->broadcaster",
+      from = "steve->"..services.Broadcaster.entity,
       message = "Testing the list!",
     },
     n = 1,
   },
   mary = {
     {
-      from = "steve->broadcaster",
+      from = "steve->"..services.Broadcaster.entity,
       message = "Testing the list!",
     },
     n = 1,
   },
   steve = {
     {
-      from = "steve->broadcaster",
+      from = "steve->"..services.Broadcaster.entity,
       message = "Testing the list!",
     },
     n = 1,
@@ -121,15 +99,14 @@ local expected = {
 local actual = {}
 for _, user in ipairs{"willian", "bill", "paul", "mary", "steve"} do
   conn:loginByPassword(user, user)
-  actual[user] = messenger:receivePosts()
+  actual[user] = services.Messenger.ref:receivePosts()
   log:TEST(user," got posts: ",actual[user])
-  broadcaster:unsubscribe()
+  services.Broadcaster.ref:unsubscribe()
   conn:logout()
 end
 
 conn:loginByPassword("bill", "bill")
-forwarder:cancelForward("willian")
+services.Forwarder.ref:cancelForward("willian")
 conn:logout()
-
 
 assert(require("loop.debug.Matcher"){metatable=false}:match(actual, expected))
