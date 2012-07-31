@@ -17,7 +17,8 @@ settestcfg(iface, ...)
 local manager = orb.OpenBusConnectionManager
 
 -- define service properties
-local props = {{name="openbus.component.interface",value=iface.repID}}
+properties[#properties+1] = 
+  {name="openbus.component.interface",value=iface.repID}
 
 for _, businfo in ipairs{
   {host=bushost, port=busport, offers=3},
@@ -35,7 +36,7 @@ for _, businfo in ipairs{
   log:TEST("retrieve hello services from bus ",conn.busid,"!")
   local expected = businfo.offers
   local services = table.memoize(function() return {} end)
-  for _, offer in ipairs(findoffers(conn.offers, props, expected)) do
+  for _, offer in ipairs(findoffers(conn.offers, properties, expected)) do
     local entity = getprop(offer.properties, "openbus.offer.entity")
     local login = getprop(offer.properties, "openbus.offer.login")
     log:TEST("found service of ",entity,"! (",login,")")
@@ -48,7 +49,7 @@ for _, businfo in ipairs{
   for entity, services in pairs(services) do
     local count = 0
     for login, hello in pairs(services) do
-      assert(hello:sayHello() == "Hello from "..user.."@"..conn.busid.."!")
+      assert(hello:sayHello() == "Hello "..user.."@"..conn.busid.."!")
       count = count+1
     end
     assert(count == expected, entity..": found "..count.." of "..expected)

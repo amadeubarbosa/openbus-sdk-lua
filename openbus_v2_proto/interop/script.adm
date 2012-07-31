@@ -19,7 +19,7 @@ for case, services in pairs{
       name = "server"
     end
     local ifaceId = "IDL:tecgraf/openbus/interop/"..module.."/"..iface..":1.0"
-    local entity = "interop_"..case:lower().."_"..name.."_lua"
+    local entity = "interop_"..case:lower().."_lua".."_"..name
     Entity { id = entity, category = category, name = "Lua "..case.." "..iface }
     Certificate { id = entity, certificate = syscrt }
     Interface { id = ifaceId }

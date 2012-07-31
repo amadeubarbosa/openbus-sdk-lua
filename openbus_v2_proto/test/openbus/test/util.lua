@@ -10,13 +10,10 @@ function settestcfg(interface, testname)
   if name == "hello" then name = "server" end
   local language = "lua"
   local domain = "interop_"..testname
-  system = domain.."_"..name.."_"..language
-  user = domain.."_client_"..language
+  system = domain.."_"..language.."_"..name
+  user = domain.."_"..language.."_client"
   password = user
-  properties = {
-    {name="offer.domain",value=domain},
-    {name="implementation.language",value=language},
-  }
+  properties = {{name="offer.domain",value="Interoperability Tests"}}
 end
 
 function chain2str(chain)
