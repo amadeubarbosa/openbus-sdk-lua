@@ -20,11 +20,12 @@ manager:setDefaultConnection(conn)
 conn:loginByPassword(user, password)
 
 -- define service properties
-local props = {{name="openbus.component.interface",value=iface.repID}}
+properties[#properties+1] =
+  {name="openbus.component.interface",value=iface.repID}
 
 -- find the offered service
 log:TEST("retrieve hello service")
-for _, offer in ipairs(findoffers(conn.offers, props)) do
+for _, offer in ipairs(findoffers(conn.offers, properties)) do
   local entity = getprop(offer.properties, "openbus.offer.entity")
   log:TEST("found service of ",entity,"!")
   local hello = offer.service_ref:getFacetByName(iface.name):__narrow(iface)

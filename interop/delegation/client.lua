@@ -24,7 +24,9 @@ local services = {}
 for _, name in ipairs{"Messenger", "Broadcaster", "Forwarder"} do
   -- define service properties
   local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::"..name)
-  local props = {{name="openbus.component.interface",value=iface.repID}}
+  local props = { unpack(properties),
+    {name="openbus.component.interface",value=iface.repID},
+  }
   -- retrieve service
   log:TEST("retrieve messenger service")
   for _, offer in ipairs(findoffers(conn.offers, props)) do

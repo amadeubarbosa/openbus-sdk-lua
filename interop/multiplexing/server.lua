@@ -31,7 +31,9 @@ function hello:sayHello()
   local chain = conn1AtBus1WithOrb1:getCallerChain()
              or connAtBus2WithOrb1:getCallerChain()
              or connAtBus1WithOrb2:getCallerChain()
-  return "Hello from "..chain.caller.entity.."@"..chain.busid.."!"
+  local entity = chain.caller.entity.."@"..chain.busid
+  log:TEST("got call from ",entity)
+  return "Hello "..entity.."!"
 end
 
 -- create service SCS components
@@ -73,3 +75,5 @@ openbus.newthread(function()
 end)
 connAtBus2WithOrb1.offers:registerService(component1.IComponent, properties)
 connAtBus1WithOrb2.offers:registerService(component2.IComponent, properties)
+
+log:TEST("hello service ready!")

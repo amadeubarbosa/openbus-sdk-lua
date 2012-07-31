@@ -22,7 +22,9 @@ manager:setDefaultConnection(conn)
 -- create service implementation
 local hello = {}
 function hello:sayHello()
-  return "Hello "..conn:getCallerChain().caller.entity.."!"
+  local entity = conn:getCallerChain().caller.entity
+  log:TEST("got call from ",entity)
+  return "Hello "..entity.."!"
 end
 
 -- create service SCS component
