@@ -18,6 +18,9 @@ local strrep = string.rep
 local math = require "math"
 local inf = math.huge
 
+local io = require "io"
+local openfile = io.open
+
 local hash = require "lce.hash"
 local sha256 = hash.sha256
 
@@ -37,8 +40,6 @@ local resume = cothread.next
 local running = cothread.running
 local threadtrap = cothread.trap
 local unschedule = cothread.unschedule
-
-local Mutex = require "cothread.Mutex"
 
 local giop = require "oil.corba.giop"
 local sysex = giop.SystemExceptionIDs
@@ -75,101 +76,81 @@ local delay = cothread.delay
 local time = cothread.now
 
 
-
-local function getEntryFromCache(self, loginId)
+local function getLoginEntry(self, loginId)
   local logins = self.__object
-  local ids = self.ids
-  local validity = self.validity
-  local timeupdated = self.timeupdated
-  -- use information in the cache to validate the login
-  local entry = self.logininfo:get(loginId)
-  local time2live = validity[entry.index]
-  if time2live == 0 then
-    log:LOGIN_CACHE(msg.InvalidLoginInValidityCache:tag{
-      login = loginId,
-      entity = entry.entity,
-    })
-  elseif time2live ~= nil and time2live > time()-timeupdated then
-    log:LOGIN_CACHE(msg.ValidLoginInValidityCache:tag{
-      login = loginId,
-      entity = entry.entity,
-    })
-    return entry -- valid login in cache
-  else -- update validity cache
-    log:LOGIN_CACHE(msg.UpdateLoginValidityCache:tag{count=#ids})
-    self.timeupdated = time()
-    validity = logins:getValidity(ids)
-    self.validity = validity
-    if validity[entry.index] > 0 then
-      return entry -- valid login
+
+  -- use the cache to get information about the login
+  local cache = self.cache
+  local entry = cache:get(loginId)
+  if entry == nil then
+    local ok, result, enckey = pcall(logins.getLoginInfo, logins, loginId)
+    entry = cache:get(loginId) -- Check again to see if anything changed
+                               -- after the completion of the remote call.
+                               -- The information in the cache should be
+                               -- more reliable because it must be older
+                               -- so the 'deadline' must be more accurate
+                               -- than the one would be generated now.
+    if entry == nil then
+      if ok then
+        local pubkey, exception = decodepubkey(enckey)
+        if pubkey == nil then
+          sysexthrow.NO_PERMISSION{
+            completed = "COMPLETED_NO",
+            minor = loginconst.InvalidPublicKeyCode,
+          }
+        end
+        entry = result
+        entry.encodedkey = enckey
+        entry.pubkey = pubkey
+        entry.deadline = time() -- valid until this moment
+      elseif result._repid == logintypes.InvalidLogins then
+        entry = false
+      else
+        error(result)
+      end
+      cache:put(loginId, entry)
+      return entry or nil
     end
+  end
+
+  -- use the cache to validate the login
+  if entry then
+    if entry.deadline < time() then -- update deadline
+      local validity = logins:getValidity{loginId}[1]
+      if validity <= 0 then
+        cache:put(loginId, false)
+        return nil -- invalid login
+      end
+      entry.deadline = time() + validity
+    end
+    return entry -- valid login
   end
 end
 
-
-local function getLoginEntry(self, loginId)
-  local mutex = self.mutex
-  repeat until mutex:try() -- get exclusive access to this cache
-  local ok, entity = pcall(getEntryFromCache, self, loginId)
-  mutex:free() -- release exclusive access so other threads can access
-  if not ok then error(entity) end
-  return entity
+local function getLoginValidity(self, loginId)
+  local entry = getLoginEntry(self, loginId)
+  if entry ~= nil then
+    return entry.deadline - time()
+  end
+  return 0
 end
 
 local function getLoginInfo(self, loginId)
-  local login = self:getLoginEntry(loginId)
-  if login ~= nil then
-    return login
+  local entry = getLoginEntry(self, loginId)
+  if entry ~= nil then
+    return entry
   end
   loginthrow.InvalidLogins{loginIds={loginId}}
 end
 
 local function newLoginRegistryWrapper(logins)
-  local ids = {}
-  local validity = {}
-  local logininfo = LRUCache()
   local self = Wrapper{
     __object = logins,
-    ids = ids,
-    validity = validity,
-    logininfo = logininfo,
-    timeupdated = -inf,
-    mutex = Mutex(),
+    cache = LRUCache(),
     getLoginEntry = getLoginEntry,
+    getLoginValidity = getLoginValidity,
     getLoginInfo = getLoginInfo,
   }
-  function logininfo.retrieve(loginId, replacedId, entry)
-    local index
-    if entry == nil then
-      index = #ids+1
-      entry = { index = index }
-    else
-      index = entry.index
-    end
-    local ok, info, enckey = pcall(logins.getLoginInfo, logins, loginId)
-    if ok then
-      local pubkey, exception = decodepubkey(enckey)
-      if pubkey == nil then
-        logininfo:remove(loginId)
-        error(exception)
-      end
-      entry.entity = info.entity
-      entry.encodedkey = enckey
-      entry.pubkey = pubkey
-      validity[index] = time()-self.timeupdated -- valid until this moment
-    elseif info._repid == logintypes.InvalidLogins then
-      entry.entity = nil
-      entry.encodedkey = nil
-      entry.pubkey = nil
-      validity[index] = 0
-    else
-      logininfo:remove(loginId)
-      error(info)
-    end
-    entry.id = loginId
-    ids[index] = loginId
-    return entry
-  end
   return self
 end
 
@@ -230,6 +211,7 @@ local function newRenewer(self, lease)
     end
   end)
   self.manager.requesterOf[thread] = self
+  log.viewer.labels[thread] = "Login "..self.login.id.." Renewer"
   resume(thread)
 end
 
@@ -322,21 +304,33 @@ function Connection:__init()
   end
 end
 
-function Connection:joinedChainFor(remoteid, chain)
-  if remoteid ~= BusLogin then
-    local access = self.AccessControl
-    repeat
-      chain = access:signChainFor(remoteid)
-      local login = getLogin(self)
-      if login == nil then
-        sysexthrow.NO_PERMISSION{
-          completed = "COMPLETED_NO",
-          minor = loginconst.NoLoginCode,
-        }
-      end
-    until unmarshalChain(self, chain).caller.id == login.id
+function Connection:resetCaches()
+  CoreInterceptor.resetCaches(self)
+  self.signedChainOf = memoize(function(chain) return LRUCache() end, "k")
+end
+
+function Connection:signChainFor(remoteid, chain)
+  if remoteid == BusLogin then return chain end
+  local access = self.AccessControl
+  local cache = self.signedChainOf[chain]
+  local joined = cache:get(remoteid)
+  while joined == nil do
+    joined = access:signChainFor(remoteid)
+    local login = getLogin(self)
+    if login == nil then
+      sysexthrow.NO_PERMISSION{
+        completed = "COMPLETED_NO",
+        minor = loginconst.NoLoginCode,
+      }
+    end
+    cache = self.signedChainOf[chain]
+    if unmarshalChain(self, joined).caller.id == login.id then
+      cache:put(remoteid, joined)
+      break
+    end
+    joined = cache:get(remoteid)
   end
-  return chain
+  return joined
 end
 
 function Connection:sendrequest(request)
@@ -403,6 +397,13 @@ function Connection:receiverequest(request)
           operation = request.operation.name,
         })
         setNoPermSysEx(request, loginconst.UnknownBusCode)
+      elseif ex._repid == sysex.TRANSIENT 
+          or ex._repid == sysex.COMM_FAILURE
+      then
+        log:exception(msg.UnableToVerifyLoginDueToCoreServicesUnaccessible:tag{
+          operation = request.operation.name,
+        })
+        setNoPermSysEx(request, loginconst.UnverifiedLoginCode)
       else
         error(ex)
       end

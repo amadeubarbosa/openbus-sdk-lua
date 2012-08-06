@@ -181,20 +181,13 @@ function Interceptor:__init()
     idltypes.LegacyCredential = credtype
   end
   self.types = idltypes
-  self.profile2login = LRUCache()
+  self.callerChainOf = setmetatable({}, WeakKeys) -- [thread] = callerChain
+  self.joinedChainOf = setmetatable({}, WeakKeys) -- [thread] = joinedChain
+  self.profile2login = LRUCache() -- [iop_profile] = loginid
   self:resetCaches()
 end
 
 function Interceptor:resetCaches()
-  self.callerChainOf = setmetatable({}, WeakKeys) -- [thread] = callerChain
-  self.joinedChainOf = setmetatable({}, WeakKeys) -- [thread] = joinedChain
-  self.signedChainOf = memoize(function(chain) -- [chain] = SignedChainCache
-    return LRUCache{
-      retrieve = function(remoteid)
-        return self:joinedChainFor(remoteid, chain)
-      end,
-    }
-  end, "k")
   self.outgoingSessions = LRUCache()
   self.incomingSessions = LRUCache{
     retrieve = function(id)
@@ -284,7 +277,7 @@ function Interceptor:sendrequest(request)
     local remoteid = self.profile2login:get(request.profile_data)
     if remoteid ~= nil then -- known IOR profile, so it supports OpenBus 2.0
       legacy = nil -- do not send legacy credential (OpenBus 1.5)
-      chain = self.signedChainOf[chain or NullChain]:get(remoteid)
+      chain = self:signChainFor(remoteid, chain or NullChain)
       local session = self.outgoingSessions:get(remoteid)
       if session ~= nil then -- credential session is established
         sessionid = session.id
