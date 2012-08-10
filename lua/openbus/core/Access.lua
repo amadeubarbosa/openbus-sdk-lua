@@ -147,9 +147,36 @@ end
 
 
 
+local Context = class()
+
+function Context:__init()
+  self.callerChainOf = setmetatable({}, WeakKeys) -- [thread] = chain
+  self.joinedChainOf = setmetatable({}, WeakKeys) -- [thread] = chain
+end
+
+function Context:getCallerChain()
+  return self.callerChainOf[running()]
+end
+
+function Context:joinChain(chain)
+  local thread = running()
+  self.joinedChainOf[thread] = chain or self.callerChainOf[thread] -- or error?
+end
+
+function Context:exitChain()
+  self.joinedChainOf[running()] = nil
+end
+
+function Context:getJoinedChain()
+  return self.joinedChainOf[running()]
+end
+
+
+
 local Interceptor = class()
 
 -- Fields that must be provided before using the interceptor:
+-- context      : context object to be used to retrieve credential info from
 -- orb          : OiL ORB to be used to access the bus
 -- busid        : UUID of the bus being accessed
 -- buskey       : public key of the bus being accessed
@@ -181,8 +208,6 @@ function Interceptor:__init()
     idltypes.LegacyCredential = credtype
   end
   self.types = idltypes
-  self.callerChainOf = self.callerChainOf or setmetatable({}, WeakKeys)
-  self.joinedChainOf = self.joinedChainOf or setmetatable({}, WeakKeys)
   self.profile2login = LRUCache() -- [iop_profile] = loginid
   self:resetCaches()
 end
@@ -248,30 +273,11 @@ end
 
 
 
-function Interceptor:getCallerChain()
-  return self.callerChainOf[running()]
-end
-
-function Interceptor:joinChain(chain)
-  local thread = running()
-  self.joinedChainOf[thread] = chain or self.callerChainOf[thread] -- or error?
-end
-
-function Interceptor:exitChain()
-  self.joinedChainOf[running()] = nil
-end
-
-function Interceptor:getJoinedChain()
-  return self.joinedChainOf[running()]
-end
-
-
-
 function Interceptor:sendrequest(request)
   local contexts = {}
   local legacy = self.legacy
   local orb = self.orb
-  local chain = self.joinedChainOf[running()]
+  local chain = self.context.joinedChainOf[running()]
   if chain==nil or chain.signature~=nil then -- no legacy chain (OpenBus 1.5)
     local sessionid, ticket, hash = 0, 0, NullHash
     local remoteid = self.profile2login:get(request.profile_data)
@@ -389,7 +395,7 @@ function Interceptor:receiverequest(request)
               remote = caller.id,
               entity = caller.entity,
             })
-            self.callerChainOf[running()] = chain
+            self.context.callerChainOf[running()] = chain
           else
             -- invalid call chain
             log:exception(msg.GotCallWithInvalidChain:tag{
@@ -470,7 +476,7 @@ function Interceptor:receiverequest(request)
 end
 
 function Interceptor:sendreply()
-  self.callerChainOf[running()] = nil
+  self.context.callerChainOf[running()] = nil
 end
 
 
@@ -500,6 +506,7 @@ end
 
 
 local module = {
+  Context = Context,
   Interceptor = Interceptor,
   setNoPermSysEx = setNoPermSysEx,
 }

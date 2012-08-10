@@ -67,10 +67,11 @@ local ServiceFailure = coreidl.throw.services.ServiceFailure
 local access = require "openbus.core.Access"
 local neworb = access.initORB
 local setNoPermSysEx = access.setNoPermSysEx
-local CoreInterceptor = access.Interceptor
-local sendBusRequest = CoreInterceptor.sendrequest
-local receiveBusReply = CoreInterceptor.receivereply
-local receiveBusRequest = CoreInterceptor.receiverequest
+local BaseContext = access.Context
+local BaseInterceptor = access.Interceptor
+local sendBusRequest = BaseInterceptor.sendrequest
+local receiveBusReply = BaseInterceptor.receivereply
+local receiveBusRequest = BaseInterceptor.receiverequest
 
 -- must be loaded after OiL is loaded because OiL is the one that installs
 -- the cothread plug-in that supports the 'now' operation.
@@ -190,14 +191,14 @@ local function getDispatcherFor(self, request)
 end
 
 local pcallWithin do
-  local function continuation(manager, backup, ...)
-    manager:setCurrentConnection(backup)
+  local function continuation(context, backup, ...)
+    context:setCurrentConnection(backup)
     return ...
   end
   function pcallWithin(self, obj, op, ...)
-    local manager = self.manager
-    local backup = manager:setCurrentConnection(self)
-    return continuation(manager, backup, pcall(obj[op], obj, ...))
+    local context = self.context
+    local backup = context:setCurrentConnection(self)
+    return continuation(context, backup, pcall(obj[op], obj, ...))
   end
 end
 
@@ -229,7 +230,7 @@ local function newRenewer(self, lease)
       end
     end
   end)
-  self.manager.connectionOf[thread] = self
+  self.context.connectionOf[thread] = self
   log.viewer.labels[thread] = "Login "..self.login.id.." Renewer"
   resume(thread)
 end
@@ -357,11 +358,11 @@ end
 
 
 
-local Connection = class({}, CoreInterceptor)
+local Connection = class({}, BaseInterceptor)
 
 function Connection:__init()
   -- retrieve IDL definitions for login
-  copy(self.manager.types, self.types)
+  copy(self.context.types, self.types)
   local legacy = self.legacy
   if legacy ~= nil then
     local oldidl = require "openbus.core.legacy.idl"
@@ -373,7 +374,7 @@ function Connection:__init()
 end
 
 function Connection:resetCaches()
-  CoreInterceptor.resetCaches(self)
+  BaseInterceptor.resetCaches(self)
   self.signedChainOf = memoize(function(chain) return LRUCache() end, "k")
 end
 
@@ -451,8 +452,7 @@ function Connection:receiverequest(request)
   if self.login ~= nil then
     local ok, ex = pcall(receiveBusRequest, self, request)
     if ok then
-      if request.success == nil and self.callerChainOf[running()] == nil then
-      --TODO: if request.success == nil and self:getCallerChain() == nil then
+      if request.success == nil and self.context:getCallerChain() == nil then
         log:exception(msg.DeniedOrdinaryCall:tag{
           operation = request.operation.name,
         })
@@ -605,17 +605,7 @@ local IgnoredThreads = {}
 
 local WeakKeys = { __mode="k" }
 
-local Context = class{
-  getCallerChain = CoreInterceptor.getCallerChain,
-  joinChain = CoreInterceptor.joinChain,
-  exitChain = CoreInterceptor.exitChain,
-  getJoinedChain = CoreInterceptor.getJoinedChain,
-}
-
---[[TODO: REMOVE THIS!!!]] CoreInterceptor.getCallerChain = nil
---[[TODO: REMOVE THIS!!!]] CoreInterceptor.joinChain = nil
---[[TODO: REMOVE THIS!!!]] CoreInterceptor.exitChain = nil
---[[TODO: REMOVE THIS!!!]] CoreInterceptor.getJoinedChain = nil
+local Context = class({}, BaseContext)
 
 function Context:__init()
   self.connectionOf = setmetatable({}, WeakKeyMeta) -- [thread]=connection
@@ -626,8 +616,6 @@ function Context:__init()
     LoginAuthenticationInfo =
       assert(orb.types:lookup_id(logintypes.LoginAuthenticationInfo)),
   }
-  self.callerChainOf = setmetatable({}, WeakKeys) -- [thread] = callerChain
-  self.joinedChainOf = setmetatable({}, WeakKeys) -- [thread] = joinedChain
 end
 
 function Context:sendrequest(request)
@@ -726,14 +714,12 @@ function Context:createConnection(host, port, props)
     end
   end
   return Connection{
-    manager = self,
+    context = self,
     orb = orb,
     bus = busaddress2component(orb, host, port, BusObjectKey),
     legacy = legacy,
     legacyDelegOrig = delegorig,
     prvkey = prvkey,
-    callerChainOf = self.callerChainOf, -- [thread] = callerChain
-    joinedChainOf = self.joinedChainOf, -- [thread] = joinedChain
   }
 end
 
