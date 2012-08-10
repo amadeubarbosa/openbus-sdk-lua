@@ -10,6 +10,7 @@ local setmetatable = _G.setmetatable
 local tostring = _G.tostring
 
 local coroutine = require "coroutine"
+local running = coroutine.running
 local newthread = coroutine.create
 
 local string = require "string"
@@ -23,8 +24,8 @@ local openfile = io.open
 
 local hash = require "lce.hash"
 local sha256 = hash.sha256
-
 local pubkey = require "lce.pubkey"
+local newkey = pubkey.create
 local decodeprvkey = pubkey.decodeprivate
 local decodepubkey = pubkey.decodepublic
 
@@ -37,7 +38,6 @@ local Wrapper = require "loop.object.Wrapper"
 
 local cothread = require "cothread"
 local resume = cothread.next
-local running = cothread.running
 local threadtrap = cothread.trap
 local unschedule = cothread.unschedule
 
@@ -55,13 +55,15 @@ local throw = libidl.throw
 local coreidl = require "openbus.core.idl"
 local BusLogin = coreidl.const.BusLogin
 local CredentialContextId = coreidl.const.credential.CredentialContextId
-local ServiceFailure = coreidl.throw.services.ServiceFailure
-local loginthrow = coreidl.throw.services.access_control
+local coresrvconst = coreidl.const.services
+local coresrvtypes = coreidl.types.services
 local loginconst = coreidl.const.services.access_control
 local logintypes = coreidl.types.services.access_control
-local offerconst = coreidl.const.services.offer_registry
-local offertypes = coreidl.types.services.offer_registry
+local loginthrow = coreidl.throw.services.access_control
+local AccessDenied = loginthrow.AccessDenied
+local InvalidLogins = loginthrow.InvalidLogins
 local BusObjectKey = coreidl.const.BusObjectKey
+local ServiceFailure = coreidl.throw.services.ServiceFailure
 local access = require "openbus.core.Access"
 local neworb = access.initORB
 local setNoPermSysEx = access.setNoPermSysEx
@@ -77,13 +79,14 @@ local time = cothread.now
 
 
 local function getLoginEntry(self, loginId)
-  local logins = self.__object
+  local LoginRegistry = self.__object
 
   -- use the cache to get information about the login
   local cache = self.cache
   local entry = cache:get(loginId)
   if entry == nil then
-    local ok, result, enckey = pcall(logins.getLoginInfo, logins, loginId)
+    local ok, result, enckey = pcall(LoginRegistry.getLoginInfo, LoginRegistry,
+                                     loginId)
     entry = cache:get(loginId) -- Check again to see if anything changed
                                -- after the completion of the remote call.
                                -- The information in the cache should be
@@ -116,7 +119,7 @@ local function getLoginEntry(self, loginId)
   -- use the cache to validate the login
   if entry then
     if entry.deadline < time() then -- update deadline
-      local validity = logins:getValidity{loginId}[1]
+      local validity = LoginRegistry:getValidity{loginId}[1]
       if validity <= 0 then
         cache:put(loginId, false)
         return nil -- invalid login
@@ -140,12 +143,12 @@ local function getLoginInfo(self, loginId)
   if entry ~= nil then
     return entry
   end
-  loginthrow.InvalidLogins{loginIds={loginId}}
+  InvalidLogins{loginIds={loginId}}
 end
 
-local function newLoginRegistryWrapper(logins)
+local function newLoginRegistryWrapper(LoginRegistry)
   local self = Wrapper{
-    __object = logins,
+    __object = LoginRegistry,
     cache = LRUCache(),
     getLoginEntry = getLoginEntry,
     getLoginValidity = getLoginValidity,
@@ -160,25 +163,43 @@ local function unmarshalChain(self, signed)
 end
 
 local function unmarshalBusId(self, contexts)
+  local idltype = self.types.Identifier
   local decoder = self.orb:newdecoder(contexts[CredentialContextId])
-  return decoder:get(self.types.Identifier)
+  local busid = decoder:get(idltype)
+  local login = decoder:get(idltype)
+  return busid, login
 end
 
-local function getBusId(self, contexts)
+local function getCallerId(self, contexts)
   local ok, result = pcall(unmarshalBusId, self, contexts)
   if ok then return result end
 end
 
+local function getDispatcherFor(self, request)
+  local callback = self.onCallDispatch
+  if callback ~= nil then
+    local params = request.parameters
+    local busid, login = getCallerId(self, request.service_context)
+    return callback(self,
+      busid,
+      login,
+      request.object_key,
+      request.operation_name,
+      unpack(params, 1, params.n))
+  end
+end
+
 local pcallWithin do
-  local function continuation(manager, backup, ...)
-    manager:setRequester(backup)
+  local function continuation(connectionOf, thread, backup, ...)
+    connectionOf[thread] = backup
     return ...
   end
   function pcallWithin(self, obj, op, ...)
-    local manager = self.manager
-    local backup = manager:getRequester()
-    manager:setRequester(self)
-    return continuation(manager, backup, pcall(obj[op], obj, ...))
+    local thread = running()
+    local connectionOf = self.manager.connectionOf
+    local backup = connectionOf[thread]
+    connectionOf[thread] = self
+    return continuation(connectionOf, thread, backup, pcall(obj[op], obj, ...))
   end
 end
 
@@ -210,27 +231,74 @@ local function newRenewer(self, lease)
       end
     end
   end)
-  self.manager.requesterOf[thread] = self
+  self.manager.connectionOf[thread] = self
   log.viewer.labels[thread] = "Login "..self.login.id.." Renewer"
   resume(thread)
 end
 
+local CoreServices = {
+  AccessControl = "access_control",
+  LoginRegistry = "access_control",
+  CertificateRegistry = "access_control",
+  InterfaceRegistry = "offer_registry",
+  EntityRegistry = "offer_registry",
+  OfferRegistry = "offer_registry",
+}
+
+local function getCoreFacet(self, name)
+  local module = CoreServices[name]
+  if module ~= nil then
+    local facetname = assert(coresrvconst[module][name.."Facet"], name)
+    local typerepid = assert(coresrvtypes[module][name], name)
+    local facet = assert(self.bus:getFacetByName(facetname), name)
+    return self.orb:narrow(facet, typerepid)
+  end
+end
+
+local function intiateLogin(self)
+  local AccessControl = getCoreFacet(self, "AccessControl")
+  local buskey, errmsg = decodepubkey(AccessControl:_get_buskey())
+  if buskey == nil then
+    ServiceFailure{message=msg.InvalidBusKey:tag{message=errmsg}}
+  end
+  return AccessControl, buskey
+end
+
+local function encryptLogin(self, buskey, pubkey, data)
+  local encoder = self.orb:newencoder()
+  encoder:put({data=data,hash=sha256(pubkey)},
+    self.types.LoginAuthenticationInfo)
+  return buskey:encrypt(encoder:getdata())
+end
+
+local function localLogin(self, AccessControl, buskey, login, lease)
+  local busid = AccessControl:_get_busid()
+  local LoginRegistry = getCoreFacet(self, "LoginRegistry")
+  if self.login ~= nil then throw.AlreadyLoggedIn() end
+  self.invalidLogin = nil
+  self.busid = busid
+  self.buskey = buskey
+  self.AccessControl = AccessControl
+  self.LoginRegistry = newLoginRegistryWrapper(LoginRegistry)
+  self.login = login
+  newRenewer(self, lease)
+end
+
 local function localLogout(self)
+  self.busid = nil
+  self.buskey = nil
+  self.AccessControl = nil
+  self.LoginRegistry = nil
   self.login = nil
+  if self.legacy ~= nil then
+    self.legacy:clearReferences()
+  end
   self:resetCaches()
   local renewer = self.renewer
   if renewer ~= nil then
     self.renewer = nil
     unschedule(renewer)
   end
-end
-
-local function localLogin(self, busid, login, lease)
-  if self.busid ~= busid then throw.BusChanged{ busid = busid } end
-  if self.login ~= nil then throw.AlreadyLoggedIn() end
-  self.invalidLogin = nil
-  self.login = login
-  newRenewer(self, lease)
 end
 
 local function getLogin(self)
@@ -256,51 +324,53 @@ local function getLogin(self)
   return login
 end
 
-local LoginServiceNames = {
-  AccessControl = "AccessControl",
-  certificates = "CertificateRegistry",
-  logins = "LoginRegistry",
-}
-local OfferServiceNames = {
-  interfaces = "InterfaceRegistry",
-  entities = "EntityRegistry",
-  offers = "OfferRegistry",
-}
+local MaxEncryptedData = strrep("\255", coreidl.const.EncryptedBlockSize-11)
+
+local function busaddress2component(orb, host, port, key)
+  local ref = "corbaloc::"..host..":"..port.."/"..key
+  local ok, result = pcall(orb.newproxy, orb, ref, nil, "scs::core::IComponent")
+  if not ok then
+    throw.InvalidBusAddress{host=host,port=port,message=tostring(result)}
+  end
+  return result
+end
+
+
+
+local LegacyACSWrapper = class()
+
+function LegacyACSWrapper:clearReferences()
+  self.facet = nil
+end
+
+function LegacyACSWrapper:isValid(...)
+  local facet = self.facet
+  if facet == nil then
+    local bus = self.bus
+    local ok, result = pcall(bus.getFacetByName, bus,
+                             "IAccessControlService_v1_05")
+    if not ok then return end
+    facet = self.orb:narrow(result, self.idltype)
+    self.facet = facet
+  end
+  local ok, result = pcall(facet.isValid, facet, ...)
+  if ok then return result end
+end
 
 
 
 local Connection = class({}, CoreInterceptor)
 
 function Connection:__init()
-  local orb = self.orb
   -- retrieve IDL definitions for login
   copy(self.manager.types, self.types)
-  -- retrieve core service references
-  local bus = self.bus
-  for field, name in pairs(LoginServiceNames) do
-    local facetname = assert(loginconst[name.."Facet"], name)
-    local typerepid = assert(logintypes[name], name)
-    local facet = assert(bus:getFacetByName(facetname), name)
-    self[field] = orb:narrow(facet, typerepid)
-  end
-  for field, name in pairs(OfferServiceNames) do
-    local facetname = assert(offerconst[name.."Facet"], name)
-    local typerepid = assert(offertypes[name], name)
-    local facet = assert(bus:getFacetByName(facetname), name)
-    self[field] = orb:narrow(facet, typerepid)
-  end
-  -- create wrapper for core service LoginRegistry
-  self.logins = newLoginRegistryWrapper(self.logins)
-  local access = self.AccessControl
-  self.busid = access:_get_busid()
-  self.buskey = assert(decodepubkey(access:_get_buskey()))
-  
   local legacy = self.legacy
   if legacy ~= nil then
-    local facet = assert(legacy:getFacetByName("IAccessControlService_v1_05"))
     local oldidl = require "openbus.core.legacy.idl"
-    local oldtypes = oldidl.types.access_control_service
-    self.legacy = orb:narrow(facet, oldtypes.IAccessControlService)
+    self.legacy = LegacyACSWrapper{
+      idltype = oldidl.types.access_control_service.IAccessControlService,
+      bus = legacy,
+    }
   end
 end
 
@@ -332,6 +402,7 @@ function Connection:signChainFor(remoteid, chain)
   end
   return joined
 end
+
 
 function Connection:sendrequest(request)
   local login = getLogin(self)
@@ -382,7 +453,8 @@ function Connection:receiverequest(request)
   if self.login ~= nil then
     local ok, ex = pcall(receiveBusRequest, self, request)
     if ok then
-      if request.success == nil and self:getCallerChain() == nil then
+      if request.success == nil and self.callerChainOf[running()] == nil then
+      --TODO: if request.success == nil and self:getCallerChain() == nil then
         log:exception(msg.DeniedOrdinaryCall:tag{
           operation = request.operation.name,
         })
@@ -419,44 +491,34 @@ end
 
 function Connection:loginByPassword(entity, password)
   if self.login ~= nil then throw.AlreadyLoggedIn() end
-  local access = self.AccessControl
+  local AccessControl, buskey = intiateLogin(self)
   local pubkey = self.prvkey:encode("public")
-  local encoder = self.orb:newencoder()
-  encoder:put({data=password,hash=sha256(pubkey)},
-    self.types.LoginAuthenticationInfo)
-  local encoded = encoder:getdata()
-  local encrypted, errmsg = self.buskey:encrypt(encoded)
+  local encrypted, errmsg = encryptLogin(self, buskey, pubkey, password)
   if encrypted == nil then
-    ServiceFailure{message=msg.InvalidBusKey:tag{message=errmsg}}
+    AccessDenied{message=msg.UnableToEncryptPassword:tag{message=errmsg}}
   end
-  local login, lease = access:loginByPassword(entity, pubkey, encrypted)
-  localLogin(self, access:_get_busid(), login, lease)
+  local login, lease = AccessControl:loginByPassword(entity, pubkey, encrypted)
+  localLogin(self, AccessControl, buskey, login, lease)
   log:request(msg.LoginByPassword:tag{
     login = login.id,
     entity = login.entity,
   })
 end
 
-function Connection:loginByCertificate(entity, encoded)
-  local privatekey, errmsg = decodeprvkey(encoded)
-  if privatekey == nil then throw.InvalidPrivateKey{message=errmsg} end
+function Connection:loginByCertificate(entity, privatekey)
   if self.login ~= nil then throw.AlreadyLoggedIn() end
-  local access = self.AccessControl
-  local attempt, challenge = access:startLoginByCertificate(entity)
+  local AccessControl, buskey = intiateLogin(self)
+  local attempt, challenge = AccessControl:startLoginByCertificate(entity)
   local secret, errmsg = privatekey:decrypt(challenge)
   if secret == nil then
     pcall(attempt.cancel, attempt)
-    loginthrow.AccessDenied{message=errmsg}
+    AccessDenied{message=msg.UnableToDecryptChallenge:tag{message=errmsg}}
   end
   local pubkey = self.prvkey:encode("public")
-  local encoder = self.orb:newencoder()
-  encoder:put({data=secret,hash=sha256(pubkey)},
-    self.types.LoginAuthenticationInfo)
-  local encoded = encoder:getdata()
-  local encrypted, errmsg = self.buskey:encrypt(encoded)
+  local encrypted, errmsg = encryptLogin(self, buskey, pubkey, secret)
   if encrypted == nil then
     pcall(attempt.cancel, attempt)
-    ServiceFailure{message=msg.InvalidBusKey:tag{message=errmsg}}
+    ServiceFailure{message=msg.UnableToEncryptSecret:tag{message=errmsg}}
   end
   local ok, login, lease = pcall(attempt.login, attempt, pubkey, encrypted)
   if not ok then
@@ -465,7 +527,7 @@ function Connection:loginByCertificate(entity, encoded)
     end
     error(login)
   end
-  localLogin(self, access:_get_busid(), login, lease)
+  localLogin(self, AccessControl, buskey, login, lease)
   log:request(msg.LoginByCertificate:tag{
     login = login.id,
     entity = login.entity,
@@ -473,12 +535,19 @@ function Connection:loginByCertificate(entity, encoded)
 end
 
 function Connection:startSharedAuth()
-  local attempt, challenge = callWithin(self, self.AccessControl,
+  local AccessControl = self.AccessControl
+  if AccessControl == nil then
+    sysexthrow.NO_PERMISSION{
+      completed = "COMPLETED_NO",
+      minor = loginconst.NoLoginCode,
+    }
+  end
+  local attempt, challenge = callWithin(self, AccessControl,
                                         "startLoginBySharedAuth")
   local secret, errmsg = self.prvkey:decrypt(challenge)
   if secret == nil then
     pcall(attempt.cancel, attempt)
-    ServiceFailure{message=msg.InvalidAccessKey:tag{message=errmsg}}
+    ServiceFailure{message=msg.UnableToDecryptChallenge:tag{message=errmsg}}
   end
   return attempt, secret
 end
@@ -489,16 +558,12 @@ end
 
 function Connection:loginBySharedAuth(attempt, secret)
   if self.login ~= nil then throw.AlreadyLoggedIn() end
-  local access = self.AccessControl
+  local AccessControl, buskey = intiateLogin(self)
   local pubkey = self.prvkey:encode("public")
-  local encoder = self.orb:newencoder()
-  encoder:put({data=secret,hash=sha256(pubkey)},
-    self.types.LoginAuthenticationInfo)
-  local encoded = encoder:getdata()
-  local encrypted, errmsg = self.buskey:encrypt(encoded)
+  local encrypted, errmsg = encryptLogin(self, buskey, pubkey, secret)
   if encrypted == nil then
     pcall(attempt.cancel, attempt)
-    ServiceFailure{message=msg.InvalidBusKey:tag{message=errmsg}}
+    AccessDenied{message=msg.UnableToEncryptSecret:tag{message=errmsg}}
   end
   local ok, login, lease = pcall(attempt.login, attempt, pubkey, encrypted)
   if not ok then
@@ -507,7 +572,7 @@ function Connection:loginBySharedAuth(attempt, secret)
     end
     error(login)
   end
-  localLogin(self, access:_get_busid(), login, lease)
+  localLogin(self, AccessControl, buskey, login, lease)
   log:request(msg.LoginBySharedAuth:tag{
     login = login.id,
     entity = login.entity,
@@ -542,11 +607,20 @@ local IgnoredThreads = {}
 
 local WeakKeys = { __mode="k" }
 
-local ConnectionManager = class()
+local BusContext = class{
+  getCallerChain = CoreInterceptor.getCallerChain,
+  joinChain = CoreInterceptor.joinChain,
+  exitChain = CoreInterceptor.exitChain,
+  getJoinedChain = CoreInterceptor.getJoinedChain,
+}
 
-function ConnectionManager:__init()
-  self.requesterOf = setmetatable({}, WeakKeyMeta) -- [thread]=connection
-  self.dispatcherOf = {} -- [busid]=connection
+--[[TODO: REMOVE THIS!!!]] CoreInterceptor.getCallerChain = nil
+--[[TODO: REMOVE THIS!!!]] CoreInterceptor.joinChain = nil
+--[[TODO: REMOVE THIS!!!]] CoreInterceptor.exitChain = nil
+--[[TODO: REMOVE THIS!!!]] CoreInterceptor.getJoinedChain = nil
+
+function BusContext:__init()
+  self.connectionOf = setmetatable({}, WeakKeyMeta) -- [thread]=connection
   local orb = self.orb
   self.types = {
     Identifier =
@@ -554,13 +628,15 @@ function ConnectionManager:__init()
     LoginAuthenticationInfo =
       assert(orb.types:lookup_id(logintypes.LoginAuthenticationInfo)),
   }
+  self.callerChainOf = setmetatable({}, WeakKeys) -- [thread] = callerChain
+  self.joinedChainOf = setmetatable({}, WeakKeys) -- [thread] = joinedChain
 end
 
-function ConnectionManager:sendrequest(request)
+function BusContext:sendrequest(request)
   if IgnoredThreads[running()] == nil then
-    local conn = self.requesterOf[running()] or self.defaultConnection
+    local conn = self:getCurrentConnection()
     if conn ~= nil then
-      request.openbusConnection = conn
+      request[self] = conn
       conn:sendrequest(request)
     else
       log:exception(msg.AttemptToCallWithoutConnection:tag{
@@ -575,52 +651,40 @@ function ConnectionManager:sendrequest(request)
   end
 end
 
-function ConnectionManager:receivereply(request)
-  local conn = request.openbusConnection
+function BusContext:receivereply(request)
+  local conn = request[self]
   if conn ~= nil then
     conn:receivereply(request)
     if request.success ~= nil then
-      request.openbusConnection = nil
+      request[self] = nil
     end
   end
 end
 
-function ConnectionManager:receiverequest(request)
-  local busid = getBusId(self, request.service_context)
-  local conn = self.dispatcherOf[busid] or self.defaultConnection
+function BusContext:receiverequest(request)
+  local conn = getDispatcherFor(self, request) or self.defaultConnection
   if conn ~= nil then
-    request.openbusConnection = conn
-    self:setRequester(conn)
+    request[self] = conn
+    self:setCurrentConnection(conn)
     conn:receiverequest(request)
   else
-    setNoPermSysEx(request, busid and loginconst.UnknownBusCode or 0)
+    setNoPermSysEx(request, loginconst.UnknownBusCode)
     log:exception(msg.GotCallWhileDisconnected:tag{
       operation = request.operation_name,
     })
   end
 end
 
-function ConnectionManager:sendreply(request)
-  local conn = request.openbusConnection
+function BusContext:sendreply(request)
+  local conn = request[self]
   if conn ~= nil then
-    request.openbusConnection = nil
+    request[self] = nil
     conn:sendreply(request)
   end
 end
 
 
-local MaxEncryptedData = strrep("\255", coreidl.const.EncryptedBlockSize-11)
-
-local function busaddress2component(orb, host, port, key)
-  local ref = "corbaloc::"..host..":"..port.."/"..key
-  local ok, result = pcall(orb.newproxy, orb, ref, nil, "scs::core::IComponent")
-  if not ok then
-    throw.InvalidBusAddress{host=host,port=port,message=tostring(result)}
-  end
-  return result
-end
-
-function ConnectionManager:createConnection(host, port, props)
+function BusContext:createConnection(host, port, props)
   if props == nil then props = {} end
   local orb = self.orb
   local legacy = not props.nolegacy
@@ -670,38 +734,33 @@ function ConnectionManager:createConnection(host, port, props)
     legacy = legacy,
     legacyDelegOrig = delegorig,
     prvkey = prvkey,
+    callerChainOf = self.callerChainOf, -- [thread] = callerChain
+    joinedChainOf = self.joinedChainOf, -- [thread] = joinedChain
   }
 end
 
-function ConnectionManager:setDefaultConnection(conn)
+function BusContext:setDefaultConnection(conn)
   self.defaultConnection = conn
 end
 
-function ConnectionManager:getDefaultConnection()
+function BusContext:getDefaultConnection()
   return self.defaultConnection
 end
 
-function ConnectionManager:setRequester(conn)
-  self.requesterOf[running()] = conn
+function BusContext:setCurrentConnection(conn)
+  self.connectionOf[running()] = conn
 end
 
-function ConnectionManager:getRequester()
-  return self.requesterOf[running()]
+function BusContext:getCurrentConnection()
+  return self.connectionOf[running()]
+      or self.defaultConnection
 end
 
-function ConnectionManager:setDispatcher(conn)
-  self.dispatcherOf[conn.busid] = conn
-end
-
-function ConnectionManager:getDispatcher(busid)
-  return self.dispatcherOf[busid]
-end
-
-function ConnectionManager:clearDispatcher(busid)
-  local dispatcherOf = self.dispatcherOf
-  local conn = dispatcherOf[busid]
-  dispatcherOf[busid] = nil
-  return conn
+function BusContext:getCoreService(name)
+  local conn = self:getCurrentConnection()
+  if conn ~= nil and CoreServices[name] ~= nil then
+    return conn[name] or getCoreFacet(conn, name)
+  end
 end
 
 
@@ -715,7 +774,7 @@ do
       "loginBySharedAuth",
       "cancelSharedAuth",
     },
-    [ConnectionManager] = {
+    [BusContext] = {
       "createConnection",
     },
   }
@@ -738,7 +797,7 @@ end
 
 
 
-local openbus = { sleep = delay }
+local openbus = { sleep = delay, readkey = decodeprvkey }
 
 function openbus.newthread(func, ...)
   local thread = newthread(func)
@@ -746,11 +805,28 @@ function openbus.newthread(func, ...)
   return thread
 end
 
+function openbus.newkey()
+  return newkey(coreidl.const.EncryptedBlockSize)
+end
+
+function openbus.readkeyfile(path)
+  local result, errmsg = openfile(path, "rb")
+  if result ~= nil then
+    local file = result
+    result, errmsg = file:read("*a")
+    file:close()
+    if result ~= nil then
+      result, errmsg = decodeprvkey(result)
+    end
+  end
+  return result, errmsg
+end
+
 function openbus.initORB(configs)
   local orb = neworb(copy(configs))
-  local manager = ConnectionManager{ orb = orb }
-  orb.OpenBusConnectionManager = manager
-  orb:setinterceptor(manager, "corba")
+  local context = BusContext{ orb = orb }
+  orb.OpenBusContext = context
+  orb:setinterceptor(context, "corba")
   return orb
 end
 
@@ -760,26 +836,30 @@ end
 local argcheck = require "openbus.util.argcheck"
 argcheck.convertclass(Connection, {
   loginByPassword = { "string", "string" },
-  loginByCertificate = { "string", "string" },
+  loginByCertificate = { "string", "userdata" },
+  startSharedAuth = {},
+  cancelSharedAuth = { "table" },
+  loginBySharedAuth = { "table", "string" },
   logout = {},
+})
+argcheck.convertclass(BusContext, {
+  createConnection = { "string", "number|string", "nil|table" },
+  setDefaultConnection = { "nil|table" },
+  getDefaultConnection = {},
+  setCurrentConnection = { "nil|table" },
+  getCurrentConnection = {},
   getCallerChain = {},
   joinChain = { "nil|table" },
   exitChain = {},
   getJoinedChain = {},
-})
-argcheck.convertclass(ConnectionManager, {
-  createConnection = { "string", "number|string", "nil|table" },
-  setDefaultConnection = { "nil|table" },
-  getDefaultConnection = {},
-  setRequester = { "nil|table" },
-  getRequester = {},
-  setDispatcher = { "table" },
-  getDispatcher = { "string" },
-  clearDispatcher = { "string" },
+  getCoreService = { "string" },
 })
 argcheck.convertmodule(openbus, {
   sleep = { "number" },
   newthread = { "function" },
+  newkey = {},
+  readkey = { "string" },
+  readkeyfile = { "string" },
   initORB = { "nil|table" },
 })
 

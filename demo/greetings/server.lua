@@ -1,6 +1,5 @@
 local utils = require "utils"
 local oo = require "openbus.util.oo"
-local server = require "openbus.util.server"
 local openbus = require "openbus"
 local ComponentContext = require "scs.core.ComponentContext"
 
@@ -13,7 +12,7 @@ busport = assert(tonumber(busport), "o 2o. argumento é um número de porta")
 entity = assert(entity, "o 3o. argumento é a entidade a ser autenticada")
 privatekeypath = assert(privatekeypath,
   "o 4o. argumento é o caminho da chave privada de autenticação da entidade")
-local privatekey = assert(server.readfrom(privatekeypath))
+local privatekey = assert(openbus.readkeyfile(privatekeypath))
 local params = {
   bushost = bushost,
   busport = busport,
@@ -22,6 +21,25 @@ local params = {
 }
 
 
+-- setup and start the ORB
+local orb = openbus.initORB()
+openbus.newthread(orb.run, orb)
+
+-- get bus context manager
+local OpenBusContext = orb.OpenBusContext
+
+
+-- create service implementation
+local Greetings = oo.class{}
+function Greetings:sayGreetings()
+  print(self.message:format(OpenBusContext:getCallerChain().caller.entity))
+end
+
+-- load IDL definitions
+local iface = orb:loadidl("interface Greetings { void sayGreetings(); };")
+params.interface = iface.name
+
+-- create service SCS components
 local messages = {
   English = {
     GoodMorning = "Good morning %s",
@@ -39,21 +57,6 @@ local messages = {
     GoodNight = "Boa noite %s",
   },
 }
-
--- create service implementation
-local conn
-local Greetings = oo.class{}
-function Greetings:sayGreetings()
-  print(self.message:format(conn:getCallerChain().caller.entity))
-end
-  
--- setup and start the ORB
-local orb = openbus.initORB()
-openbus.newthread(orb.run, orb)
-
--- create service SCS component
-local iface = orb:loadidl("interface Greetings { void sayGreetings(); };")
-params.interface = iface.name
 local components = {}
 for language, greetings in pairs(messages) do
   local component = ComponentContext(orb, {
@@ -75,33 +78,28 @@ for language, greetings in pairs(messages) do
   }
 end
 
+
+-- connect to the bus
+OpenBusContext:setDefaultConnection(
+  OpenBusContext:createConnection(bushost, busport))
+
 -- call in protected mode
 local ok, result = pcall(function ()
-  
-  -- connect to the bus
-  local connections = orb.OpenBusConnectionManager
-  conn = connections:createConnection(bushost, busport)
-  connections:setDefaultConnection(conn)
-  
   -- login to the bus
-  conn:loginByCertificate(entity, privatekey)
-  
+  OpenBusContext:getCurrentConnection():loginByCertificate(entity, privatekey)
   -- register service at the bus
+  local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
   for _, info in ipairs(components) do
-    conn.offers:registerService(info.component.IComponent, info.properties)
+    OfferRegistry:registerService(info.component.IComponent, info.properties)
   end
-  
 end)
 
 -- show eventual errors
 if not ok then
-  utils.showerror(result, params,
-    utils.msg.Connect,
-    utils.msg.LoginByCertificate,
-    utils.msg.Register)
+  utils.showerror(result, params, utils.errmsg.LoginByCertificate,
+                                  utils.errmsg.Register,
+                                  utils.errmsg.BusCore)
   -- free any resoures allocated
-  if conn ~= nil then
-    conn:logout()
-  end
+  OpenBusContext:getCurrentConnection():logout()
   orb:shutdown()
 end
