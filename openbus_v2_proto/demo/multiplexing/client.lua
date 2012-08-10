@@ -19,7 +19,9 @@ local params = {
 -- setup and start the ORB
 local orb = openbus.initORB()
 openbus.newthread(orb.run, orb)
-local connections = orb.OpenBusConnectionManager
+
+-- get bus context manager
+local OpenBusContext = orb.OpenBusContext
 
 
 -- load interface definitions
@@ -28,92 +30,92 @@ local iface = orb.types:lookup("Timer")
 params.interface = iface.name
 
 
--- create service implementation
+-- create callback implementation
 local pending = 0
 local Callback = oo.class{}
 function Callback:notifyTrigger()
-  local conn = self.conn
-  local chain = connections:getRequester():getCallerChain()
-  if chain.caller.id == self.timer then
+  local chain = OpenBusContext:getCallerChain()
+  local timerId = utils.getprop(self.timerOffer, "openbus.offer.login")
+  if chain.caller.id == timerId then
     print("notificação do timer esperado recebida!")
-    --if #chain.originators ~= 1
-    --or chain.originators[1].id ~= conn.login.id
-    --then
-    --  print("  notificação feita fora da chamada original!")
-    --end
+    if #chain.originators ~= 1
+    or chain.originators[1].id ~= self.loginId
+    then
+      print("  notificação feita fora da chamada original!")
+    end
   else
     print("notificação inesperada recebida:")
     print("  recebida de: ",chain.caller.id)
-    print("  esperada de: ",self.timer)
+    print("  esperada de: ",timerId)
   end
-  conn:logout()
   pending = pending-1
   if pending == 0 then
-    connections:getDefaultConnection():logout()
+    -- free any resoures allocated
+    OpenBusContext:getDefaultConnection():logout()
     orb:shutdown()
   end
 end
 
 
--- function that uses the bus to find the required service
+-- function that creates connections logged to the bus
+local connprops = { accesskey = assert(openbus.newkey()) }
 local function newLogin()
   -- connect to the bus
-  local conn = connections:createConnection(bushost, busport)
+  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
   -- login to the bus
   conn:loginByPassword(entity, password or entity)
-  -- find the offered service
+  -- return the connection with the new login
   return conn
 end
 
--- function that uses the bus to find the required service
-local function findService()
+-- perform operations in protected mode and handle eventual errors
+local ok, result = pcall(function ()
   -- connect to the bus
-  local conn = newLogin()
-  connections:setDefaultConnection(conn)
+  OpenBusContext:setDefaultConnection(newLogin())
   -- find the offered service
-  return conn.offers:findServices{
+  local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+  return OfferRegistry:findServices{
     {name="offer.domain",value="Demo Multiplexing"},
     {name="openbus.component.interface",value=iface.repID},
   }
-end
-
--- function that uses the required service through the bus
-local function callService(offer, timeout, callback)
-  local facet = offer.service_ref:getFacet(iface.repID)
-  if facet == nil then
-    error("o serviço encontrado não oferece mais a faceta '"..name.."'")
-  end
-  facet:__narrow():newTrigger(timeout, callback)
-end
-
--- perform operations in protected mode and handle eventual errors
-local ok, result = pcall(findService)
+end)
 if not ok then
-  utils.showerror(result, params, utils.msg.Connect,
-                                  utils.msg.LoginByPassword)
+  utils.showerror(result, params, utils.errmsg.LoginByPassword,
+                                  utils.errmsg.BusCore)
 else
+  -- for each service offer found
   for index, offer in ipairs(result) do
+    -- use offer in a separated thread
     openbus.newthread(function ()
+      -- get new login in protected mode
       local ok, result = pcall(newLogin)
       if not ok then
-        utils.showerror(result, params, utils.msg.Connect,
-                                        utils.msg.LoginByPassword)
+        utils.showerror(result, params, utils.errmsg.LoginByPassword,
+                                        utils.errmsg.BusCore)
       else
+        -- call the service found using the new login
         local conn = result
-        connections:setRequester(conn)
-        local ok, result = pcall(callService, offer, index, Callback{
-          conn = conn,
-          timer = utils.getprop(offer, "openbus.offer.login"),
-        })
+        OpenBusContext:setCurrentConnection(conn)
+        local ok, result = pcall(function ()
+          local facet = assert(offer.service_ref:getFacet(iface.repID),
+            "o serviço encontrado não provê a faceta ofertada")
+
+--require("oil.verbose"):level(4)
+
+          assert(facet:__narrow()):newTrigger(index, Callback{
+            loginId = conn.login.id,
+            timerOffer = offer,
+          })
+          OpenBusContext:getCurrentConnection():logout()
+        end)
         if not ok then
-          utils.showerror(result, params, utils.msg.Service)
-          conn:logout()
+          utils.showerror(result, params, utils.errmsg.Service)
         else
           pending = pending+1
         end
+        OpenBusContext:setCurrentConnection(nil)
+        conn:logout()
       end
     end)
   end
 end
-
--- free any resoures allocated

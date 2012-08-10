@@ -1,5 +1,4 @@
 local utils = require "utils"
-local server = require "openbus.util.server"
 local openbus = require "openbus"
 local ComponentContext = require "scs.core.ComponentContext"
 
@@ -12,7 +11,7 @@ busport = assert(tonumber(busport), "o 2o. argumento é um número de porta")
 entity = assert(entity, "o 3o. argumento é a entidade a ser autenticada")
 privatekeypath = assert(privatekeypath,
   "o 4o. argumento é o caminho da chave privada de autenticação da entidade")
-local privatekey = assert(server.readfrom(privatekeypath))
+local privatekey = assert(openbus.readkeyfile(privatekeypath))
 local params = {
   bushost = bushost,
   busport = busport,
@@ -21,17 +20,20 @@ local params = {
 }
 
 
--- create service implementation
-local conn
-local hello = {}
-function hello:sayHello()
-  print("Hello "..conn:getCallerChain().caller.entity.."!")
-end
-  
 -- setup and start the ORB
 local orb = openbus.initORB()
 openbus.newthread(orb.run, orb)
 
+-- get bus context manager
+local OpenBusContext = orb.OpenBusContext
+
+
+-- create service implementation
+local hello = {}
+function hello:sayHello()
+  print("Hello "..OpenBusContext:getCallerChain().caller.entity.."!")
+end
+  
 -- load IDL definitions
 local iface = orb:loadidl("interface Hello { void sayHello(); };")
 params.interface = iface.name
@@ -45,29 +47,28 @@ local component = ComponentContext(orb, {
   platform_spec = "Lua",
 })
 component:addFacet("Hello", iface.repID, hello)
-local props = {{name="offer.domain",value="Demo Hello"}}
+
+
+-- connect to the bus
+OpenBusContext:setDefaultConnection(
+  OpenBusContext:createConnection(bushost, busport))
 
 -- call in protected mode
 local ok, result = pcall(function ()
-  -- connect to the bus
-  local connections = orb.OpenBusConnectionManager
-  conn = connections:createConnection(bushost, busport)
-  connections:setDefaultConnection(conn)
   -- login to the bus
-  conn:loginByCertificate(entity, privatekey)
+  OpenBusContext:getCurrentConnection():loginByCertificate(entity, privatekey)
   -- register service at the bus
-  conn.offers:registerService(component.IComponent, props)
+  local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+  OfferRegistry:registerService(component.IComponent,
+    {{name="offer.domain",value="Hello Demo"}})
 end)
 
 -- show eventual errors
 if not ok then
-  utils.showerror(result, params,
-    utils.msg.Connect,
-    utils.msg.LoginByCertificate,
-    utils.msg.Register)
+  utils.showerror(result, params, utils.errmsg.LoginByCertificate,
+                                  utils.errmsg.Register,
+                                  utils.errmsg.BusCore)
   -- free any resoures allocated
-  if conn ~= nil then
-    conn:logout()
-  end
+  OpenBusContext:getCurrentConnection():logout()
   orb:shutdown()
 end

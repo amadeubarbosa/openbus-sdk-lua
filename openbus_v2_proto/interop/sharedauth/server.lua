@@ -1,5 +1,4 @@
 local log = require "openbus.util.logger"
-local server = require "openbus.util.server"
 local openbus = require "openbus"
 local ComponentContext = require "scs.core.ComponentContext"
 
@@ -7,22 +6,22 @@ require "openbus.test.util"
 
 -- setup and start the ORB
 local orb = openbus.initORB()
-orb:loadidlfile("hello.idl")
 openbus.newthread(orb.run, orb)
+
+-- load interface definition
+orb:loadidlfile("hello.idl")
 local iface = orb.types:lookup("tecgraf::openbus::interop::simple::Hello")
 
 -- customize test configuration for this case
 settestcfg(iface, ...)
 
--- connect to the bus
-local manager = orb.OpenBusConnectionManager
-local conn = manager:createConnection(bushost, busport)
-manager:setDefaultConnection(conn)
+-- get bus context manager
+local OpenBusContext = orb.OpenBusContext
 
 -- create service implementation
 local hello = {}
 function hello:sayHello()
-  local entity = conn:getCallerChain().caller.entity
+  local entity = OpenBusContext:getCallerChain().caller.entity
   log:TEST("got call from ",entity)
   return "Hello "..entity.."!"
 end
@@ -37,18 +36,27 @@ local component = ComponentContext(orb, {
 })
 component:addFacet(iface.name, iface.repID, hello)
 
+-- connect to the bus
+local conn = OpenBusContext:createConnection(bushost, busport)
+OpenBusContext:setDefaultConnection(conn)
+
 -- login to the bus
-conn:loginByCertificate(system, assert(server.readfrom(syskey)))
+conn:loginByCertificate(system, assert(openbus.readkeyfile(syskey)))
 
 -- offer service
-conn.offers:registerService(component.IComponent, properties)
+local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+OfferRegistry:registerService(component.IComponent, properties)
 
 log:TEST("hello service ready!")
 
+-- generate shared authentication data
 local attempt, secret = conn:startSharedAuth()
 
+-- load interface definition
 orb:loadidlfile("encoding.idl")
 local idltype = orb.types:lookup("tecgraf::openbus::interop::sharedauth::EncodedSharedAuth")
+
+-- serialize shared authentication data
 local encoder = orb:newencoder()
 encoder:put({attempt=attempt,secret=secret}, idltype)
 assert(oil.writeto("sharedauth.dat", encoder:getdata(), "wb"))

@@ -6,8 +6,8 @@ local rawget = _G.rawget
 local setmetatable = _G.setmetatable
 local unpack = _G.unpack
 
-local cothread = require "cothread"
-local running = cothread.running
+local coroutine = require "coroutine"
+local running = coroutine.running
 
 local string = require "string"
 local char = string.char
@@ -154,7 +154,7 @@ local Interceptor = class()
 -- busid        : UUID of the bus being accessed
 -- buskey       : public key of the bus being accessed
 -- AccessControl: AccessControl facet of the bus being accessed
--- logins       : LoginRegistry facet of the bus being accessed
+-- LoginRegistry: LoginRegistry facet of the bus being accessed
 -- login        : information about the login used to access the bus
 
 -- Optional field that may be provided to configure the interceptor:
@@ -181,8 +181,8 @@ function Interceptor:__init()
     idltypes.LegacyCredential = credtype
   end
   self.types = idltypes
-  self.callerChainOf = setmetatable({}, WeakKeys) -- [thread] = callerChain
-  self.joinedChainOf = setmetatable({}, WeakKeys) -- [thread] = joinedChain
+  self.callerChainOf = self.callerChainOf or setmetatable({}, WeakKeys)
+  self.joinedChainOf = self.joinedChainOf or setmetatable({}, WeakKeys)
   self.profile2login = LRUCache() -- [iop_profile] = loginid
   self:resetCaches()
 end
@@ -379,7 +379,7 @@ function Interceptor:receiverequest(request)
   local credential = self:unmarshalCredential(service_context)
   if credential ~= nil then
     if credential.bus == self.busid then
-      local caller = self.logins:getLoginEntry(credential.login)
+      local caller = self.LoginRegistry:getLoginEntry(credential.login)
       if caller ~= nil then
         if validateCredential(self, credential, caller, request) then
           local chain = credential.chain

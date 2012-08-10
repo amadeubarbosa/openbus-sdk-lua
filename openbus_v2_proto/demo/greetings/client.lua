@@ -17,53 +17,42 @@ local params = {
 }
 
 
--- variable to hold resources to be freed before termination
-local conn
+-- setup the ORB and connect to the bus
+local OpenBusContext = openbus.initORB().OpenBusContext
+OpenBusContext:setDefaultConnection(
+  OpenBusContext:createConnection(bushost, busport))
 
--- function that uses the bus to find the required service
-local function findService()
-  -- connect to the bus
-  local connections = openbus.initORB().OpenBusConnectionManager
-  conn = connections:createConnection(bushost, busport)
-  connections:setDefaultConnection(conn)
-  -- login to the bus
-  conn:loginByPassword(entity, password or entity)
-  -- find the offered service
-  return conn.offers:findServices{
+-- perform operations in protected mode and handle eventual errors
+local ok, result = pcall(function ()
+    -- login to the bus
+  OpenBusContext:getCurrentConnection():loginByPassword(entity, password
+                                                                or entity)
+    -- find the offered service
+  local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+  return OfferRegistry:findServices{
     {name="offer.domain",value="Demo Greetings"},
     {name="greetings.language",value=language},
   }
-end
-
--- function that uses the required service through the bus
-local facets = {"GoodMorning", "GoodAfternoon", "GoodNight"}
-local function callService(offers)
-  for _, offer in ipairs(offers) do
-    service = offer.service_ref
-    if not service:_non_existent() then
-      for _, name in ipairs(facets) do
-        local facet = service:getFacetByName(name)
-        if facet == nil then
-          error("o serviço encontrado não oferece mais a faceta '"..name.."'")
-        end
+end)
+if not ok then
+  utils.showerror(result, params, utils.errmsg.LoginByPassword,
+                                  utils.errmsg.BusCore)
+else
+  for _, offer in ipairs(result) do
+    ok, result = pcall(function ()
+      for _, name in ipairs{"GoodMorning", "GoodAfternoon", "GoodNight"} do
+        -- get the facet providing the service
+        local facet = assert(offer.service_ref:getFacetByName(name),
+          "o serviço encontrado não provê a faceta ofertada")
+        -- invoke the service
         facet:__narrow():sayGreetings()
       end
-      return
-    end
+    end)
   end
-  error("não foi possível encontrar o serviço esperado")
-end
-
--- perform operations in protected mode and handle eventual errors
-local ok, result = pcall(findService)
-if not ok then
-  utils.showerror(result, params, utils.msg.Connect, utils.msg.LoginByPassword)
-else
-  ok, result = pcall(callService, result)
   if not ok then
-    utils.showerror(result, params, utils.msg.Service)
+    utils.showerror(result, params, utils.errmsg.Service)
   end
 end
 
 -- free any resoures allocated
-if conn ~= nil then conn:logout() end
+OpenBusContext:getCurrentConnection():logout()

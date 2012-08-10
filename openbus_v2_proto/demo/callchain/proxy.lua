@@ -1,5 +1,4 @@
 local utils = require "utils"
-local server = require "openbus.util.server"
 local openbus = require "openbus"
 local ComponentContext = require "scs.core.ComponentContext"
 
@@ -12,7 +11,7 @@ busport = assert(tonumber(busport), "o 2o. argumento é um número de porta")
 entity = assert(entity, "o 3o. argumento é a entidade a ser autenticada")
 privatekeypath = assert(privatekeypath,
   "o 4o. argumento é o caminho da chave privada de autenticação da entidade")
-local privatekey = assert(server.readfrom(privatekeypath))
+local privatekey = assert(openbus.readkeyfile(privatekeypath))
 local params = {
   bushost = bushost,
   busport = busport,
@@ -25,27 +24,16 @@ local params = {
 local orb = openbus.initORB()
 openbus.newthread(orb.run, orb)
 
+-- get bus context manager
+local OpenBusContext = orb.OpenBusContext
+
+
 -- load interface definitions
 orb:loadidlfile("callchain/messenger.idl")
 local iface = orb.types:lookup("Messenger")
 params.interface = iface.name
 
 -- create service implementation
-local offers
-local function callService(message)
-  if offers ~= nil then
-    for _, offer in ipairs(offers) do
-      service = offer.service_ref
-      if not service:_non_existent() then
-        local facet = service:getFacet(iface.repID)
-        if facet ~= nil then
-          facet:__narrow():showMessage(message)
-          return true
-        end
-      end
-    end
-  end
-end
 local function chain2str(chain)
   local entities = {}
   for _, login in ipairs(chain.originators) do
@@ -54,19 +42,26 @@ local function chain2str(chain)
   entities[#entities+1] = chain.caller.entity
   return table.concat(entities, "->")
 end
-local conn
+local function callService(offer, message)
+  local facet = assert(offer.service_ref:getFacet(iface.repID),
+    "o serviço encontrado não provê a faceta ofertada")
+  facet:__narrow():showMessage(message)
+end
 local messenger = {}
 function messenger:showMessage(message)
-  local chain = conn:getCallerChain()
+  local chain = OpenBusContext:getCallerChain()
   print("repassando mensagem de "..chain2str(chain))
-  conn:joinChain(chain)
-  local ok, result = pcall(callService, message)
-  if not ok then
-    utils.showerror(result, params, utils.msg.Service)
-  elseif not result then
-    print("  nenhum serviço encontrado para repassar mensagem")
-    error{_repid="IDL:Unavailable:1.0"}
+  OpenBusContext:joinChain(chain)
+  for _, offer in ipairs(offers) do
+    local ok, result = pcall(callService, offer, message)
+    if not ok then
+      utils.showerror(result, params, utils.errmsg.Service)
+    else
+      return
+    end
   end
+  io.stderr:write("serviços encontrados não estão disponíveis\n")
+  error{_repid="IDL:Unavailable:1.0"}
 end
 
 -- create service SCS component
@@ -79,39 +74,40 @@ local component = ComponentContext(orb, {
 })
 component:addFacet(iface.name, iface.repID, messenger)
 
+
+-- connect to the bus
+OpenBusContext:setDefaultConnection(
+  OpenBusContext:createConnection(bushost, busport))
+
 -- call in protected mode
 local ok, result = pcall(function ()
-  -- connect to the bus
-  local connections = orb.OpenBusConnectionManager
-  conn = connections:createConnection(bushost, busport)
-  connections:setDefaultConnection(conn)
-  
   -- login to the bus
-  conn:loginByCertificate(entity, privatekey)
+  OpenBusContext:getCurrentConnection():loginByCertificate(entity, privatekey)
   
-  -- register service at the bus
-  conn.offers:registerService(component.IComponent, {
-    {name="offer.role",value="proxy messenger"},
-    {name="offer.domain",value="Demo Chain Validation"},
-  })
-  
+  -- get offer registry
+  local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+
   -- find the offered service
-  offers = conn.offers:findServices{
+  offers = OfferRegistry:findServices{
     {name="openbus.component.interface",value=iface.repID},
     {name="offer.role",value="actual messenger"},
     {name="offer.domain",value="Demo Chain Validation"},
   }
+  assert(#offers, "nenhum serviço encontrado para repassar mensagens")
+  
+  -- register service at the bus
+  OfferRegistry:registerService(component.IComponent, {
+    {name="offer.role",value="proxy messenger"},
+    {name="offer.domain",value="Demo Chain Validation"},
+  })
 end)
 
 -- show eventual errors
 if not ok then
-  utils.showerror(result, params,
-    utils.msg.Connect,
-    utils.msg.LoginByCertificate,
-    utils.msg.Register)
+  utils.showerror(result, params, utils.errmsg.LoginByCertificate,
+                                  utils.errmsg.Register,
+                                  utils.errmsg.BusCore)
   -- free any resoures allocated
-  if conn ~= nil then
-    conn:logout()
-  end
+  OpenBusContext:getCurrentConnection():logout()
   orb:shutdown()
 end

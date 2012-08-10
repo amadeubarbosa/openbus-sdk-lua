@@ -1,8 +1,6 @@
 local utils = require "utils"
 local oo = require "openbus.util.oo"
-local server = require "openbus.util.server"
 local openbus = require "openbus"
-local cothread = require "cothread"
 local ComponentContext = require "scs.core.ComponentContext"
 
 
@@ -14,7 +12,7 @@ busport = assert(tonumber(busport), "o 2o. argumento é um número de porta")
 entity = assert(entity, "o 3o. argumento é a entidade a ser autenticada")
 privatekeypath = assert(privatekeypath,
   "o 4o. argumento é o caminho da chave privada de autenticação da entidade")
-local privatekey = assert(server.readfrom(privatekeypath))
+local privatekey = assert(openbus.readkeyfile(privatekeypath))
 local params = {
   bushost = bushost,
   busport = busport,
@@ -26,45 +24,33 @@ local params = {
 -- setup and start the ORB
 local orb = openbus.initORB()
 openbus.newthread(orb.run, orb)
-local connections = orb.OpenBusConnectionManager
+
+-- get bus context manager
+local OpenBusContext = orb.OpenBusContext
 
 
 -- create service implementation
-local Timer = oo.class{}
-function Timer:setConnection(conn)
-  self.conn = conn
-end
-function Timer:getConnection()
-  return self.conn
-end
+local Timer = oo.class()
 function Timer:newTrigger(timeout, callback)
-  local conn = self.conn
-  --local chain = connections:getRequester():getCallerChain()
+  local chain = OpenBusContext:getCallerChain()
+  local conn = OpenBusContext:getCurrentConnection()
   openbus.newthread(function ()
     openbus.sleep(timeout)
-    connections:setRequester(conn)
-    --conn:joinChain(chain)
+    OpenBusContext:setCurrentConnection(conn)
+    OpenBusContext:joinChain(chain)
     local ok, result = pcall(callback.notifyTrigger, callback)
     if not ok then
-      utils.showerror(result, params, utils.msg.Service)
+      utils.showerror(result, params, utils.errmsg.Service)
     end
   end)
 end
 
 
--- function that registers service using a new login
-local properties = {{name="offer.domain",value="Demo Multiplexing"}}
-local function registerService(component)
-  -- connect to the bus
-  local conn = connections:createConnection(bushost, busport)
-  connections:setRequester(conn)
-  connections:setDispatcher(conn)
-  -- login to the bus
-  conn:loginByCertificate(entity, privatekey)
-  -- register service at the bus
-  conn.offers:registerService(component.IComponent, properties)
-  -- store the connection used to register the component
-  component.Timer:setConnection(conn)
+local TimerConn = {}
+function OpenBusContext:onCallDispatch(busid, callerid, objkey, operation, ...)
+  local servant = orb.ServantManager.servants:retrieve(objkey)
+  return TimerConn[servant and servant.__servant]
+      or select(2, next(TimerConn)) -- use any connection, if exists
 end
 
 
@@ -74,6 +60,8 @@ local iface = orb.types:lookup("Timer")
 params.interface = iface.name
 
 for i = 1, 3 do
+  -- instantiate implementaiton
+  local timer = Timer()
   -- create service SCS component
   local component = ComponentContext(orb, {
     name = iface.name,
@@ -82,18 +70,27 @@ for i = 1, 3 do
     patch_version = 0,
     platform_spec = "Lua",
   })
-  component:addFacet(iface.name, iface.repID, Timer())
+  component:addFacet(iface.name, iface.repID, timer)
+  -- connect to the bus
+  local conn = OpenBusContext:createConnection(bushost, busport)
+  OpenBusContext:setCurrentConnection(conn)
+  -- associate connection to the servant
+  TimerConn[timer] = conn
   -- try to register service
-  local ok, result = pcall(registerService, component)
+  local ok, result = pcall(function ()
+    -- login to the bus
+    conn:loginByCertificate(entity, privatekey)
+    -- register service at the bus
+    local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+    OfferRegistry:registerService(component.IComponent,
+      {{name="offer.domain",value="Demo Multiplexing"}})
+  end)
   if not ok then
-    utils.showerror(result, params,
-      utils.msg.Connect,
-      utils.msg.LoginByCertificate,
-      utils.msg.Register)
+    utils.showerror(result, params, utils.errmsg.LoginByCertificate,
+                                    utils.errmsg.Register,
+                                    utils.errmsg.BusCore)
     -- free any resoures allocated
-    local conn = component.Timer:getConnection()
-    if conn ~= nil then
-      conn:logout()
-    end
+    OpenBusContext:getCurrentConnection():logout()
+    orb:shutdown()
   end
 end
