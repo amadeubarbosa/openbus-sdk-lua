@@ -62,7 +62,7 @@ conn:onInvalidLogin()
 local timestamp
 local props = {{name="offer.domain",value="Demo Independent Clock"}}
 repeat
-  local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+  local OfferRegistry = OpenBusContext:getOfferRegistry()
   local ok, result = pcall(OfferRegistry.findServices, OfferRegistry, props)
   if not ok then
     utils.showerror(result, params, utils.errmsg.BusCore)

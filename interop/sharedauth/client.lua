@@ -37,7 +37,7 @@ local props = {{name="openbus.component.interface",value=iface.repID}}
 
 -- find the offered service
 log:TEST("retrieve hello service")
-local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+local OfferRegistry = OpenBusContext:getOfferRegistry()
 for _, offer in ipairs(findoffers(OfferRegistry, props)) do
   local entity = getprop(offer.properties, "openbus.offer.entity")
   log:TEST("found service of ",entity,"!")

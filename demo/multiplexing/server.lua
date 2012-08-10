@@ -12,7 +12,7 @@ busport = assert(tonumber(busport), "o 2o. argumento é um número de porta")
 entity = assert(entity, "o 3o. argumento é a entidade a ser autenticada")
 privatekeypath = assert(privatekeypath,
   "o 4o. argumento é o caminho da chave privada de autenticação da entidade")
-local privatekey = assert(openbus.readkeyfile(privatekeypath))
+local privatekey = assert(openbus.readKeyFile(privatekeypath))
 local params = {
   bushost = bushost,
   busport = busport,
@@ -23,7 +23,7 @@ local params = {
 
 -- setup and start the ORB
 local orb = openbus.initORB()
-openbus.newthread(orb.run, orb)
+openbus.newThread(orb.run, orb)
 
 -- get bus context manager
 local OpenBusContext = orb.OpenBusContext
@@ -34,7 +34,7 @@ local Timer = oo.class()
 function Timer:newTrigger(timeout, callback)
   local chain = OpenBusContext:getCallerChain()
   local conn = OpenBusContext:getCurrentConnection()
-  openbus.newthread(function ()
+  openbus.newThread(function ()
     openbus.sleep(timeout)
     OpenBusContext:setCurrentConnection(conn)
     OpenBusContext:joinChain(chain)
@@ -81,7 +81,7 @@ for i = 1, 3 do
     -- login to the bus
     conn:loginByCertificate(entity, privatekey)
     -- register service at the bus
-    local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+    local OfferRegistry = OpenBusContext:getOfferRegistry()
     OfferRegistry:registerService(component.IComponent,
       {{name="offer.domain",value="Demo Multiplexing"}})
   end)

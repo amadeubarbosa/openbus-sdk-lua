@@ -190,16 +190,14 @@ local function getDispatcherFor(self, request)
 end
 
 local pcallWithin do
-  local function continuation(connectionOf, thread, backup, ...)
-    connectionOf[thread] = backup
+  local function continuation(manager, backup, ...)
+    manager:setCurrentConnection(backup)
     return ...
   end
   function pcallWithin(self, obj, op, ...)
-    local thread = running()
-    local connectionOf = self.manager.connectionOf
-    local backup = connectionOf[thread]
-    connectionOf[thread] = self
-    return continuation(connectionOf, thread, backup, pcall(obj[op], obj, ...))
+    local manager = self.manager
+    local backup = manager:setCurrentConnection(self)
+    return continuation(manager, backup, pcall(obj[op], obj, ...))
   end
 end
 
@@ -607,7 +605,7 @@ local IgnoredThreads = {}
 
 local WeakKeys = { __mode="k" }
 
-local BusContext = class{
+local Context = class{
   getCallerChain = CoreInterceptor.getCallerChain,
   joinChain = CoreInterceptor.joinChain,
   exitChain = CoreInterceptor.exitChain,
@@ -619,7 +617,7 @@ local BusContext = class{
 --[[TODO: REMOVE THIS!!!]] CoreInterceptor.exitChain = nil
 --[[TODO: REMOVE THIS!!!]] CoreInterceptor.getJoinedChain = nil
 
-function BusContext:__init()
+function Context:__init()
   self.connectionOf = setmetatable({}, WeakKeyMeta) -- [thread]=connection
   local orb = self.orb
   self.types = {
@@ -632,7 +630,7 @@ function BusContext:__init()
   self.joinedChainOf = setmetatable({}, WeakKeys) -- [thread] = joinedChain
 end
 
-function BusContext:sendrequest(request)
+function Context:sendrequest(request)
   if IgnoredThreads[running()] == nil then
     local conn = self:getCurrentConnection()
     if conn ~= nil then
@@ -651,7 +649,7 @@ function BusContext:sendrequest(request)
   end
 end
 
-function BusContext:receivereply(request)
+function Context:receivereply(request)
   local conn = request[self]
   if conn ~= nil then
     conn:receivereply(request)
@@ -661,7 +659,7 @@ function BusContext:receivereply(request)
   end
 end
 
-function BusContext:receiverequest(request)
+function Context:receiverequest(request)
   local conn = getDispatcherFor(self, request) or self.defaultConnection
   if conn ~= nil then
     request[self] = conn
@@ -675,7 +673,7 @@ function BusContext:receiverequest(request)
   end
 end
 
-function BusContext:sendreply(request)
+function Context:sendreply(request)
   local conn = request[self]
   if conn ~= nil then
     request[self] = nil
@@ -684,7 +682,7 @@ function BusContext:sendreply(request)
 end
 
 
-function BusContext:createConnection(host, port, props)
+function Context:createConnection(host, port, props)
   if props == nil then props = {} end
   local orb = self.orb
   local legacy = not props.nolegacy
@@ -739,27 +737,33 @@ function BusContext:createConnection(host, port, props)
   }
 end
 
-function BusContext:setDefaultConnection(conn)
+function Context:setDefaultConnection(conn)
+  local old = self.defaultConnection
   self.defaultConnection = conn
+  return old
 end
 
-function BusContext:getDefaultConnection()
+function Context:getDefaultConnection()
   return self.defaultConnection
 end
 
-function BusContext:setCurrentConnection(conn)
-  self.connectionOf[running()] = conn
+function Context:setCurrentConnection(conn)
+  local connectionOf = self.connectionOf
+  local thread = running()
+  local old = connectionOf[thread]
+  connectionOf[thread] = conn
+  return old
 end
 
-function BusContext:getCurrentConnection()
+function Context:getCurrentConnection()
   return self.connectionOf[running()]
       or self.defaultConnection
 end
 
-function BusContext:getCoreService(name)
-  local conn = self:getCurrentConnection()
-  if conn ~= nil and CoreServices[name] ~= nil then
-    return conn[name] or getCoreFacet(conn, name)
+for name in pairs(CoreServices) do
+  Context["get"..name] = function (self)
+    local conn = self:getCurrentConnection()
+    return conn and conn[name] or getCoreFacet(conn, name)
   end
 end
 
@@ -774,7 +778,7 @@ do
       "loginBySharedAuth",
       "cancelSharedAuth",
     },
-    [BusContext] = {
+    [Context] = {
       "createConnection",
     },
   }
@@ -797,19 +801,19 @@ end
 
 
 
-local openbus = { sleep = delay, readkey = decodeprvkey }
+local openbus = { sleep = delay, readKey = decodeprvkey }
 
-function openbus.newthread(func, ...)
+function openbus.newThread(func, ...)
   local thread = newthread(func)
   cothread.next(thread, ...)
   return thread
 end
 
-function openbus.newkey()
+function openbus.newKey()
   return newkey(coreidl.const.EncryptedBlockSize)
 end
 
-function openbus.readkeyfile(path)
+function openbus.readKeyFile(path)
   local result, errmsg = openfile(path, "rb")
   if result ~= nil then
     local file = result
@@ -824,7 +828,7 @@ end
 
 function openbus.initORB(configs)
   local orb = neworb(copy(configs))
-  local context = BusContext{ orb = orb }
+  local context = Context{ orb = orb }
   orb.OpenBusContext = context
   orb:setinterceptor(context, "corba")
   return orb
@@ -842,7 +846,7 @@ argcheck.convertclass(Connection, {
   loginBySharedAuth = { "table", "string" },
   logout = {},
 })
-argcheck.convertclass(BusContext, {
+local ContextOperations = {
   createConnection = { "string", "number|string", "nil|table" },
   setDefaultConnection = { "nil|table" },
   getDefaultConnection = {},
@@ -852,14 +856,17 @@ argcheck.convertclass(BusContext, {
   joinChain = { "nil|table" },
   exitChain = {},
   getJoinedChain = {},
-  getCoreService = { "string" },
-})
+}
+for name in pairs(CoreServices) do
+  ContextOperations["get"..name] = {}
+end
+argcheck.convertclass(Context, ContextOperations)
 argcheck.convertmodule(openbus, {
   sleep = { "number" },
-  newthread = { "function" },
-  newkey = {},
-  readkey = { "string" },
-  readkeyfile = { "string" },
+  newThread = { "function" },
+  newKey = {},
+  readKey = { "string" },
+  readKeyFile = { "string" },
   initORB = { "nil|table" },
 })
 

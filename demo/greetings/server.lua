@@ -12,7 +12,7 @@ busport = assert(tonumber(busport), "o 2o. argumento é um número de porta")
 entity = assert(entity, "o 3o. argumento é a entidade a ser autenticada")
 privatekeypath = assert(privatekeypath,
   "o 4o. argumento é o caminho da chave privada de autenticação da entidade")
-local privatekey = assert(openbus.readkeyfile(privatekeypath))
+local privatekey = assert(openbus.readKeyFile(privatekeypath))
 local params = {
   bushost = bushost,
   busport = busport,
@@ -23,7 +23,7 @@ local params = {
 
 -- setup and start the ORB
 local orb = openbus.initORB()
-openbus.newthread(orb.run, orb)
+openbus.newThread(orb.run, orb)
 
 -- get bus context manager
 local OpenBusContext = orb.OpenBusContext
@@ -88,7 +88,7 @@ local ok, result = pcall(function ()
   -- login to the bus
   OpenBusContext:getCurrentConnection():loginByCertificate(entity, privatekey)
   -- register service at the bus
-  local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+  local OfferRegistry = OpenBusContext:getOfferRegistry()
   for _, info in ipairs(components) do
     OfferRegistry:registerService(info.component.IComponent, info.properties)
   end
