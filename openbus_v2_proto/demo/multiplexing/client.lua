@@ -18,7 +18,7 @@ local params = {
 
 -- setup and start the ORB
 local orb = openbus.initORB()
-openbus.newthread(orb.run, orb)
+openbus.newThread(orb.run, orb)
 
 -- get bus context manager
 local OpenBusContext = orb.OpenBusContext
@@ -58,7 +58,7 @@ end
 
 
 -- function that creates connections logged to the bus
-local connprops = { accesskey = assert(openbus.newkey()) }
+local connprops = { accesskey = assert(openbus.newKey()) }
 local function newLogin()
   -- connect to the bus
   local conn = OpenBusContext:createConnection(bushost, busport, connprops)
@@ -73,7 +73,7 @@ local ok, result = pcall(function ()
   -- connect to the bus
   OpenBusContext:setDefaultConnection(newLogin())
   -- find the offered service
-  local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+  local OfferRegistry = OpenBusContext:getOfferRegistry()
   return OfferRegistry:findServices{
     {name="offer.domain",value="Demo Multiplexing"},
     {name="openbus.component.interface",value=iface.repID},
@@ -86,7 +86,7 @@ else
   -- for each service offer found
   for index, offer in ipairs(result) do
     -- use offer in a separated thread
-    openbus.newthread(function ()
+    openbus.newThread(function ()
       -- get new login in protected mode
       local ok, result = pcall(newLogin)
       if not ok then

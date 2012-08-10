@@ -26,7 +26,7 @@ local ok, result = pcall(function ()
   OpenBusContext:getCurrentConnection():loginByPassword(entity, password
                                                                 or entity)
   -- find the offered service
-  local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+  local OfferRegistry = OpenBusContext:getOfferRegistry()
   return OfferRegistry:findServices{{name="offer.domain",value="Hello Demo"}}
 end)
 if not ok then

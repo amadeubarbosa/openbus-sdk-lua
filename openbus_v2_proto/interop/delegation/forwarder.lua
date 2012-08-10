@@ -8,7 +8,7 @@ require "openbus.test.util"
 
 -- setup and start the ORB
 local orb = openbus.initORB()
-openbus.newthread(orb.run, orb)
+openbus.newThread(orb.run, orb)
 
 -- load interface definitions
 orb:loadidlfile("messages.idl")
@@ -77,7 +77,7 @@ local conn = OpenBusContext:createConnection(bushost, busport)
 OpenBusContext:setDefaultConnection(conn)
 
 -- login to the bus
-conn:loginByCertificate(system, assert(openbus.readkeyfile(syskey)))
+conn:loginByCertificate(system, assert(openbus.readKeyFile(syskey)))
 
 -- define service properties
 local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::Messenger")
@@ -85,7 +85,7 @@ local props = {{name="openbus.component.interface",value=iface.repID}}
 
 -- retrieve messenger service
 log:TEST("retrieve messenger service")
-local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+local OfferRegistry = OpenBusContext:getOfferRegistry()
 for _, offer in ipairs(findoffers(OfferRegistry, props)) do
   local entity = getprop(offer.properties, "openbus.offer.entity")
   log:TEST("found messenger service of ",entity,"!")

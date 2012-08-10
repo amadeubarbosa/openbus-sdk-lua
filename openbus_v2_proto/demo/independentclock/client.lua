@@ -27,7 +27,7 @@ local OpenBusContext = orb.OpenBusContext
 
 -- independent clock thread
 local finder = {}
-openbus.newthread(function ()
+openbus.newThread(function ()
   for i = 1, 10 do
     local time
     local clock = finder.found
@@ -73,10 +73,10 @@ end
 -- create object to search for offer after (re)login
 function finder:activate()
   if self.found == nil and self.active == nil then
-    openbus.newthread(function ()
+    openbus.newThread(function ()
       self.active = true
       repeat
-        local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+        local OfferRegistry = OpenBusContext:getOfferRegistry()
         local ok, result = pcall(OfferRegistry.findServices, OfferRegistry,
           {{name="offer.domain",value="Demo Independent Clock"}})
         if not ok then

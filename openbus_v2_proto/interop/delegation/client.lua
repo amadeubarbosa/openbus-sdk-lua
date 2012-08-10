@@ -24,7 +24,7 @@ OpenBusContext:setDefaultConnection(conn)
 conn:loginByPassword(user, password)
 
 -- retrieve services
-local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+local OfferRegistry = OpenBusContext:getOfferRegistry()
 local services = {}
 for _, name in ipairs{"Messenger", "Broadcaster", "Forwarder"} do
   -- define service properties

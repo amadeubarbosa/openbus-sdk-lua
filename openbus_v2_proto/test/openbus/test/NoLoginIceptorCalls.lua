@@ -35,7 +35,7 @@ local invalidate, shutdown do
   conn:loginByPassword(admin, admpsw)
   manager:setDefaultConnection(conn)
   local orb = manager.orb
-  openbus.newthread(orb.run, orb)
+  openbus.newThread(orb.run, orb)
   function invalidate(loginId)
     logins:invalidateLogin(loginId)
   end
@@ -90,7 +90,7 @@ do log:TEST("Get invalid login notification while dispathing a call")
   local pxy = newproxy(ior, nil, "CORBA::InterfaceDef")
 
   local orb = manager.orb
-  openbus.newthread(orb.run, orb)
+  openbus.newThread(orb.run, orb)
   
   invalidate(conn.login.id)
   
@@ -147,7 +147,7 @@ do log:TEST("Relog while dispathing a call")
   local pxy = newproxy(ior, nil, LoginObserverRepId)
   
   local orb = manager.orb
-  openbus.newthread(orb.run, orb)
+  openbus.newThread(orb.run, orb)
   
   invalidate(conn.login.id)
   

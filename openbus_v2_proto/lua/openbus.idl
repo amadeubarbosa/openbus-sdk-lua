@@ -1,0 +1,584 @@
+/**
+ * \mainpage Documentação da Bibiloteca de Acesso do OpenBus 2.0
+ */
+#ifndef __TECGRAF_OPENBUS_SDK__
+#define __TECGRAF_OPENBUS_SDK__
+
+#include "corba.idl"
+
+#include "access_control.idl"
+#include "offer_registry.idl"
+
+/**
+ * \brief Módulo dos sistemas e aplicações do Tecgraf.
+ */
+module tecgraf {
+
+/**
+ * \brief Módulo do \e middleware OpenBus.
+ */
+module openbus {
+
+
+typedef core::v2_0::OctetSeq OctetSeq;
+typedef core::v2_0::Identifier Identifier;
+typedef core::v2_0::services::access_control::LoginInfo LoginInfo;
+typedef core::v2_0::services::access_control::LoginInfoSeq LoginInfoSeq;
+typedef core::v2_0::services::access_control::LoginProcess LoginProcess;
+typedef core::v2_0::services::access_control::LoginRegistry LoginRegistry;
+typedef core::v2_0::services::offer_registry::OfferRegistry OfferRegistry;
+
+
+typedef Object PrivateKey;
+
+
+exception AlreadyLoggedIn {};
+exception InvalidBusAddress {};
+exception InvalidLoginProcess {};
+exception InvalidPropertyValue { string property; string value; };
+
+
+/** \brief Propriedade que descreve um aspecto de uma conexão. */
+struct ConnectionProperty {
+  string name; /**< \brief nome da propriedade */
+  string value; /**< \brief valor da propriedade */
+};
+/** \brief Sequência de propriedades que descrevem aspectos de uma conexão. */
+typedef sequence<ConnectionProperty> ConnectionPropertySeq;
+
+
+/**
+ * \brief Cadeia de chamadas oriundas de um barramento.
+ * 
+ * Coleção de informações dos logins que originaram chamadas em cadeia através
+ * de um barramento. Cadeias de chamadas representam chamadas aninhadas dentro
+ * do barramento e são úteis para que os sistemas que recebam essas chamadas
+ * possam identificar se a chamada foi originada por entidades autorizadas ou
+ * não.
+ */
+local interface CallerChain {
+	/**
+	 * Barramento através do qual essas chamadas foram originadas.
+	 */
+	readonly attribute Identifier busid;
+	
+	/**
+	 * Lista de informações de login de todas as entidades que originaram as
+	 * chamadas nessa cadeia. Quando essa lista é vazia isso indica que a
+	 * chamada não está inclusa em outra cadeia de chamadas.
+	 */
+	readonly attribute LoginInfoSeq originators;
+	
+	/**
+	 * Informação de login da entidade que realizou a última chamada da cadeia.
+	 */
+	readonly attribute LoginInfo caller;
+};
+
+local interface Connection; // forward declaration
+
+/**
+ * \brief Callback de login inválido.
+ * 
+ * Interface a ser implementada pelo objeto de callback a ser chamado quando
+ * uma notificação de login inválido é recebida.
+ */
+local interface InvalidLoginCallback {
+	/**
+	 * \brief Callback de login inválido.
+	 * 
+	 * Método a ser implementado pelo objeto de callback a ser chamado quando
+	 * uma notificação de login inválido é recebida. Caso alguma exceção ocorra
+	 * durante a execução do método e não seja tratada, o erro será capturado pelo
+	 * interceptador e registrado no log.
+	 * 
+	 * \param conn Conexão que recebeu a notificação de login inválido.
+	 * \param login Informações do login que se tornou inválido.
+	 */
+	void invalidLogin(in Connection conn, in LoginInfo login);
+};
+
+/**
+ * \brief Callback de despacho de chamada.
+ * 
+ * Interface a ser implementada pelo objeto de callback a ser chamado quando
+ * uma chamada proveniente de um barramento é recebida, que define a conexão
+ * a ser utilizada na validação dessa chamada.
+ */
+local interface CallDispatchCallback {
+	/**
+	 * \brief Callback de login inválido.
+	 * 
+	 * Método a ser implementado pelo objeto de callback a ser chamado quando
+	 * uma chamada proveniente de um barramento é recebida. Esse método é chamado
+	 * para determinar a conexão a ser utilizada na validação de cada chamada
+	 * recebida. Se a conexão informada não estiver conectada ao mesmo barramento
+	 * indicado pelo parâmetro 'busid', a chamada provavelmente será recusada com
+	 * um CORBA::NO_PERMISSION{InvalidLogin} pelo fato do login provavelmente não
+	 * ser válido no barramento da conexão. Como resultado disso o cliente da
+	 * chamada poderá indicar que o servidor não está implementado corretamente e
+	 * lançar a exceção CORBA::NO_PERMISSION{InvalidRemote}. Caso alguma exceção
+	 * ocorra durante a execução do método e não seja tratada, o erro será
+	 * capturado pelo interceptador e registrado no log.
+	 * 
+	 * \param context Gerenciador de contexto do ORB que recebeu a chamada.
+	 * \param busid Identificação do barramento através do qual a chamada foi
+	 *              feita.
+	 * \param login Informações do login que se tornou inválido.
+	 * \param object_id Idenficador opaco descrevendo o objeto sendo chamado.
+	 * \param operation Nome da operação sendo chamada.
+	 *
+	 * \return Conexão a ser utilizada para receber a chamada.
+	 */
+	Connection dispatch(in OpenBusContext context,
+		                  in Identifier busid,
+		                  in Identifier loginId,
+		                  in CORBA::OctetSeq object_id,
+		                  in string operation);
+};
+
+/**
+ * \brief Conexão para acesso identificado a um barramento.
+ *
+ * Uma conexão é usada para realizar acessos identificados a um barramento.
+ * Denominamos esses acessos identificados ao barramento de login. Cada login
+ * possui um identificador único e está sempre associado ao nome de uma
+ * entidade que é autenticada no momento do estabelecimento do login.
+ * Há basicamente três formas de autenticação de entidade disponíveis:
+ * - Por Senha: veja a operação 'loginByPassword'
+ * - Por Certificado de login: veja a operação 'loginByCertificate'
+ * - Por Autenticação compartilhada: veja a operação 'loginBySharedAuth'
+ *
+ * A entidade associada ao login é responsável por todas as chamadas feitas
+ * através daquela conexão e essa entidade deve ser levada em consideração
+ * pelos serviços ofertados no barramento para decidir aceitar ou recusar
+ * chamadas.
+ *
+ * É possível uma aplicação assumir múltiplas identidades ao acessar um ou mais
+ * barramentos criando múltiplas conexões para esses barramentos.
+ * 
+ * É importante notar que a conexão não é usada diretamente pela aplicação ao
+ * realizar ou receber chamadas, pois as chamadas ocorrem usando proxies e
+ * servants de um ORB. As conexões que são efetivamente usadas nas chamadas do
+ * ORB são definidas através do OpenBusContext associado ao ORB.
+ */
+local interface Connection {
+	
+	/**
+	 * ORB correspondente ao OpenBusContext a partir do qual essa conexão
+	 * foi criada. 
+	 */
+	readonly attribute CORBA::ORB orb;
+	
+	/**
+	 * Identificador do barramento ao qual essa conexão se refere.
+	 */
+	readonly attribute Identifier busid;
+	
+	/**
+	 * Informações do login dessa conexão ou 'null' se a conexão não está
+   * autenticada, ou seja, não tem um login válido no barramento.
+	 */
+	readonly attribute LoginInfo login;
+	
+	/**
+	 * \brief Efetua login de uma entidade usando autenticação por senha.
+	 * 
+	 * A autenticação por senha é validada usando um dos validadores de senha
+	 * definidos pelo adminsitrador do barramento.
+	 * 
+	 * \param entity Identificador da entidade a ser autenticada.
+	 * \param password Senha de autenticação no barramento da entidade.
+	 * 
+	 * \exception AlreadyLoggedIn A conexão já está autenticada.
+	 * \exception AccessDenied Senha fornecida para autenticação da entidade não
+	 *            foi validada pelo barramento.
+	 * \exception ServiceFailure Ocorreu uma falha interna nos serviços do
+	 *            barramento que impediu a autenticação da conexão.
+	 */
+	void loginByPassword(in Identifier entity, in OctetSeq password)
+		raises(AlreadyLoggedIn,
+		       core::v2_0::services::access_control::AccessDenied,
+		       core::v2_0::services::ServiceFailure);
+
+	/**
+	 * \brief Efetua login de uma entidade usando autenticação por certificado.
+	 * 
+	 * A autenticação por certificado é validada usando um certificado de login
+	 * registrado pelo adminsitrador do barramento.
+	 * 
+	 * \param entity Identificador da entidade a ser autenticada.
+	 * \param privateKey Chave privada correspondente ao certificado registrado
+	 *        a ser utilizada na autenticação.
+	 * 
+	 * \exception AlreadyLoggedIn A conexão já está autenticada.
+	 * \exception AccessDenied A chave privada fornecida não corresponde ao
+	 *            certificado da entidade registrado no barramento indicado.
+	 * \exception MissingCertificate Não há certificado para essa entidade
+	 *            registrado no barramento indicado.
+	 * \exception ServiceFailure Ocorreu uma falha interna nos serviços do
+	 *            barramento que impediu a autenticação da conexão.
+	 */
+	void loginByCertificate(in Identifier entity, in PrivateKey privateKey)
+		raises(AlreadyLoggedIn,
+		       core::v2_0::services::access_control::AccessDenied,
+		       core::v2_0::services::access_control::MissingCertificate,
+		       core::v2_0::services::ServiceFailure);
+	
+	/**
+	 * \brief Inicia o processo de login por autenticação compartilhada.
+	 * 
+	 * A autenticação compartilhada permite criar um novo login compartilhando a
+	 * mesma autenticação do login atual da conexão. Portanto essa operação só
+	 * pode ser chamada enquanto a conexão estiver autenticada, caso contrário a
+	 * exceção de sistema CORBA::NO_PERMISSION{NoLogin} é lançada. As informações
+	 * fornecidas por essa operação devem ser passadas para a operação
+	 * 'loginBySharedAuth' para conclusão do processo de login por autenticação
+	 * compartilhada. Isso deve ser feito dentro do tempo de lease definido pelo
+	 * administrador do barramento. Caso contrário essas informações se tornam
+	 * inválidas e não podem mais ser utilizadas para criar um login.
+	 * 
+	 * \param secret Segredo a ser fornecido na conclusão do processo de login.
+	 * 
+	 * \return Objeto que represeta o processo de login iniciado.
+   *
+   * \exception ServiceFailure Ocorreu uma falha interna nos serviços do
+   *            barramento que impediu a obtenção do objeto de login e segredo.
+	 */
+	LoginProcess startSharedAuth(out OctetSeq secret);
+	
+	/**
+	 * \brief Efetua login de uma entidade usando autenticação compartilhada.
+	 * 
+	 * A autenticação compartilhada é feita a partir de informações obtidas a
+	 * através da operação 'startSharedAuth' de uma conexão autenticada.
+	 * 
+	 * \param process Objeto que represeta o processo de login iniciado.
+	 * \param secret Segredo a ser fornecido na conclusão do processo de login.
+	 * 
+	 * \exception InvalidLoginProcess O LoginProcess informado é inválido, por
+	 *            exemplo depois de ser cancelado ou ter expirado.
+	 * \exception AlreadyLoggedIn A conexão já está autenticada.
+	 * \exception AccessDenied O segredo fornecido não corresponde ao esperado
+	 *            pelo barramento.
+	 * \exception ServiceFailure Ocorreu uma falha interna nos serviços do
+	 *            barramento que impediu a autenticação da conexão.
+	 */
+	void loginBySharedAuth(in LoginProcess process, in OctetSeq secret)
+		raises(InvalidLoginProcess, AlreadyLoggedIn,
+		       core::v2_0::services::access_control::AccessDenied,
+		       core::v2_0::services::ServiceFailure);
+	
+	/*
+	 * \brief Callback a ser chamada quando o login atual se tornar inválido.
+	 *
+	 * Esse atributo é utilizado para definir um objeto que implementa uma
+	 * interface de callback a ser chamada sempre que a conexão receber uma
+	 * notificação de que o seu login está inválido. Essas notificações ocorrem
+	 * durante chamadas realizadas ou recebidas pelo barramento usando essa
+	 * conexão. Um login pode se tornar inválido caso o administrador
+	 * explicitamente o torne inválido ou caso a thread interna de renovação de
+	 * login não seja capaz de renovar o lease do login a tempo. Caso esse
+	 * atributo seja 'null', nenhum objeto de callback é chamado na ocorrência
+	 * desse evento.
+	 *
+	 * Durante a execução dessa callback um novo login pode ser restabelecido.
+	 * Neste caso, a chamada do barramento que recebeu a notificação de login
+	 * inválido é refeita usando o novo login, caso contrário, a chamada original
+	 * lança a exceção de de sistema 'CORBA::NO_PERMISSION{NoLogin}'.
+	 */
+	attribute InvalidLoginCallback onInvalidLogin;
+	
+	/**
+	 * \brief Efetua logout da conexão, tornando o login atual inválido.
+	 * 
+	 * Após a chamada a essa operação a conexão fica desautenticada, implicando que
+	 * qualquer chamada realizada pelo ORB usando essa conexão resultará numa
+	 * exceção de sistema 'CORBA::NO_PERMISSION{NoLogin}' e chamadas recebidas
+	 * por esse ORB serão respondidas com a exceção
+	 * 'CORBA::NO_PERMISSION{UnknownBus}' indicando que não foi possível
+	 * validar a chamada pois a conexão está temporariamente desautenticada.
+	 * 
+	 * \return Verdadeiro se o processo de logout for concluído com êxito e 
+	 *         falso se a conexão já estiver desautenticada (login inválido).
+	 */
+	boolean logout();
+	
+};
+ 
+/**
+ * \brief Permite controlar o contexto das chamadas de um ORB para acessar
+ *        informações que identificam essas chamadas em barramentos OpenBus.
+ *
+ * O contexto de uma chamada pode ser definido pela linha de execução atual
+ * do programa em que executa uma chamada, o que pode ser a thread em execução
+ * ou mais comumente o 'CORBA::PICurrent' do padrão CORBA. As informações
+ * acessíveis através do 'OpenBusContext' se referem basicamente à
+ * identificação da origem das chamadas, ou seja, nome das entidades que
+ * autenticaram os acessos ao barramento que originaram as chamadas.
+ * 
+ * A identifcação de chamadas no barramento é controlada através do
+ * OpenBusContext através da manipulação de duas abstrações representadas
+ * pelas seguintes interfaces:
+ * - Connection: Representa um acesso ao barramento, que é usado tanto para
+ *   fazer chamadas como para receber chamadas através do barramento. Para
+ *   tanto a conexão precisa estar autenticada, ou seja, logada. Cada chamada
+ *   feita através do ORB é enviada com as informações do login da conexão
+ *   associada ao contexto em que a chamada foi realizada. Cada chamada
+ *   recebida também deve vir através de uma conexão logada, que deve ser o
+ *   mesmo login com que chamadas aninhadas a essa chamada original devem ser
+ *   feitas.
+ * - CallChain: Representa a identicação de todos os acessos ao barramento que
+ *   originaram uma chamada recebida. Sempre que uma chamada é recebida e
+ *   executada, é possível obter um CallChain através do qual é possível
+ *   inspecionar as informações de acesso que originaram a chamada recebida.
+ */
+local interface OpenBusContext {
+	
+	/**
+	 * ORB controlado por esse OpenBusContext.
+	 */
+	readonly attribute CORBA::ORB orb;
+	
+	/*
+	 * \brief Callback a ser chamada para determinar a conexão a ser utilizada
+	 *        para receber cada chamada.
+	 *
+	 * Esse atributo é utilizado para definir um objeto que implementa uma
+	 * interface de callback a ser chamada sempre que a conexão receber uma do
+	 * barramento. Essa callback deve devolver a conexão a ser utilizada para
+	 * para receber a chamada. A conexão utilizada para receber a chamada será
+	 * a única conexão através do qual novas chamadas aninhadas à chamada
+	 * recebida poderão ser feitas (veja a operação 'joinChain').
+	 *
+	 * Se o objeto de callback for definido como 'null' ou devolver 'null', a
+	 * conexão padrão é utilizada para receber achamada, caso esta esteja
+	 * definida.
+	 *
+	 * Caso esse atributo seja 'null', nenhum objeto de callback é chamado na
+	 * ocorrência desse evento e 
+	 */
+	attribute CallDispatchCallback onCallDispatch;
+	
+	/**
+	 * \brief Cria uma conexão para um barramento.
+	 * 
+	 * Cria uma conexão para um barramento. O barramento é indicado por um nome
+	 * ou endereço de rede e um número de porta, onde os serviços núcleo daquele
+	 * barramento estão executando.
+	 * 
+	 * \param host Endereço ou nome de rede onde os serviços núcleo do barramento
+	 *        estão executando.
+	 * \param port Porta onde os serviços núcleo do barramento estão executando.
+	 * \param props Lista opcional de propriedades que definem algumas
+	 *        configurações sobre a forma que as chamadas realizadas ou validadas
+	 *        com essa conexão são feitas. A seguir são listadas as propriedades
+	 *        válidas:
+	 *        - access.key: chave de acesso a ser utiliza internamente para a
+	 *          geração de credenciais que identificam as chamadas através do
+	 *          barramento. A chave deve ser uma chave privada RSA de 2048 bits
+	 *          (256 bytes). Quando essa propriedade não é fornecida, uma chave
+	 *          de acesso é gerada automaticamente.
+	 *        - legacy.disable: desabilita o suporte a chamadas usando protocolo
+	 *          OpenBus 1.5. Por padrão o suporte está habilitado.
+	 *        - legacy.delegate: indica como é preenchido o campo 'delegate' das
+	 *          credenciais enviadas em chamadas usando protocolo OpenBus 1.5. Há
+	 *          duas formas possíveis (o padrão é 'caller'):
+	 *          - caller: o campo 'delegate' é preenchido sempre com a entidade
+	 *            do campo 'caller' da cadeia de chamadas.
+	 *          - originator: o campo 'delegate' é preenchido sempre com a
+	 *            entidade que originou a cadeia de chamadas, que é o primeiro
+	 *            login do campo 'originators' ou o campo 'caller' quando este
+	 *            é vazio.
+	 *
+	 * \return Conexão criada.
+	 *
+	 * \exception InvalidBusAddress Os parâmetros 'host' e 'port' não são válidos.
+	 * \exception InvalidPropertyValue O valor de uma propriedade não é válido.
+	 */
+	Connection createConnection(in string host, in short port,
+	                            in ConnectionPropertySeq props)
+		raises (InvalidBusAddress, InvalidPropertyValue);
+	
+	/**
+	 * \brief Define a conexão padrão a ser usada nas chamadas.
+	 * 
+	 * Define uma conexão a ser utilizada em chamadas sempre que não houver uma
+	 * conexão específica definida no contexto atual, como é feito através da
+	 * operação 'setCurrentConnection'. Quando 'conn' é 'null' nenhuma conexão
+	 * fica definida como a conexão padrão.
+	 * 
+	 * \param conn Conexão a ser definida como conexão padrão.
+	 * 
+	 * \return Conexão definida como conexão padrão anteriormente, ou null se
+	 *         não havia conexão padrão definida ateriormente.
+	 */
+	Connection setDefaultConnection(in Connection conn);
+	
+	/**
+	 * \brief Devolve a conexão padrão.
+	 * 
+	 * Veja operação 'setDefaultConnection'.
+	 * 
+	 * \return Conexão definida como conexão padrão.
+	 */
+	Connection getDefaultConnection();
+	
+	/**
+	 * \brief Define a conexão associada ao contexto corrente.
+	 * 
+	 * Define a conexão a ser utilizada em todas as chamadas feitas no contexto
+	 * atual. Quando 'conn' é 'null' o contexto passa a ficar sem nenhuma conexão
+	 * associada.
+	 * 
+	 * \param conn Conexão a ser associada ao contexto corrente.
+	 * 
+	 * \return Conexão definida como a conexão corrente anteriormente, ou null
+	 *         se não havia conexão definida ateriormente.
+	 */
+	Connection setCurrentConnection(in Connection conn);
+	
+	/**
+	 * \brief Devolve a conexão associada ao contexto corrente.
+	 * 
+	 * Devolve a conexão associada ao contexto corrente, que pode ter sido
+	 * definida usando a operação 'setCurrentConnection' ou
+	 * 'setDefaultConnection'.
+	 *
+	 * \return Conexão associada ao contexto corrente, ou 'null'
+	 *         caso não haja nenhuma conexão associada.
+	 */
+	Connection getCurrentConnection();
+	
+	/**
+	 * \brief Devolve a cadeia de chamadas à qual a execução corrente pertence.
+	 * 
+	 * Caso a contexto corrente (e.g. definido pelo 'CORBA::PICurrent') seja o
+	 * contexto de execução de uma chamada remota oriunda do barramento essa
+	 * operação devolve um objeto que representa a cadeia de chamadas que esta
+	 * chamada faz parte. Caso contrário, devolve 'null'.
+	 * 
+	 * \return Cadeia da chamada em execução.
+	 */
+	CallerChain getCallerChain();
+	
+	/**
+	 * \brief Associa uma cadeia de chamadas ao contexto corrente.
+	 * 
+	 * Associa uma cadeia de chamadas ao contexto corrente (e.g. definido pelo
+	 * 'CORBA::PICurrent'), de forma que todas as chamadas remotas seguintes
+	 * neste mesmo contexto sejam feitas como parte dessa cadeia de chamadas.
+	 * 
+	 * \param chain Cadeia de chamadas a ser associada ao contexto corrente.
+	 */
+	void joinChain(in CallerChain chain);
+	
+	/**
+	 * \brief Faz com que nenhuma cadeia de chamadas esteja associada ao contexto
+	 *        corrente.
+	 * 
+	 * Remove a associação da cadeia de chamadas ao contexto corrente (e.g.
+	 * definido pelo 'CORBA::PICurrent'), fazendo com que todas as chamadas
+	 * seguintes feitas neste mesmo contexto deixem de fazer parte da cadeia de
+	 * chamadas associada previamente. Ou seja, todas as chamadas passam a
+	 * iniciar novas cadeias de chamada.
+	 */
+	void exitChain();
+	
+	/**
+	 * \brief Devolve a cadeia de chamadas associada ao contexto corrente.
+	 * 
+	 * Devolve um objeto que representa a cadeia de chamadas associada ao
+	 * contexto corrente (e.g. definido pelo 'CORBA::PICurrent'). A cadeia de
+	 * chamadas informada foi associada previamente pela operação 'joinChain'.
+	 * Caso o contexto corrente não tenha nenhuma cadeia associada, essa operação
+	 * devolve 'null'.
+	 * 
+	 * \return Cadeia de chamadas associada ao contexto corrente ou 'null'.
+	 */
+	CallerChain getJoinedChain();
+	
+	/**
+	 * Referência ao serviço núcleo de registro de logins do barramento
+	 * referenciado no contexto atual.
+	 */
+	LoginRegistry getLoginRegistry();
+	
+	
+	/**
+	 * Referência ao serviço núcleo de registro de ofertas do barramento
+	 * referenciado no contexto atual.
+	 */
+	OfferRegistry getOfferRegistry();
+	
+};
+
+
+/**
+ * \brief Inicializador de ORBs para acesso a barramentos OpenBus.
+ *
+ * Esse objeto é utilizado para a obtenção de ORBs CORBA a serem utilizados
+ * exclusivamente para chamadas através de barramentos OpenBus.
+ */ 
+local interface ORBInitializer {
+	
+	/**
+	 * \brief Inicializa um ORB utilizado exclusivamente para chamadas através de
+ 	 *        barramentos OpenBus.
+ 	 *
+	 * Inicializa um ORB utilizado exclusivamente para chamadas através de
+	 * barramentos OpenBus, ou seja, esse ORB não pode ser utilizado para fazer
+	 * chamadas CORBA ordinárias sem o controle de acesso do OpenBus que permite
+	 * identificação da origem das chamadas. Esse controle de acesso é feito
+	 * através conexões, que são obtidas e manipuladas através de um
+	 * OpenBusContext. Cada ORB possui um OpenBusContext associado, que pode ser
+	 * obitido através do comando:
+	 *   CORBA::ORB::resolve_initial_reference("OpenBusContext")
+	 *
+	 * O ORB é inicializado da mesma forma feita pela operação 'CORBA::ORB_init'
+	 * definida pelo padrão CORBA. Em particular, algumas implementações de CORBA
+	 * não permitem inicialização de múltiplos ORBs num mesmo processo.
+	 * 
+	 * Chamadas realizadas e recebidas através deste ORB são interceptadas pela
+	 * biblioteca de acesso do OpenBus e podem lançar exceções de sistema de
+	 * CORBA definidas pelo OpenBus. A seguir são apresentadas essas exceções:
+	 * - CORBA::NO_PERMISSION{NoLogin}: Nenhuma conexão "Requester" com login
+	 *   válido está associada ao contexto atual, ou seja, a conexão "Requester"
+	 *   corrente está desautenticada.
+	 * - CORBA::NO_PERMISSION{InvalidChain}: A cadeia de chamadas associada ao
+	 *   contexto atual não é compatível com o login da conexão "Requester" desse
+	 *   mesmo contexto. Isso ocorre pois não é possível fazer chamadas dentro de
+	 *   uma cadeia recebida por uma conexão com um login diferente.
+	 * - CORBA::NO_PERMISSION{UnknownBus}: O ORB remoto que recebeu a chamada
+	 *   indicou que não possui uma conexão com login válido no barramento
+	 *   através do qual a chamada foi realizada, portanto não é capaz de validar
+	 *   a chamada para que esta seja processada.
+	 * - CORBA::NO_PERMISSION{UnverifiedLogin}: O ORB remoto que recebeu a
+	 *   chamada indicou que não não é capaz de validar a chamada para que esta
+	 *   seja processada. Isso  indica que o lado remoto tem problemas de acesso 
+	 *   aos serviços núcleo do barramento.
+	 * - CORBA::NO_PERMISSION{InvalidRemote}: O ORB remoto que recebeu a chamada
+	 *   não está se comportando de acordo com o protocolo OpenBus 2.0, o que
+	 *   indica que está mal implementado e tipicamente representa um bug no
+	 *   servidor sendo chamado ou um erro de implantação do barramento.
+	 * 
+	 * \param params Parâmetros usados na inicialização do ORB, similar à
+	 *        operação 'CORBA::ORB_init' definida pelo padrão CORBA.
+	 * 
+	 * \return O ORB inicializado, similar à operação 'CORBA::ORB_init'
+	 *         definida pelo padrão CORBA.
+	 */
+	CORBA::ORB initORB(in CORBA::ORBInitParameters params);
+	
+	PrivateKey newKey();
+	
+	PrivateKey readKey(in CORBA::OctetSeq encoded);
+	
+	PrivateKey readKeyFile(in string filepath);
+};
+
+}; // openbus
+
+}; // tecgraf
+
+#endif

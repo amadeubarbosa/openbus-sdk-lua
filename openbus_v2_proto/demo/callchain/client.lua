@@ -28,7 +28,7 @@ local ok, result = pcall(function ()
   OpenBusContext:getCurrentConnection():loginByPassword(entity, password
                                                                 or entity)
   -- find the offered service
-  local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+  local OfferRegistry = OpenBusContext:getOfferRegistry()
   return OfferRegistry:findServices{
     {name="openbus.component.interface",value=repID},
     {name="offer.domain",value="Demo Chain Validation"},

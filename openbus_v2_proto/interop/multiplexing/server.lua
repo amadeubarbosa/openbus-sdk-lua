@@ -6,9 +6,9 @@ require "openbus.test.util"
 
 -- setup and start the ORBs
 local orb1 = openbus.initORB()
-openbus.newthread(orb1.run, orb1)
+openbus.newThread(orb1.run, orb1)
 local orb2 = openbus.initORB()
-openbus.newthread(orb2.run, orb2)
+openbus.newThread(orb2.run, orb2)
 
 -- load interface definition
 orb1:loadidlfile("hello.idl")
@@ -65,26 +65,26 @@ OpenBusContext1:setCurrentConnection(connAtBus2WithOrb1)
 OpenBusContext2:setDefaultConnection(connAtBus1WithOrb2)
 
 -- login to the bus
-local prvkey = assert(openbus.readkeyfile(syskey))
+local prvkey = assert(openbus.readKeyFile(syskey))
 conn1AtBus1WithOrb1:loginByCertificate(system, prvkey)
 conn2AtBus1WithOrb1:loginByCertificate(system, prvkey)
 connAtBus2WithOrb1:loginByCertificate(system, prvkey)
 connAtBus1WithOrb2:loginByCertificate(system, prvkey)
 
 -- offer the service
-openbus.newthread(function()
+openbus.newThread(function()
   OpenBusContext1:setCurrentConnection(conn1AtBus1WithOrb1)
-  local OfferRegistry = OpenBusContext1:getCoreService("OfferRegistry")
+  local OfferRegistry = OpenBusContext1:getOfferRegistry()
   OfferRegistry:registerService(component1.IComponent, properties)
 end)
-openbus.newthread(function()
+openbus.newThread(function()
   OpenBusContext1:setCurrentConnection(conn2AtBus1WithOrb1)
-  local OfferRegistry = OpenBusContext1:getCoreService("OfferRegistry")
+  local OfferRegistry = OpenBusContext1:getOfferRegistry()
   OfferRegistry:registerService(component1.IComponent, properties)
 end)
-local OfferRegistry1 = OpenBusContext1:getCoreService("OfferRegistry")
+local OfferRegistry1 = OpenBusContext1:getOfferRegistry()
 OfferRegistry1:registerService(component1.IComponent, properties)
-local OfferRegistry2 = OpenBusContext2:getCoreService("OfferRegistry")
+local OfferRegistry2 = OpenBusContext2:getOfferRegistry()
 OfferRegistry2:registerService(component2.IComponent, properties)
 
 log:TEST("hello service ready!")

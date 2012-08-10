@@ -37,7 +37,7 @@ for _, businfo in ipairs{
   log:TEST("retrieve hello services from bus ",conn.busid,"!")
   local expected = businfo.offers
   local services = table.memoize(function() return {} end)
-  local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+  local OfferRegistry = OpenBusContext:getOfferRegistry()
   for _, offer in ipairs(findoffers(OfferRegistry, properties, expected)) do
     local entity = getprop(offer.properties, "openbus.offer.entity")
     local login = getprop(offer.properties, "openbus.offer.login")

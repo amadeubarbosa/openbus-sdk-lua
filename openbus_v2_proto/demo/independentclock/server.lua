@@ -11,7 +11,7 @@ busport = assert(tonumber(busport), "o 2o. argumento é um número de porta")
 entity = assert(entity, "o 3o. argumento é a entidade a ser autenticada")
 privatekeypath = assert(privatekeypath,
   "o 4o. argumento é o caminho da chave privada de autenticação da entidade")
-local privatekey = assert(openbus.readkeyfile(privatekeypath))
+local privatekey = assert(openbus.readKeyFile(privatekeypath))
 interval = assert(tonumber(interval or 1), "o 5o. argumento é um tempo entre "..
                   "tentativas de acesso ao barramento em virtude de falhas")
 local params = {
@@ -29,7 +29,7 @@ function clock:getTime()
 end
 
 -- independent clock thread
-openbus.newthread(function ()
+openbus.newThread(function ()
   repeat
     print(os.date(nil, clock:getTime()))
     openbus.sleep(1)
@@ -39,7 +39,7 @@ end)
 
 -- setup and start the ORB
 local orb = openbus.initORB()
-openbus.newthread(orb.run, orb)
+openbus.newThread(orb.run, orb)
 
 -- load interface definition
 local iface = orb:loadidl("interface Clock { double getTime(); };")
@@ -67,11 +67,11 @@ function registerer:enable()
 end
 function registerer:activate()
   if not self.disabled and self.active == nil then
-    openbus.newthread(function ()
+    openbus.newThread(function ()
       self.active = true
       repeat
         local ok, result = pcall(function ()
-          local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+          local OfferRegistry = OpenBusContext:getOfferRegistry()
           OfferRegistry:registerService(component.IComponent, props)
           self.disabled = true
         end)

@@ -29,7 +29,7 @@ properties[#properties+1] =
 
 -- find the offered service
 log:TEST("retrieve hello service")
-local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+local OfferRegistry = OpenBusContext:getOfferRegistry()
 for _, offer in ipairs(findoffers(OfferRegistry, properties)) do
   local entity = getprop(offer.properties, "openbus.offer.entity")
   log:TEST("found service of ",entity,"!")

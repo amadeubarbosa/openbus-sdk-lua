@@ -7,7 +7,7 @@ require "openbus.test.util"
 
 -- setup and start the ORB
 local orb = openbus.initORB()
-openbus.newthread(orb.run, orb)
+openbus.newThread(orb.run, orb)
 
 -- load interface definitions
 orb:loadidlfile("messages.idl")
@@ -52,10 +52,10 @@ local conn = OpenBusContext:createConnection(bushost, busport)
 OpenBusContext:setDefaultConnection(conn)
 
 -- login to the bus
-conn:loginByCertificate(system, assert(openbus.readkeyfile(syskey)))
+conn:loginByCertificate(system, assert(openbus.readKeyFile(syskey)))
 
 -- offer messenger service
-local OfferRegistry = OpenBusContext:getCoreService("OfferRegistry")
+local OfferRegistry = OpenBusContext:getOfferRegistry()
 OfferRegistry:registerService(component.IComponent, properties)
 
 log:TEST("messenger service ready!")
