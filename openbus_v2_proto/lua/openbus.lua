@@ -235,27 +235,15 @@ local function newRenewer(self, lease)
   resume(thread)
 end
 
-local CoreServices = {
-  AccessControl = "access_control",
-  LoginRegistry = "access_control",
-  CertificateRegistry = "access_control",
-  InterfaceRegistry = "offer_registry",
-  EntityRegistry = "offer_registry",
-  OfferRegistry = "offer_registry",
-}
-
-local function getCoreFacet(self, name)
-  local module = CoreServices[name]
-  if module ~= nil then
-    local facetname = assert(coresrvconst[module][name.."Facet"], name)
-    local typerepid = assert(coresrvtypes[module][name], name)
-    local facet = assert(self.bus:getFacetByName(facetname), name)
-    return self.orb:narrow(facet, typerepid)
-  end
+local function getCoreFacet(self, name, module)
+  local facetname = assert(coresrvconst[module][name.."Facet"], name)
+  local typerepid = assert(coresrvtypes[module][name], name)
+  local facet = assert(self.bus:getFacetByName(facetname), name)
+  return self.orb:narrow(facet, typerepid)
 end
 
 local function intiateLogin(self)
-  local AccessControl = getCoreFacet(self, "AccessControl")
+  local AccessControl = getCoreFacet(self, "AccessControl", "access_control")
   local buskey, errmsg = decodepubkey(AccessControl:_get_buskey())
   if buskey == nil then
     ServiceFailure{message=msg.InvalidBusKey:tag{message=errmsg}}
@@ -272,7 +260,7 @@ end
 
 local function localLogin(self, AccessControl, buskey, login, lease)
   local busid = AccessControl:_get_busid()
-  local LoginRegistry = getCoreFacet(self, "LoginRegistry")
+  local LoginRegistry = getCoreFacet(self, "LoginRegistry", "access_control")
   if self.login ~= nil then throw.AlreadyLoggedIn() end
   self.invalidLogin = nil
   self.busid = busid
@@ -746,10 +734,33 @@ function Context:getCurrentConnection()
       or self.defaultConnection
 end
 
-for name in pairs(CoreServices) do
+function Context:getLoginRegistry()
+  local conn = self:getCurrentConnection()
+  if conn == nil then
+    sysexthrow.NO_PERMISSION{
+      completed = "COMPLETED_NO",
+      minor = loginconst.NoLoginCode,
+    }
+  end
+  return conn.LoginRegistry
+end
+
+local CoreServices = {
+  CertificateRegistry = "access_control",
+  InterfaceRegistry = "offer_registry",
+  EntityRegistry = "offer_registry",
+  OfferRegistry = "offer_registry",
+}
+for name, modname in pairs(CoreServices) do
   Context["get"..name] = function (self)
     local conn = self:getCurrentConnection()
-    return conn and conn[name] or getCoreFacet(conn, name)
+    if conn == nil then
+      sysexthrow.NO_PERMISSION{
+        completed = "COMPLETED_NO",
+        minor = loginconst.NoLoginCode,
+      }
+    end
+    return getCoreFacet(conn, name, modname)
   end
 end
 
@@ -842,6 +853,7 @@ local ContextOperations = {
   joinChain = { "nil|table" },
   exitChain = {},
   getJoinedChain = {},
+  getLoginRegistry = {},
 }
 for name in pairs(CoreServices) do
   ContextOperations["get"..name] = {}

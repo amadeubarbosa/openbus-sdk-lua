@@ -4,7 +4,7 @@ local error = _G.error
 local table = require "loop.table"
 local memoize = table.memoize
 
-local Exception = require "loop.object.Exception"
+local Exception = require "oil.corba.giop.Exception"
 
 return memoize(function(name)
   local repId = "IDL:omg.org/CORBA/"..name..":1.0"
