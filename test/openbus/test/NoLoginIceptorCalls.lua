@@ -10,7 +10,6 @@ local coroutine = require "coroutine"
 local string = require "string"
 local io = require "io"
 local uuid = require "uuid"
-local pubkey = require "lce.pubkey"
 local giop = require "oil.corba.giop"
 local cothread = require "cothread"
 local openbus = require "openbus"
@@ -29,15 +28,14 @@ local smalltime = .1
 
 -- login as admin and provide additional functionality for the test
 local invalidate, shutdown do
-  local manager = openbus.initORB().OpenBusConnectionManager
-  local conn = manager:createConnection(bushost, busport)
-  local logins = conn.logins
+  local OpenBusContext = openbus.initORB().OpenBusContext
+  local conn = OpenBusContext:createConnection(bushost, busport)
   conn:loginByPassword(admin, admpsw)
-  manager:setDefaultConnection(conn)
-  local orb = manager.orb
+  OpenBusContext:setDefaultConnection(conn)
+  local orb = OpenBusContext.orb
   openbus.newThread(orb.run, orb)
   function invalidate(loginId)
-    logins:invalidateLogin(loginId)
+    OpenBusContext:getLoginRegistry():invalidateLogin(loginId)
   end
   function newproxy(...)
     return orb:newproxy(...)
@@ -56,16 +54,16 @@ local invalidate, shutdown do
 end
 
 local orb = openbus.initORB()
-local manager = orb.OpenBusConnectionManager
-assert(manager.orb == orb)
-local connprops = { accesskey = pubkey.create(idl.const.EncryptedBlockSize) }
+local OpenBusContext = orb.OpenBusContext
+assert(OpenBusContext.orb == orb)
+local connprops = { accesskey = openbus.newKey() }
 
 
 
 do log:TEST("Get invalid login notification while performing a call")
-  local conn = manager:createConnection(bushost, busport, connprops)
+  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
   conn:loginByPassword(user, password)
-  manager:setDefaultConnection(conn)
+  OpenBusContext:setDefaultConnection(conn)
   
   invalidate(conn.login.id)
   
@@ -78,18 +76,18 @@ do log:TEST("Get invalid login notification while performing a call")
   end
   
   assert(conn.login == nil)
-  manager:setDefaultConnection(nil)
+  OpenBusContext:setDefaultConnection(nil)
 end
 
 do log:TEST("Get invalid login notification while dispathing a call")
-  local conn = manager:createConnection(bushost, busport, connprops)
+  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
   conn:loginByPassword(user, password)
-  manager:setDefaultConnection(conn)
+  OpenBusContext:setDefaultConnection(conn)
   
   local ior = tostring(orb:newservant({}, nil, "CORBA::InterfaceDef"))
   local pxy = newproxy(ior, nil, "CORBA::InterfaceDef")
 
-  local orb = manager.orb
+  local orb = OpenBusContext.orb
   openbus.newThread(orb.run, orb)
   
   invalidate(conn.login.id)
@@ -103,15 +101,15 @@ do log:TEST("Get invalid login notification while dispathing a call")
   orb:shutdown()
   
   assert(conn.login == nil)
-  manager:setDefaultConnection(nil)
+  OpenBusContext:setDefaultConnection(nil)
 end
 
 
 
 do log:TEST("Relog while performing a call")
-  local conn = manager:createConnection(bushost, busport, connprops)
+  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
   conn:loginByPassword(user, password)
-  manager:setDefaultConnection(conn)
+  OpenBusContext:setDefaultConnection(conn)
   
   function conn:onInvalidLogin(login)
     local ok, ex = pcall(conn.loginByPassword, conn, user, password)
@@ -127,13 +125,13 @@ do log:TEST("Relog while performing a call")
   prx:entityLogout{id="???",entity="???"}
   
   assert(conn:logout())
-  manager:setDefaultConnection(nil)
+  OpenBusContext:setDefaultConnection(nil)
 end
 
 do log:TEST("Relog while dispathing a call")
-  local conn = manager:createConnection(bushost, busport, connprops)
+  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
   conn:loginByPassword(user, password)
-  manager:setDefaultConnection(conn)
+  OpenBusContext:setDefaultConnection(conn)
   
   function conn:onInvalidLogin(login)
     local ok, ex = pcall(conn.loginByPassword, conn, user, password)
@@ -146,7 +144,7 @@ do log:TEST("Relog while dispathing a call")
                                       LoginObserverRepId))
   local pxy = newproxy(ior, nil, LoginObserverRepId)
   
-  local orb = manager.orb
+  local orb = OpenBusContext.orb
   openbus.newThread(orb.run, orb)
   
   invalidate(conn.login.id)
@@ -156,7 +154,7 @@ do log:TEST("Relog while dispathing a call")
   orb:shutdown()
   
   assert(conn:logout())
-  manager:setDefaultConnection(nil)
+  OpenBusContext:setDefaultConnection(nil)
 end
 
 shutdown()

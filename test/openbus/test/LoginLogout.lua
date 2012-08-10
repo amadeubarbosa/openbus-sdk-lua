@@ -10,7 +10,6 @@ local coroutine = require "coroutine"
 local string = require "string"
 local io = require "io"
 local uuid = require "uuid"
-local pubkey = require "lce.pubkey"
 local giop = require "oil.corba.giop"
 local cothread = require "cothread"
 local openbus = require "openbus"
@@ -22,7 +21,7 @@ local server = require "openbus.util.server"
 
 require "openbus.test.configs"
 
-syskey = assert(server.readfrom(syskey))
+syskey = assert(openbus.readKeyFile(syskey))
 
 local thread = coroutine.running()
 local userdata = io.stdout
@@ -32,8 +31,8 @@ local sysex = giop.SystemExceptionIDs
 
 local entity = nil -- defined later
 local orb = openbus.initORB()
-local manager = orb.OpenBusConnectionManager
-assert(manager.orb == orb)
+local OpenBusContext = orb.OpenBusContext
+assert(OpenBusContext.orb == orb)
 local conns = {}
 
 local function catcherr(...)
@@ -44,12 +43,11 @@ end
 
 local callwithin do
   local function continuation(backup, ...)
-    manager:setRequester(backup)
+    OpenBusContext:setCurrentConnection(backup)
     return ...
   end
   function callwithin(conn, func, ...)
-    local backup = manager:getRequester()
-    manager:setRequester(conn)
+    local backup = OpenBusContext:setCurrentConnection(conn)
     return continuation(backup, func(...))
   end
 end
@@ -72,8 +70,6 @@ local loginways = {
 }
 local function assertlogged(conn)
   -- check constant attributes
-  local offers = conn.offers
-  assert(offers ~= nil)
   assert(conn.orb == orb)
   -- check logged in only attributes
   assert(conn.login ~= nil)
@@ -93,18 +89,18 @@ local function assertlogged(conn)
   -- check the failure of 'startSharedAuth'
   conn:cancelSharedAuth(conn:startSharedAuth())
   -- check the login is valid to perform calls
-  callwithin(conn, offers.findServices, offers, {})
+  local OfferRegistry = callwithin(conn, OpenBusContext.getOfferRegistry, OpenBusContext)
+  assert(OfferRegistry ~= nil)
+  callwithin(conn, OfferRegistry.findServices, OfferRegistry, {})
   return conn
 end
 
 local function assertlogoff(conn, invalid)
   -- check constant attributes
-  local offers = conn.offers
-  assert(offers ~= nil)
   assert(conn.orb == orb)
   -- check logged in only attributes
   assert(conn.login == nil)
-  assert(uuid.isvalid(conn.busid))
+  assert(conn.busid == nil)
   if not invalid then
     -- check the attempt to logoff again
     assert(conn:logout() == false)
@@ -114,7 +110,7 @@ local function assertlogoff(conn, invalid)
     assert(ex.completed == "COMPLETED_NO")
     assert(ex.minor == idl.const.services.access_control.NoLoginCode)
     -- check the login is invalid to perform calls
-    local ex = callwithin(conn, catcherr, offers.findServices, offers, {})
+    local ex = callwithin(conn, catcherr, OpenBusContext.getOfferRegistry, OpenBusContext)
     assert(ex._repid == sysex.NO_PERMISSION)
     assert(ex.completed == "COMPLETED_NO")
     assert(ex.minor == idl.const.services.access_control.NoLoginCode)
@@ -127,7 +123,7 @@ log:TEST(true, "ConnectionManager::createConnection")
 do log:TEST "connect with invalid host"
   for _, invalid in ipairs{true,false,123,{},error,thread,userdata} do
     local badtype = type(invalid)
-    local ex = catcherr(manager.createConnection, manager, invalid, busport)
+    local ex = catcherr(OpenBusContext.createConnection, OpenBusContext, invalid, busport)
     assert(ex:match("bad argument #2 to 'createConnection' %(expected string, got "..badtype.."%)$"))
   end
 end
@@ -135,7 +131,7 @@ end
 do log:TEST "connect with invalid port"
   for _, invalid in ipairs{true,false,{},error,thread,userdata} do
     local badtype = type(invalid)
-    local ex = catcherr(manager.createConnection, manager, bushost, invalid)
+    local ex = catcherr(OpenBusContext.createConnection, OpenBusContext, bushost, invalid)
     assert(ex:match("bad argument #3 to 'createConnection' %(expected number|string, got "..badtype.."%)$"))
   end
 end
@@ -143,50 +139,55 @@ end
 do log:TEST "connect with invalid properties"
   for _, invalid in ipairs{true,false,123,"nolegacy",error,thread,userdata} do
     local badtype = type(invalid)
-    local ex = catcherr(manager.createConnection, manager, bushost, busport, invalid)
+    local ex = catcherr(OpenBusContext.createConnection, OpenBusContext, bushost, busport, invalid)
     assert(ex:match("bad argument #4 to 'createConnection' %(expected nil|table, got "..badtype.."%)$"))
   end
 end
 
 do log:TEST "connect to unavailable host"
-  local ex = catcherr(manager.createConnection, manager, "unavailable", busport)
-  assert(ex._repid == sysex.TRANSIENT)
-  assert(ex.completed == "COMPLETED_NO")
+  local conn = OpenBusContext:createConnection("unavailable", busport)
+  for op, params in pairs(loginways) do
+    local ex = catcherr(conn[op], conn, params())
+    assert(ex._repid == sysex.TRANSIENT)
+    assert(ex.completed == "COMPLETED_NO")
+  end
 end
 
 do log:TEST "connect to unavailable port"
-  local ex = catcherr(manager.createConnection, manager, bushost, 0)
-  assert(ex._repid == sysex.TRANSIENT)
-  assert(ex.completed == "COMPLETED_NO")
+  local conn = OpenBusContext:createConnection(bushost, 0)
+  for op, params in pairs(loginways) do
+    local ex = catcherr(conn[op], conn, params())
+    assert(ex._repid == sysex.TRANSIENT)
+    assert(ex.completed == "COMPLETED_NO")
+  end
 end
 
 do log:TEST "connect to bus"
   for i = 1, 2 do
-    conns[i] = assertlogoff(manager:createConnection(bushost, busport))
+    conns[i] = assertlogoff(OpenBusContext:createConnection(bushost, busport))
   end
 end
 
 -- create a valid key to be used as a wrong key in the tests below.
 -- the generation of this key is too time consuming and may delay the renewer
 -- thread of the admin account to renew the admin login in time.
-local WrongKey = pubkey.create(idl.const.EncryptedBlockSize):encode()
+local WrongKey = openbus.newKey()
 -- login as admin and provide additional functionality for the test
 local invalidate, shutdown, leasetime do
-  local manager = openbus.initORB().OpenBusConnectionManager
-  local conn = manager:createConnection(bushost, busport)
-  local logins = conn.logins
+  local OpenBusContext = openbus.initORB().OpenBusContext
+  local conn = OpenBusContext:createConnection(bushost, busport)
   conn:loginByPassword(admin, admpsw)
-  manager:setDefaultConnection(conn)
+  OpenBusContext:setDefaultConnection(conn)
   leasetime = conn.AccessControl:renew()
   function invalidate(loginId)
-    logins:invalidateLogin(loginId)
+    OpenBusContext:getLoginRegistry():invalidateLogin(loginId)
   end
   function shutdown()
     conn:logout()
   end
 end
 
-for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
+for _, connOp in ipairs({"DefaultConnection", "CurrentConnection"}) do
   local connIdx = 0
   repeat
     
@@ -317,7 +318,7 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
         
         log:TEST(true, "Connection::onInvalidLogin (how=",op,")")
         
-        local offers = conn.offers
+        local OfferRegistry = callwithin(conn, OpenBusContext.getOfferRegistry, OpenBusContext)
         local called
         local function assertCallback(self, login)
           assert(self == conn)
@@ -339,7 +340,7 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
           -- during call
           assert(called == nil)
           invalidate(conn.login.id)
-          local ex = callwithin(conn, catcherr, offers.findServices, offers, {})
+          local ex = callwithin(conn, catcherr, OfferRegistry.findServices, OfferRegistry, {})
           assert(ex._repid == sysex.NO_PERMISSION)
           assert(ex.completed == "COMPLETED_NO")
           assert(ex.minor == idl.const.services.access_control.NoLoginCode)
@@ -365,7 +366,7 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
           -- during call
           assert(called == nil)
           invalidate(conn.login.id)
-          callwithin(conn, offers.findServices, offers, {})
+          callwithin(conn, OfferRegistry.findServices, OfferRegistry, {})
           assert(called); called = nil
         end
         
@@ -385,7 +386,7 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
           -- during call
           assert(called == nil)
           invalidate(conn.login.id)
-          local ex = callwithin(conn, catcherr, offers.findServices, offers, {})
+          local ex = callwithin(conn, catcherr, OfferRegistry.findServices, OfferRegistry, {})
           assert(ex._repid == sysex.NO_PERMISSION)
           assert(ex.completed == "COMPLETED_NO")
           assert(ex.minor == idl.const.services.access_control.NoLoginCode)
@@ -402,10 +403,10 @@ for _, connOp in ipairs({"DefaultConnection", "Requester"}) do
     
     log:TEST(false)
     
-    assert(manager["get"..connOp](manager) == conns[connIdx])
+    assert(OpenBusContext["get"..connOp](OpenBusContext) == conns[connIdx])
     connIdx = connIdx+1
     local nextConn = conns[connIdx]
-    manager["set"..connOp](manager, nextConn)
+    OpenBusContext["set"..connOp](OpenBusContext, nextConn)
   until nextConn == nil
 end
 
