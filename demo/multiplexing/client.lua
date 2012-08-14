@@ -100,7 +100,10 @@ else
           local facet = assert(offer.service_ref:getFacet(iface.repID),
             "o serviço encontrado não provê a faceta ofertada")
 
---require("oil.verbose"):level(4)
+require("cothread").verbose:level(2)
+require("oil.verbose"):level(4)
+require("oil.verbose"):output(assert(io.open("oil.log", "w")))
+require("cothread").verbose.viewer.output = require("oil.verbose").viewer.output
 
           assert(facet:__narrow()):newTrigger(index, Callback{
             loginId = conn.login.id,

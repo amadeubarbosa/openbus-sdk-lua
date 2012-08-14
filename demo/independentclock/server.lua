@@ -1,4 +1,5 @@
 local utils = require "utils"
+local except = require "openbus.util.except"
 local openbus = require "openbus"
 local ComponentContext = require "scs.core.ComponentContext"
 
@@ -96,7 +97,7 @@ function conn:onInvalidLogin()
   repeat
     local ok, result = pcall(self.loginByCertificate, self, entity, privatekey)
     if not ok then
-      if result._repid == repid.AlreadyLoggedIn then
+      if result._repid == except.repid.AlreadyLoggedIn then
         ok = true -- ignore this exception
       else
         utils.showerror(result, params, utils.errmsg.LoginByCertificate,

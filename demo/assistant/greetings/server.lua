@@ -1,6 +1,7 @@
 local utils = require "utils"
 local oo = require "openbus.util.oo"
 local openbus = require "openbus"
+local assistant = require "openbus.assistant"
 local ComponentContext = require "scs.core.ComponentContext"
 
 
@@ -21,12 +22,21 @@ local params = {
 }
 
 
+-- create an assistant, the ORB, and the context manager
+local OpenBusAssistant = assistant.create{
+  bushost = bushost,
+  busport = busport,
+  entity = entity,
+  privatekey = privatekey,
+  observer = utils.failureObserver(params),
+}
+
 -- setup and start the ORB
-local orb = openbus.initORB()
-openbus.newThread(orb.run, orb)
+local OpenBusORB = OpenBusAssistant.orb
+openbus.newThread(OpenBusORB.run, OpenBusORB)
 
 -- get bus context manager
-local OpenBusContext = orb.OpenBusContext
+local OpenBusContext = OpenBusORB.OpenBusContext
 
 
 -- create service implementation
@@ -36,10 +46,10 @@ function Greetings:sayGreetings()
 end
 
 -- load IDL definitions
-local iface = orb:loadidl("interface Greetings { void sayGreetings(); };")
+local iface = OpenBusORB:loadidl("interface Greetings {void sayGreetings();};")
 params.interface = iface.name
 
--- create service SCS components
+-- create service SCS components and register them
 local messages = {
   English = {
     GoodMorning = "Good morning %s",
@@ -57,9 +67,9 @@ local messages = {
     GoodNight = "Boa noite %s",
   },
 }
-local components = {}
 for language, greetings in pairs(messages) do
-  local component = ComponentContext(orb, {
+  -- create service SCS component
+  local component = ComponentContext(OpenBusORB, {
     name = language.." "..iface.name,
     major_version = 1,
     minor_version = 0,
@@ -69,37 +79,9 @@ for language, greetings in pairs(messages) do
   for name, message in pairs(greetings) do
     component:addFacet(name, iface.repID, Greetings{message=message})
   end
-  components[#components+1] = {
-    component = component,
-    properties = {
-      {name="offer.domain",value="Demo Greetings"},
-      {name="greetings.language",value=language},
-    },
-  }
-end
-
-
--- connect to the bus
-OpenBusContext:setDefaultConnection(
-  OpenBusContext:createConnection(bushost, busport))
-
--- call in protected mode
-local ok, result = pcall(function ()
-  -- login to the bus
-  OpenBusContext:getCurrentConnection():loginByCertificate(entity, privatekey)
-  -- register service at the bus
-  local OfferRegistry = OpenBusContext:getOfferRegistry()
-  for _, info in ipairs(components) do
-    OfferRegistry:registerService(info.component.IComponent, info.properties)
-  end
-end)
-
--- show eventual errors
-if not ok then
-  utils.showerror(result, params, utils.errmsg.LoginByCertificate,
-                                  utils.errmsg.Register,
-                                  utils.errmsg.BusCore)
-  -- free any resoures allocated
-  OpenBusContext:getCurrentConnection():logout()
-  orb:shutdown()
+  -- register service offer
+  OpenBusAssistant:registerService(component.IComponent, {
+    {name="offer.domain",value="Demo Greetings"},
+    {name="greetings.language",value=language},
+  })
 end

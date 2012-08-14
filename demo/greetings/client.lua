@@ -48,9 +48,9 @@ else
         facet:__narrow():sayGreetings()
       end
     end)
-  end
-  if not ok then
-    utils.showerror(result, params, utils.errmsg.Service)
+    if not ok then
+      utils.showerror(result, params, utils.errmsg.Service)
+    end
   end
 end
 
