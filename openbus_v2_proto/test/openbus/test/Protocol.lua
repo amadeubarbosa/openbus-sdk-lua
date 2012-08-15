@@ -41,10 +41,6 @@ do -- connect to the bus
     until not ok
   end))
 
-  -- test core services
-  local function greaterthanzero(value) assert(value > 0) end
-  testBusCall(bus, login, otherkey, greaterthanzero, bus.AccessControl, "renew")
-
   -- get offered services
   login.busSession:newCred("getServices")
   offers = bus.OfferRegistry:getServices()
