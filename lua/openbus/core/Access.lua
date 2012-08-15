@@ -112,8 +112,9 @@ local function validateCredential(self, credential, login, request)
       local session = self.incomingSessions:rawget(credential.session)
       if session ~= nil then
         local ticket = credential.ticket
-        -- validate credential with current secret
-        if hash == calculateHash(session.secret, ticket, request)
+        -- validate credential data with session data
+        if login.id == session.login
+        and hash == calculateHash(session.secret, ticket, request)
         and session.tickets:check(ticket) then
           return true
         end
@@ -417,6 +418,7 @@ function Interceptor:receiverequest(request)
           -- invalid credential, try to reset credetial session
           local sessions = self.incomingSessions
           local newsession = sessions:get(#sessions.map+1)
+          newsession.login = caller.id
           local challenge, errmsg = caller.pubkey:encrypt(newsession.secret)
           if challenge ~= nil then
             -- marshall credential reset

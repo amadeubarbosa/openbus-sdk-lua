@@ -422,8 +422,9 @@ function testBusCall(bus, login, otherkey, assertresults, proxy, opname, ...)
     assert(ex._repid == "IDL:omg.org/CORBA/NO_PERMISSION:1.0")
     assert(ex.completed == "COMPLETED_NO")
     assert(ex.minor == loginconst.InvalidCredentialCode)
-    decodeReset(assert(getrepcxt(CredentialContextId)), login.prvkey)
+    decodeReset(assert(getrepcxt(CredentialContextId)), otherkey)
     credential.login = login.id -- use the correct login now
+    credential.chain = chain -- use the correct chain now
     putreqcxt(CredentialContextId, encodeCredential(credential))
     assertresults(proxy[opname](proxy, ...))
 
