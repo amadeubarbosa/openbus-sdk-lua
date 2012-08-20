@@ -1,6 +1,0 @@
-interface Callback {
-  void notifyTrigger();
-};
-interface Timer {
-  void newTrigger(in double timeout, in Callback cb);
-};
