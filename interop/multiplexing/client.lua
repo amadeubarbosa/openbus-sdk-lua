@@ -8,13 +8,15 @@ require "openbus.test.util"
 -- setup and start the ORB
 local orb = openbus.initORB()
 orb:loadidlfile("hello.idl")
+
+-- load interface definition
 local iface = orb.types:lookup("tecgraf::openbus::interop::simple::Hello")
 
 -- customize test configuration for this case
 settestcfg(iface, ...)
 
--- obtain connection manager
-local manager = orb.OpenBusConnectionManager
+-- get bus context manager
+local OpenBusContext = orb.OpenBusContext
 
 -- define service properties
 properties[#properties+1] = 
@@ -24,10 +26,9 @@ for _, businfo in ipairs{
   {host=bushost, port=busport, offers=3},
   {host=bus2host, port=bus2port, offers=1},
 } do
-  
   -- connect to the bus
-  local conn = manager:createConnection(businfo.host, businfo.port)
-  manager:setDefaultConnection(conn)
+  local conn = OpenBusContext:createConnection(businfo.host, businfo.port)
+  OpenBusContext:setDefaultConnection(conn)
   
   -- login to the bus
   conn:loginByPassword(user, password)
@@ -36,7 +37,8 @@ for _, businfo in ipairs{
   log:TEST("retrieve hello services from bus ",conn.busid,"!")
   local expected = businfo.offers
   local services = table.memoize(function() return {} end)
-  for _, offer in ipairs(findoffers(conn.offers, properties, expected)) do
+  local OfferRegistry = OpenBusContext:getOfferRegistry()
+  for _, offer in ipairs(findoffers(OfferRegistry, properties, expected)) do
     local entity = getprop(offer.properties, "openbus.offer.entity")
     local login = getprop(offer.properties, "openbus.offer.login")
     log:TEST("found service of ",entity,"! (",login,")")

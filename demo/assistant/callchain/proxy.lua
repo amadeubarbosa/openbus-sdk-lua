@@ -1,5 +1,6 @@
 local utils = require "utils"
 local openbus = require "openbus"
+local assistant = require "openbus.assistant"
 local ComponentContext = require "scs.core.ComponentContext"
 
 
@@ -20,17 +21,26 @@ local params = {
 }
 
 
+-- create an assistant, the ORB, and the context manager
+local OpenBusAssistant = assistant.create{
+  bushost = bushost,
+  busport = busport,
+  entity = entity,
+  privatekey = privatekey,
+  observer = utils.failureObserver(params),
+}
+
 -- setup and start the ORB
-local orb = openbus.initORB()
-openbus.newThread(orb.run, orb)
+local OpenBusORB = OpenBusAssistant.orb
+openbus.newThread(OpenBusORB.run, OpenBusORB)
 
 -- get bus context manager
-local OpenBusContext = orb.OpenBusContext
+local OpenBusContext = OpenBusORB.OpenBusContext
 
 
 -- load interface definitions
-orb:loadidlfile("callchain/messenger.idl")
-local iface = orb.types:lookup("Messenger")
+OpenBusORB:loadidlfile("callchain/messenger.idl")
+local iface = OpenBusORB.types:lookup("Messenger")
 params.interface = iface.name
 
 -- create service implementation
@@ -65,7 +75,7 @@ function messenger:showMessage(message)
 end
 
 -- create service SCS component
-local component = ComponentContext(orb, {
+local component = ComponentContext(OpenBusORB, {
   name = iface.name,
   major_version = 1,
   minor_version = 0,
@@ -75,39 +85,20 @@ local component = ComponentContext(orb, {
 component:addFacet(iface.name, iface.repID, messenger)
 
 
--- connect to the bus
-OpenBusContext:setDefaultConnection(
-  OpenBusContext:createConnection(bushost, busport))
+-- find offers of the required service
+offers = OpenBusAssistant:findServices{
+  {name="openbus.component.interface",value=iface.repID},
+  {name="offer.domain",value="Demo Chain Validation"},
+}
 
--- call in protected mode
-local ok, result = pcall(function ()
-  -- login to the bus
-  OpenBusContext:getCurrentConnection():loginByCertificate(entity, privatekey)
-  
-  -- get offer registry
-  local OfferRegistry = OpenBusContext:getOfferRegistry()
-
-  -- find the offered service
-  offers = OfferRegistry:findServices{
-    {name="openbus.component.interface",value=iface.repID},
-    {name="offer.role",value="actual messenger"},
-    {name="offer.domain",value="Demo Chain Validation"},
-  }
-  assert(#offers, "nenhum serviço encontrado para repassar mensagens")
-  
-  -- register service at the bus
-  OfferRegistry:registerService(component.IComponent, {
-    {name="offer.role",value="proxy messenger"},
-    {name="offer.domain",value="Demo Chain Validation"},
-  })
-end)
-
--- show eventual errors
-if not ok then
-  utils.showerror(result, params, utils.errmsg.LoginByCertificate,
-                                  utils.errmsg.Register,
-                                  utils.errmsg.BusCore)
-  -- free any resoures allocated
-  OpenBusContext:getCurrentConnection():logout()
-  orb:shutdown()
+-- check if some offer was found
+if #offers == 0 then
+  io.stderr:write("nenhum serviço encontrado para repassar mensagens\n")
+  return
 end
+
+-- register service offer
+OpenBusAssistant:registerService(component.IComponent, {
+  {name="offer.role",value="proxy messenger"},
+  {name="offer.domain",value="Demo Chain Validation"},
+})

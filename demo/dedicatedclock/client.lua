@@ -20,8 +20,8 @@ local params = {
 }
 
 
--- independent clock thread
-function retry()
+-- function to count the number os remaining retries
+local function retry()
   if retries > 0 then
     retries = retries-1
     openbus.sleep(interval)
@@ -32,33 +32,24 @@ end
 -- setup the ORB
 local orb = openbus.initORB()
 
+-- get bus context manager
+local OpenBusContext = orb.OpenBusContext
+
 -- connect to the bus
-local conn
-local connections = orb.OpenBusConnectionManager
-repeat
-  local ok, result = pcall(connections.createConnection, connections, bushost,
-                                                                      busport)
-  if ok then
-    conn = result
-  else
-    utils.showerror(result, params, utils.msg.Connect)
-    if not retry() then
-      return
-    end
-  end
-until ok
-connections:setDefaultConnection(conn)
+local conn = OpenBusContext:createConnection(bushost, busport)
+OpenBusContext:setDefaultConnection(conn)
 
 -- define callback for auto-relogin
 function conn:onInvalidLogin()
   repeat
-    local ok, result = pcall(conn.loginByPassword, conn, entity, password
+    local ok, result = pcall(self.loginByPassword, self, entity, password
                                                                  or entity)
     if not ok then
       if result._repid == except.repid.AlreadyLoggedIn then
         ok = true -- ignore this exception
       else
-        utils.showerror(result, params, utils.msg.LoginByPassword)
+        utils.showerror(result, params, utils.errmsg.LoginByPassword,
+                                        utils.errmsg.BusCore)
       end
     end
   until ok or not retry()
@@ -68,35 +59,37 @@ end
 conn:onInvalidLogin()
 
 -- search for offer
+local timestamp
 local props = {{name="offer.domain",value="Demo Independent Clock"}}
-local function getfacet(offer)
-  return orb:narrow(offer.service_ref:getFacetByName("Clock"))
-end
-local offers = conn.offers
 repeat
-  local ok, result = pcall(offers.findServices, offers, props)
-  if ok then
+  local OfferRegistry = OpenBusContext:getOfferRegistry()
+  local ok, result = pcall(OfferRegistry.findServices, OfferRegistry, props)
+  if not ok then
+    utils.showerror(result, params, utils.errmsg.BusCore)
+  else
     for _, offer in ipairs(result) do
-      ok, result = pcall(getfacet, offer)
+      local ok, result = pcall(function ()
+        -- get the facet providing the service
+        local facet = assert(offer.service_ref:getFacetByName("Clock"),
+          "o serviço encontrado não provê a faceta ofertada")
+        -- invoke the service
+        timestamp = facet:__narrow():getTime()
+      end)
       if not ok then
-        utils.showerror(result, params, utils.msg.Service)
-      elseif result == nil then
-        io.stderr:write("serviço encontrado não oferece a faceta esperada.\n")
+        utils.showerror(result, params, utils.errmsg.Service)
       else
-        ok, result = pcall(result.getTime, result)
-        if not ok then
-          utils.showerror(result, params, utils.msg.Service)
-        end
-        conn:logout()
-        return print(os.date(nil, result))
+        break
       end
     end
-    io.stderr:write("o serviço esperado não foi encontrado\n")
-  else
-    utils.showerror(result, params, utils.msg.Bus)
+    if timestamp == nil then
+      io.stderr:write("não foi possível utilizar os serviços encontrados\n")
+    end
   end
-  if not retry() then
-    conn:logout()
-    return
-  end
-until false
+until timestamp or not retry()
+
+-- free any resoures allocated
+conn:logout()
+
+
+print(os.date(nil, timestamp))
+

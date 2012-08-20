@@ -6,8 +6,8 @@ local rawget = _G.rawget
 local setmetatable = _G.setmetatable
 local unpack = _G.unpack
 
-local cothread = require "cothread"
-local running = cothread.running
+local coroutine = require "coroutine"
+local running = coroutine.running
 
 local string = require "string"
 local char = string.char
@@ -112,8 +112,9 @@ local function validateCredential(self, credential, login, request)
       local session = self.incomingSessions:rawget(credential.session)
       if session ~= nil then
         local ticket = credential.ticket
-        -- validate credential with current secret
-        if hash == calculateHash(session.secret, ticket, request)
+        -- validate credential data with session data
+        if login.id == session.login
+        and hash == calculateHash(session.secret, ticket, request)
         and session.tickets:check(ticket) then
           return true
         end
@@ -147,14 +148,41 @@ end
 
 
 
+local Context = class()
+
+function Context:__init()
+  self.callerChainOf = setmetatable({}, WeakKeys) -- [thread] = chain
+  self.joinedChainOf = setmetatable({}, WeakKeys) -- [thread] = chain
+end
+
+function Context:getCallerChain()
+  return self.callerChainOf[running()]
+end
+
+function Context:joinChain(chain)
+  local thread = running()
+  self.joinedChainOf[thread] = chain or self.callerChainOf[thread] -- or error?
+end
+
+function Context:exitChain()
+  self.joinedChainOf[running()] = nil
+end
+
+function Context:getJoinedChain()
+  return self.joinedChainOf[running()]
+end
+
+
+
 local Interceptor = class()
 
 -- Fields that must be provided before using the interceptor:
+-- context      : context object to be used to retrieve credential info from
 -- orb          : OiL ORB to be used to access the bus
 -- busid        : UUID of the bus being accessed
 -- buskey       : public key of the bus being accessed
 -- AccessControl: AccessControl facet of the bus being accessed
--- logins       : LoginRegistry facet of the bus being accessed
+-- LoginRegistry: LoginRegistry facet of the bus being accessed
 -- login        : information about the login used to access the bus
 
 -- Optional field that may be provided to configure the interceptor:
@@ -181,8 +209,6 @@ function Interceptor:__init()
     idltypes.LegacyCredential = credtype
   end
   self.types = idltypes
-  self.callerChainOf = setmetatable({}, WeakKeys) -- [thread] = callerChain
-  self.joinedChainOf = setmetatable({}, WeakKeys) -- [thread] = joinedChain
   self.profile2login = LRUCache() -- [iop_profile] = loginid
   self:resetCaches()
 end
@@ -248,30 +274,11 @@ end
 
 
 
-function Interceptor:getCallerChain()
-  return self.callerChainOf[running()]
-end
-
-function Interceptor:joinChain(chain)
-  local thread = running()
-  self.joinedChainOf[thread] = chain or self.callerChainOf[thread] -- or error?
-end
-
-function Interceptor:exitChain()
-  self.joinedChainOf[running()] = nil
-end
-
-function Interceptor:getJoinedChain()
-  return self.joinedChainOf[running()]
-end
-
-
-
 function Interceptor:sendrequest(request)
   local contexts = {}
   local legacy = self.legacy
   local orb = self.orb
-  local chain = self.joinedChainOf[running()]
+  local chain = self.context.joinedChainOf[running()]
   if chain==nil or chain.signature~=nil then -- no legacy chain (OpenBus 1.5)
     local sessionid, ticket, hash = 0, 0, NullHash
     local remoteid = self.profile2login:get(request.profile_data)
@@ -379,7 +386,7 @@ function Interceptor:receiverequest(request)
   local credential = self:unmarshalCredential(service_context)
   if credential ~= nil then
     if credential.bus == self.busid then
-      local caller = self.logins:getLoginEntry(credential.login)
+      local caller = self.LoginRegistry:getLoginEntry(credential.login)
       if caller ~= nil then
         if validateCredential(self, credential, caller, request) then
           local chain = credential.chain
@@ -389,7 +396,7 @@ function Interceptor:receiverequest(request)
               remote = caller.id,
               entity = caller.entity,
             })
-            self.callerChainOf[running()] = chain
+            self.context.callerChainOf[running()] = chain
           else
             -- invalid call chain
             log:exception(msg.GotCallWithInvalidChain:tag{
@@ -411,6 +418,7 @@ function Interceptor:receiverequest(request)
           -- invalid credential, try to reset credetial session
           local sessions = self.incomingSessions
           local newsession = sessions:get(#sessions.map+1)
+          newsession.login = caller.id
           local challenge, errmsg = caller.pubkey:encrypt(newsession.secret)
           if challenge ~= nil then
             -- marshall credential reset
@@ -470,7 +478,7 @@ function Interceptor:receiverequest(request)
 end
 
 function Interceptor:sendreply()
-  self.callerChainOf[running()] = nil
+  self.context.callerChainOf[running()] = nil
 end
 
 
@@ -500,6 +508,7 @@ end
 
 
 local module = {
+  Context = Context,
   Interceptor = Interceptor,
   setNoPermSysEx = setNoPermSysEx,
 }

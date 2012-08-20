@@ -15,47 +15,38 @@ local params = {
 }
 
 
+-- setup the ORB and connect to the bus
+local OpenBusContext = openbus.initORB().OpenBusContext
+OpenBusContext:setDefaultConnection(
+  OpenBusContext:createConnection(bushost, busport))
+
 local repID = "IDL:Messenger:1.0"
 
-
--- variable to hold resources to be freed before termination
-local conn
-
--- function that uses the bus to find the required service
-local function findService()
-  -- connect to the bus
-  local connections = openbus.initORB().OpenBusConnectionManager
-  conn = connections:createConnection(bushost, busport)
-  connections:setDefaultConnection(conn)
+-- call in protected mode
+local ok, result = pcall(function ()
   -- login to the bus
-  conn:loginByPassword(entity, password or entity)
+  OpenBusContext:getCurrentConnection():loginByPassword(entity, password
+                                                                or entity)
   -- find the offered service
-  return conn.offers:findServices{
+  local OfferRegistry = OpenBusContext:getOfferRegistry()
+  return OfferRegistry:findServices{
     {name="openbus.component.interface",value=repID},
     {name="offer.domain",value="Demo Chain Validation"},
   }
-end
-
--- function that uses the required service through the bus
-local function callService(offer)
-  service = offer.service_ref
-  if not service:_non_existent() then
-    local facet = service:getFacet(repID)
-    if facet ~= nil then
-      facet:__narrow():showMessage("Hello!")
-      return true
-    end
-  end
-end
-
--- perform operations in protected mode and handle eventual errors
-local ok, result = pcall(findService)
+end)
 if not ok then
-  utils.showerror(result, params, utils.msg.Connect, utils.msg.LoginByPassword)
+  utils.showerror(result, params, utils.errmsg.LoginByPassword,
+                                  utils.errmsg.BusCore)
 else
   ok = nil
   for _, offer in ipairs(result) do
-    ok, result = pcall(callService, offer)
+    ok, result = pcall(function ()
+      -- get the facet providing the service
+      local facet = assert(offer.service_ref:getFacet(repID),
+        "o serviço encontrado não provê a faceta ofertada")
+      -- invoke the service
+      facet:__narrow():showMessage("Hello!")
+    end)
     if not ok then
       if result._repid == "IDL:Unauthorized:1.0" then
         io.stderr:write("serviço com papel ",utils.getprop(offer, "offer.role"),
@@ -64,7 +55,7 @@ else
         io.stderr:write("serviço com papel ",utils.getprop(offer, "offer.role"),
                         " está indisponível\n")
       else
-        utils.showerror(result, params, utils.msg.Service)
+        utils.showerror(result, params, utils.errmsg.Service)
       end
     end
   end
@@ -74,4 +65,4 @@ else
 end
 
 -- free any resoures allocated
-if conn ~= nil then conn:logout() end
+OpenBusContext:getCurrentConnection():logout()

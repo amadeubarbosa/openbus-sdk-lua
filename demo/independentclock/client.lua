@@ -18,98 +18,93 @@ local params = {
 }
 
 
+-- setup the ORB
+local orb = openbus.initORB()
+
+-- get bus context manager
+local OpenBusContext = orb.OpenBusContext
+
+
 -- independent clock thread
-local conn
-local clock
 local finder = {}
-openbus.newthread(function ()
+openbus.newThread(function ()
   for i = 1, 10 do
     local time
+    local clock = finder.found
     if clock ~= nil then
       local ok, result = pcall(clock.getTime, clock)
       if ok then
         time = result
       else
-        clock = nil
-        finder:enable() -- search for other service offers
-        utils.showerror(result, params, utils.msg.Service)
+        utils.showerror(result, params, utils.errmsg.Service)
+        finder.found = nil -- discard current service reference
+        finder:activate() -- search for other service offers
       end
     end
     print(os.date(nil, time))
     openbus.sleep(1)
   end
-  conn:logout()
+  OpenBusContext:getCurrentConnection():logout()
 end)
 
 
--- setup the ORB
-local orb = openbus.initORB()
-
 -- connect to the bus
-local connections = orb.OpenBusConnectionManager
-repeat
-  local ok, result = pcall(connections.createConnection, connections, bushost,
-                                                                      busport)
-  if ok then
-    conn = result
-  else
-    utils.showerror(result, params, utils.msg.Connect)
-    openbus.sleep(interval)
-  end
-until ok
-connections:setDefaultConnection(conn)
-
--- create thread to search for offer after (re)login or service failure
-local props = {{name="offer.domain",value="Demo Independent Clock"}}
-local function getfacet(offer)
-  return orb:narrow(offer.service_ref:getFacetByName("Clock"))
-end
-local function findservices(self)
-  self.active = coroutine.running()
-  local offers = conn.offers
-  repeat
-    local ok, result = pcall(offers.findServices, offers, props)
-    if ok then
-      for _, offer in ipairs(result) do
-        ok, result = pcall(getfacet, offer)
-        if not ok then
-          utils.showerror(result, params, utils.msg.Service)
-        elseif result == nil then
-          io.stderr:write("serviço encontrado não oferece a faceta esperada.\n")
-        else
-          clock = result
-          self.active = nil
-          return
-        end
-      end
-      io.stderr:write("o serviço esperado não foi encontrado\n")
-    else
-      utils.showerror(result, params, utils.msg.Bus)
-    end
-    openbus.sleep(interval)
-  until false
-end
-function finder:enable()
-  if self.active == nil then
-    openbus.newthread(findservices, self)
-  end
-end
+local conn = OpenBusContext:createConnection(bushost, busport)
+OpenBusContext:setDefaultConnection(conn)
 
 -- define callback for auto-relogin
 function conn:onInvalidLogin()
   repeat
-    local ok, result = pcall(conn.loginByPassword, conn, entity, password
+    local ok, result = pcall(self.loginByPassword, self, entity, password
                                                                  or entity)
     if not ok then
       if result._repid == except.repid.AlreadyLoggedIn then
         ok = true -- ignore this exception
       else
-        utils.showerror(result, params, utils.msg.LoginByPassword)
+        utils.showerror(result, params, utils.errmsg.LoginByPassword,
+                                        utils.errmsg.BusCore)
         openbus.sleep(interval)
       end
     end
   until ok
-  finder:enable()
+  finder:activate()
+end
+
+-- create object to search for offer after (re)login
+function finder:activate()
+  if self.found == nil and self.active == nil then
+    openbus.newThread(function ()
+      self.active = true
+      repeat
+        local OfferRegistry = OpenBusContext:getOfferRegistry()
+        local ok, result = pcall(OfferRegistry.findServices, OfferRegistry,
+          {{name="offer.domain",value="Demo Independent Clock"}})
+        if not ok then
+          utils.showerror(result, params, utils.errmsg.BusCore)
+        else
+          for _, offer in ipairs(result) do
+            local ok, result = pcall(function ()
+              local facet = assert(offer.service_ref:getFacetByName("Clock"),
+                "o serviço encontrado não provê a faceta ofertada")
+              self.found = facet:__narrow()
+            end)
+            if not ok then
+              utils.showerror(result, params, utils.errmsg.Service)
+            else
+              break
+            end
+          end
+          if self.found == nil then
+            io.stderr:write("o serviço esperado não foi encontrado\n")
+          else
+            break
+          end
+        end
+        openbus.sleep(interval)
+      until false
+      self.active = nil
+    end)
+  end
 end
 
 -- login to the bus

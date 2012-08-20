@@ -1,5 +1,4 @@
 local log = require "openbus.util.logger"
-local server = require "openbus.util.server"
 local openbus = require "openbus"
 local ComponentContext = require "scs.core.ComponentContext"
 local table = require "loop.table"
@@ -9,28 +8,28 @@ require "openbus.test.util"
 
 -- setup and start the ORB
 local orb = openbus.initORB()
+openbus.newThread(orb.run, orb)
+
+-- load interface definitions
 orb:loadidlfile("messages.idl")
-openbus.newthread(orb.run, orb)
 local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::Forwarder")
 
 -- customize test configuration for this case
 settestcfg(iface, ...)
 
--- connect to the bus
-local manager = orb.OpenBusConnectionManager
-local conn = manager:createConnection(bushost, busport)
-manager:setDefaultConnection(conn)
+-- get bus context manager
+local OpenBusContext = orb.OpenBusContext
 
 -- create service implementation
 Forwarder = { forwardsOf = {} }
 function Forwarder:setForward(to)
-  local chain = conn:getCallerChain()
+  local chain = OpenBusContext:getCallerChain()
   local user = chain.caller.entity
   log:TEST("setup forward to ",to," by ",chain2str(chain))
   self.forwardsOf[user] = {chain=chain, to=to}
 end
 function Forwarder:cancelForward()
-  local chain = conn:getCallerChain()
+  local chain = OpenBusContext:getCallerChain()
   local user = chain.caller.entity
   local forward = self.forwardsOf[user]
   if forward ~= nil then
@@ -39,7 +38,7 @@ function Forwarder:cancelForward()
   end
 end
 function Forwarder:getForward()
-  local chain = conn:getCallerChain()
+  local chain = OpenBusContext:getCallerChain()
   local user = chain.caller.entity
   local forward = self.forwardsOf[user]
   if forward == nil then
@@ -53,9 +52,9 @@ timer = Timer{ rate = leasetime/2 }
 function timer:action()
   for user, forward in pairs(Forwarder.forwardsOf) do
     log:TEST("checking messages of ",user)
-    conn:joinChain(forward.chain)
+    OpenBusContext:joinChain(forward.chain)
     local posts = Messenger:receivePosts()
-    conn:exitChain()
+    OpenBusContext:exitChain()
     for _, post in ipairs(posts) do
       Messenger:post(forward.to, "forwarded message by "..post.from..": "..post.message)
     end
@@ -73,8 +72,12 @@ component = ComponentContext(orb, {
 })
 component:addFacet(iface.name, iface.repID, Forwarder)
 
+-- connect to the bus
+local conn = OpenBusContext:createConnection(bushost, busport)
+OpenBusContext:setDefaultConnection(conn)
+
 -- login to the bus
-conn:loginByCertificate(system, assert(server.readfrom(syskey)))
+conn:loginByCertificate(system, assert(openbus.readKeyFile(syskey)))
 
 -- define service properties
 local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::Messenger")
@@ -82,13 +85,14 @@ local props = {{name="openbus.component.interface",value=iface.repID}}
 
 -- retrieve messenger service
 log:TEST("retrieve messenger service")
-for _, offer in ipairs(findoffers(conn.offers, props)) do
+local OfferRegistry = OpenBusContext:getOfferRegistry()
+for _, offer in ipairs(findoffers(OfferRegistry, props)) do
   local entity = getprop(offer.properties, "openbus.offer.entity")
   log:TEST("found messenger service of ",entity,"!")
   Messenger = orb:narrow(offer.service_ref:getFacet(iface.repID), iface)
 end
 
 -- offer broadcast service
-conn.offers:registerService(component.IComponent, properties)
+OfferRegistry:registerService(component.IComponent, properties)
 
 log:TEST("forwarder service ready!")

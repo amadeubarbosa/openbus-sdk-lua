@@ -10,7 +10,6 @@ local coroutine = require "coroutine"
 local string = require "string"
 local io = require "io"
 local uuid = require "uuid"
-local pubkey = require "lce.pubkey"
 local giop = require "oil.corba.giop"
 local cothread = require "cothread"
 local openbus = require "openbus"
@@ -28,13 +27,12 @@ local smalltime = .1
 
 -- login as admin and provide additional functionality for the test
 local invalidate, shutdown do
-  local manager = openbus.initORB().OpenBusConnectionManager
-  local conn = manager:createConnection(bushost, busport)
-  local logins = conn.logins
+  local OpenBusContext = openbus.initORB().OpenBusContext
+  local conn = OpenBusContext:createConnection(bushost, busport)
   conn:loginByPassword(admin, admpsw)
-  manager:setDefaultConnection(conn)
+  OpenBusContext:setDefaultConnection(conn)
   function invalidate(loginId)
-    logins:invalidateLogin(loginId)
+    OpenBusContext:getLoginRegistry():invalidateLogin(loginId)
   end
   function shutdown()
     conn:logout()
@@ -42,13 +40,13 @@ local invalidate, shutdown do
 end
 
 local orb = openbus.initORB()
-local manager = orb.OpenBusConnectionManager
-assert(manager.orb == orb)
-local connprops = { accesskey = pubkey.create(idl.const.EncryptedBlockSize) }
+local OpenBusContext = orb.OpenBusContext
+assert(OpenBusContext.orb == orb)
+local connprops = { accesskey = openbus.newKey() }
 
 
 do log:TEST("Two threads logging in")
-  local conn = manager:createConnection(bushost, busport, connprops)
+  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
   local failures = 0
   local threads = 2
   local function trylogin()
@@ -74,9 +72,10 @@ do log:TEST("Two threads logging in")
 end
 
 do log:TEST("Two threads getting invalid login")
-  local conn = manager:createConnection(bushost, busport, connprops)
+  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
   conn:loginByPassword(user, password)
-  manager:setDefaultConnection(conn)
+  OpenBusContext:setDefaultConnection(conn)
+  local OfferRegistry = OpenBusContext:getOfferRegistry()
   
   local suspended = {}
   local mylogin = conn.login
@@ -91,8 +90,7 @@ do log:TEST("Two threads getting invalid login")
   local failures = 0
   local threads = 2
   local function callop()
-    local offers = conn.offers
-    local ok, ex = pcall(offers.getServices, offers)
+    local ok, ex = pcall(OfferRegistry.getServices, OfferRegistry)
     threads = threads-1
     if not ok then
       failures = failures+1
@@ -123,13 +121,14 @@ do log:TEST("Two threads getting invalid login")
   assert(failures == 2)
   assert(conn.login == nil)
   
-  manager:setDefaultConnection(nil)
+  OpenBusContext:setDefaultConnection(nil)
 end
 
 do log:TEST("Two threads getting invalid login while other relogs")
-  local conn = manager:createConnection(bushost, busport, connprops)
+  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
   conn:loginByPassword(user, password)
-  manager:setDefaultConnection(conn)
+  OpenBusContext:setDefaultConnection(conn)
+  local OfferRegistry = OpenBusContext:getOfferRegistry()
   
   local suspended = {}
   local mylogin = conn.login
@@ -144,8 +143,7 @@ do log:TEST("Two threads getting invalid login while other relogs")
   local failures = 0
   local threads = 2
   local function callop()
-    local offers = conn.offers
-    offers:getServices()
+    OfferRegistry:getServices()
     threads = threads-1
   end
   
@@ -171,13 +169,14 @@ do log:TEST("Two threads getting invalid login while other relogs")
   assert(conn.login ~= mylogin)
   
   conn:logout()
-  manager:setDefaultConnection(nil)
+  OpenBusContext:setDefaultConnection(nil)
 end
 
 do log:TEST("Two threads getting invalid login and trying to relog")
-  local conn = manager:createConnection(bushost, busport, connprops)
+  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
   conn:loginByPassword(user, password)
-  manager:setDefaultConnection(conn)
+  OpenBusContext:setDefaultConnection(conn)
+  local OfferRegistry = OpenBusContext:getOfferRegistry()
   
   local suspended = {}
   local mylogin = conn.login
@@ -198,8 +197,7 @@ do log:TEST("Two threads getting invalid login and trying to relog")
   local failures = 0
   local threads = 2
   local function callop()
-    local offers = conn.offers
-    local ok, ex = pcall(offers.getServices, offers)
+    local ok, ex = pcall(OfferRegistry.getServices, OfferRegistry)
     threads = threads-1
     if not ok then
       failures = failures+1
@@ -230,7 +228,7 @@ do log:TEST("Two threads getting invalid login and trying to relog")
   assert(conn.login ~= mylogin)
   
   conn:logout()
-  manager:setDefaultConnection(nil)
+  OpenBusContext:setDefaultConnection(nil)
 end
 
 shutdown()
