@@ -9,7 +9,7 @@ local orb = openbus.initORB()
 openbus.newThread(orb.run, orb)
 
 -- load interface definition
-orb:loadidlfile("hello.idl")
+orb:loadidlfile("idl/hello.idl")
 local iface = orb.types:lookup("tecgraf::openbus::interop::simple::Hello")
 
 -- customize test configuration for this case

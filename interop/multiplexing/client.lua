@@ -7,7 +7,7 @@ require "openbus.test.util"
 
 -- setup and start the ORB
 local orb = openbus.initORB()
-orb:loadidlfile("hello.idl")
+orb:loadidlfile("idl/hello.idl")
 
 -- load interface definition
 local iface = orb.types:lookup("tecgraf::openbus::interop::simple::Hello")

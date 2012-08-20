@@ -11,7 +11,7 @@ local orb = openbus.initORB()
 openbus.newThread(orb.run, orb)
 
 -- load interface definitions
-orb:loadidlfile("messages.idl")
+orb:loadidlfile("idl/messages.idl")
 local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::Forwarder")
 
 -- customize test configuration for this case

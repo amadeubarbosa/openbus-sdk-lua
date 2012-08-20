@@ -7,7 +7,7 @@ require "openbus.test.util"
 local orb = openbus.initORB()
 
 -- load interface definition
-orb:loadidlfile("hello.idl")
+orb:loadidlfile("idl/hello/hello.idl")
 local iface = orb.types:lookup("tecgraf::openbus::interop::simple::Hello")
 
 -- customize test configuration for this case
@@ -21,7 +21,7 @@ local conn = OpenBusContext:createConnection(bushost, busport)
 OpenBusContext:setDefaultConnection(conn)
 
 -- load interface definition
-orb:loadidlfile("encoding.idl")
+orb:loadidlfile("idl/sharedauth/encoding.idl")
 local idltype = orb.types:lookup("tecgraf::openbus::interop::sharedauth::EncodedSharedAuth")
 
 -- read shared authentication data

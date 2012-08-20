@@ -7,7 +7,7 @@ require "openbus.test.util"
 local orb = openbus.initORB()
 
 -- load interface definition
-orb:loadidlfile("messages.idl")
+orb:loadidlfile("idl/messages.idl")
 local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::Messenger")
 
 -- customize test configuration for this case

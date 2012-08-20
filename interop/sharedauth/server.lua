@@ -9,7 +9,7 @@ local orb = openbus.initORB()
 openbus.newThread(orb.run, orb)
 
 -- load interface definition
-orb:loadidlfile("hello.idl")
+orb:loadidlfile("idl/hello/hello.idl")
 local iface = orb.types:lookup("tecgraf::openbus::interop::simple::Hello")
 
 -- customize test configuration for this case
@@ -53,7 +53,7 @@ log:TEST("hello service ready!")
 local attempt, secret = conn:startSharedAuth()
 
 -- load interface definition
-orb:loadidlfile("encoding.idl")
+orb:loadidlfile("idl/sharedauth/encoding.idl")
 local idltype = orb.types:lookup("tecgraf::openbus::interop::sharedauth::EncodedSharedAuth")
 
 -- serialize shared authentication data

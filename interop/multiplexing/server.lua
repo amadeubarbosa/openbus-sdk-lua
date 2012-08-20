@@ -11,8 +11,8 @@ local orb2 = openbus.initORB()
 openbus.newThread(orb2.run, orb2)
 
 -- load interface definition
-orb1:loadidlfile("hello.idl")
-orb2:loadidlfile("hello.idl")
+orb1:loadidlfile("idl/hello.idl")
+orb2:loadidlfile("idl/hello.idl")
 local iface = orb1.types:lookup("tecgraf::openbus::interop::simple::Hello")
 
 -- customize test configuration for this case
