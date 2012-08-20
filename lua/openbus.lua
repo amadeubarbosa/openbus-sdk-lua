@@ -55,7 +55,6 @@ local throw = libidl.throw
 local coreidl = require "openbus.core.idl"
 local BusLogin = coreidl.const.BusLogin
 local CredentialContextId = coreidl.const.credential.CredentialContextId
-local coresrvconst = coreidl.const.services
 local coresrvtypes = coreidl.types.services
 local loginconst = coreidl.const.services.access_control
 local logintypes = coreidl.types.services.access_control
@@ -236,10 +235,8 @@ local function newRenewer(self, lease)
 end
 
 local function getCoreFacet(self, name, module)
-  local facetname = assert(coresrvconst[module][name.."Facet"], name)
-  local typerepid = assert(coresrvtypes[module][name], name)
-  local facet = assert(self.bus:getFacetByName(facetname), name)
-  return self.orb:narrow(facet, typerepid)
+  return self.orb:narrow(self.bus:getFacetByName(name),
+                         coresrvtypes[module][name])
 end
 
 local function intiateLogin(self)
