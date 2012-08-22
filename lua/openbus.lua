@@ -733,7 +733,7 @@ end
 
 function Context:getLoginRegistry()
   local conn = self:getCurrentConnection()
-  if conn == nil then
+  if conn == nil or conn.login == nil then
     sysexthrow.NO_PERMISSION{
       completed = "COMPLETED_NO",
       minor = loginconst.NoLoginCode,
@@ -751,7 +751,7 @@ local CoreServices = {
 for name, modname in pairs(CoreServices) do
   Context["get"..name] = function (self)
     local conn = self:getCurrentConnection()
-    if conn == nil then
+    if conn == nil or conn.login == nil then
       sysexthrow.NO_PERMISSION{
         completed = "COMPLETED_NO",
         minor = loginconst.NoLoginCode,
