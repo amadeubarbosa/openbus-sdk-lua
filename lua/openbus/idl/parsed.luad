@@ -17,7 +17,7 @@ end
 local Compiler = require "oil.corba.idl.Compiler"
 local options = Compiler().defaults
 options.incpath = {
-  idlpath.."/sdk",
+  idlpath.."/lib",
   idlpath.."/core",
   idlpath.."/scs",
 }
