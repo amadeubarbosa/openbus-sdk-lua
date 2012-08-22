@@ -71,6 +71,7 @@ local BaseInterceptor = access.Interceptor
 local sendBusRequest = BaseInterceptor.sendrequest
 local receiveBusReply = BaseInterceptor.receivereply
 local receiveBusRequest = BaseInterceptor.receiverequest
+local unmarshalCredential = BaseInterceptor.unmarshalCredential
 
 -- must be loaded after OiL is loaded because OiL is the one that installs
 -- the cothread plug-in that supports the 'now' operation.
@@ -158,31 +159,18 @@ local function newLoginRegistryWrapper(LoginRegistry)
 end
 
 local function unmarshalChain(self, signed)
-  local decoder = self.orb:newdecoder(signed.encoded)
-  return decoder:get(self.types.CallChain)
+  local context = self.context
+  local decoder = context.orb:newdecoder(signed.encoded)
+  return decoder:get(context.types.CallChain)
 end
 
-local function unmarshalBusId(self, contexts)
-  local idltype = self.types.Identifier
-  local decoder = self.orb:newdecoder(contexts[CredentialContextId])
-  local busid = decoder:get(idltype)
-  local login = decoder:get(idltype)
-  return busid, login
-end
-
-local function getCallerId(self, contexts)
-  local ok, result = pcall(unmarshalBusId, self, contexts)
-  if ok then return result end
-end
-
-local function getDispatcherFor(self, request)
+local function getDispatcherFor(self, request, credential)
   local callback = self.onCallDispatch
   if callback ~= nil then
     local params = request.parameters
-    local busid, login = getCallerId(self, request.service_context)
     return callback(self,
-      busid,
-      login,
+      credential.busid,
+      credential.login,
       request.object_key,
       request.operation_name,
       unpack(params, 1, params.n))
@@ -235,7 +223,7 @@ local function newRenewer(self, lease)
 end
 
 local function getCoreFacet(self, name, module)
-  return self.orb:narrow(self.bus:getFacetByName(name),
+  return self.context.orb:narrow(self.bus:getFacetByName(name),
                          coresrvtypes[module][name])
 end
 
@@ -249,9 +237,10 @@ local function intiateLogin(self)
 end
 
 local function encryptLogin(self, buskey, pubkey, data)
-  local encoder = self.orb:newencoder()
+  local context = self.context
+  local encoder = context.orb:newencoder()
   encoder:put({data=data,hash=sha256(pubkey)},
-    self.types.LoginAuthenticationInfo)
+    context.types.LoginAuthenticationInfo)
   return buskey:encrypt(encoder:getdata())
 end
 
@@ -274,8 +263,9 @@ local function localLogout(self)
   self.AccessControl = nil
   self.LoginRegistry = nil
   self.login = nil
-  if self.legacy ~= nil then
-    self.legacy:clearReferences()
+  local legacy = self.legacy
+  if legacy ~= nil then
+    legacy:resetRef()
   end
   self:resetCaches()
   local renewer = self.renewer
@@ -323,7 +313,7 @@ end
 
 local LegacyACSWrapper = class()
 
-function LegacyACSWrapper:clearReferences()
+function LegacyACSWrapper:resetRef()
   self.facet = nil
 end
 
@@ -333,12 +323,13 @@ function LegacyACSWrapper:isValid(...)
     local bus = self.bus
     local ok, result = pcall(bus.getFacetByName, bus,
                              "IAccessControlService_v1_05")
-    if not ok then return end
-    facet = self.orb:narrow(result, self.idltype)
+    if not ok or result == nil then return end
+    facet = result:__narrow(self.idltype)
     self.facet = facet
   end
   local ok, result = pcall(facet.isValid, facet, ...)
   if ok then return result end
+  log:exception(msg.UnableToAccessBusLegacySupport:tag{error=result})
 end
 
 
@@ -347,12 +338,10 @@ local Connection = class({}, BaseInterceptor)
 
 function Connection:__init()
   -- retrieve IDL definitions for login
-  copy(self.context.types, self.types)
   local legacy = self.legacy
   if legacy ~= nil then
-    local oldidl = require "openbus.core.legacy.idl"
     self.legacy = LegacyACSWrapper{
-      idltype = oldidl.types.access_control_service.IAccessControlService,
+      idltype = self.context.types.LegacyACS,
       bus = legacy,
     }
   end
@@ -593,14 +582,12 @@ local WeakKeys = { __mode="k" }
 local Context = class({}, BaseContext)
 
 function Context:__init()
+  if self.prvkey == nil then self.prvkey = newkey(EncryptedBlockSize) end
   self.connectionOf = setmetatable({}, WeakKeyMeta) -- [thread]=connection
-  local orb = self.orb
-  self.types = {
-    Identifier =
-      assert(orb.types:lookup_id(coreidl.types.Identifier)),
-    LoginAuthenticationInfo =
-      assert(orb.types:lookup_id(logintypes.LoginAuthenticationInfo)),
-  }
+  self.types.LoginAuthenticationInfo =
+    self.orb.types:lookup_id(logintypes.LoginAuthenticationInfo)
+  self.context = self -- to execute 'BaseInterceptor.unmarshalCredential(self)'
+  self.legacy = true -- to execute 'BaseInterceptor.unmarshalCredential(self)'
 end
 
 function Context:sendrequest(request)
@@ -633,11 +620,13 @@ function Context:receivereply(request)
 end
 
 function Context:receiverequest(request)
-  local conn = getDispatcherFor(self, request) or self.defaultConnection
+  local credential = unmarshalCredential(self, request.service_context)
+  local conn = getDispatcherFor(self, request, credential)
+            or self.defaultConnection
   if conn ~= nil then
     request[self] = conn
     self:setCurrentConnection(conn)
-    conn:receiverequest(request)
+    conn:receiverequest(request, credential)
   else
     setNoPermSysEx(request, loginconst.UnknownBusCode)
     log:exception(msg.GotCallWhileDisconnected:tag{
@@ -668,10 +657,6 @@ function Context:createConnection(host, port, props)
       throw.InvalidPropertyValue{property="legacydelegate",value=delegorig}
     end
     legacy = busaddress2component(orb, host, port, "openbus_v1_05")
-    if legacy:_non_existent() then
-      legacy = nil
-      log:exception(msg.BusDoesNotProvideLegacySupport:tag{host=host, port=port})
-    end
   end
   -- validate access key if provided
   local prvkey = props.accesskey
@@ -704,7 +689,7 @@ function Context:createConnection(host, port, props)
     bus = busaddress2component(orb, host, port, BusObjectKey),
     legacy = legacy,
     legacyDelegOrig = delegorig,
-    prvkey = prvkey,
+    prvkey = prvkey or self.prvkey,
   }
 end
 
