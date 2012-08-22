@@ -68,7 +68,7 @@ do
   
   local ok, err = db:gettable("ErrorTable/")
   assert(ok == nil)
-  assert(err == "unable to create directory 'test.db/ErrorTable/' (Not a directory)")
+  assert(err:match("unable to create directory 'test%.db/ErrorTable/' %(.-%)"))
   
   os.remove("test.db/ErrorTable")
 end
