@@ -18,6 +18,7 @@ local strrep = string.rep
 
 local math = require "math"
 local inf = math.huge
+local max = math.max
 
 local io = require "io"
 local openfile = io.open
@@ -54,6 +55,7 @@ local libidl = require "openbus.idl"
 local throw = libidl.throw
 local coreidl = require "openbus.core.idl"
 local BusLogin = coreidl.const.BusLogin
+local EncryptedBlockSize = coreidl.const.EncryptedBlockSize
 local CredentialContextId = coreidl.const.credential.CredentialContextId
 local coresrvtypes = coreidl.types.services
 local loginconst = coreidl.const.services.access_control
@@ -120,7 +122,7 @@ local function getLoginEntry(self, loginId)
   -- use the cache to validate the login
   if entry then
     if entry.deadline < time() then -- update deadline
-      local validity = LoginRegistry:getValidity{loginId}[1]
+      local validity = LoginRegistry:getLoginValidity(loginId)
       if validity <= 0 then
         cache:put(loginId, false)
         return nil -- invalid login
@@ -134,7 +136,7 @@ end
 local function getLoginValidity(self, loginId)
   local entry = getLoginEntry(self, loginId)
   if entry ~= nil then
-    return entry.deadline - time()
+    return max(.01, entry.deadline - time())
   end
   return 0
 end
@@ -169,7 +171,7 @@ local function getDispatcherFor(self, request, credential)
   if callback ~= nil then
     local params = request.parameters
     return callback(self,
-      credential.busid,
+      credential.bus,
       credential.login,
       request.object_key,
       request.operation_name,
@@ -298,7 +300,7 @@ local function getLogin(self)
   return login
 end
 
-local MaxEncryptedData = strrep("\255", coreidl.const.EncryptedBlockSize-11)
+local MaxEncryptedData = strrep("\255", EncryptedBlockSize-11)
 
 local function busaddress2component(orb, host, port, key)
   local ref = "corbaloc::"..host..":"..port.."/"..key
@@ -628,10 +630,10 @@ function Context:receiverequest(request)
     self:setCurrentConnection(conn)
     conn:receiverequest(request, credential)
   else
-    setNoPermSysEx(request, loginconst.UnknownBusCode)
     log:exception(msg.GotCallWhileDisconnected:tag{
       operation = request.operation_name,
     })
+    setNoPermSysEx(request, loginconst.UnknownBusCode)
   end
 end
 
@@ -789,7 +791,7 @@ function openbus.newThread(func, ...)
 end
 
 function openbus.newKey()
-  return newkey(coreidl.const.EncryptedBlockSize)
+  return newkey(EncryptedBlockSize)
 end
 
 function openbus.readKeyFile(path)
