@@ -99,24 +99,16 @@ else
         local ok, result = pcall(function ()
           local facet = assert(offer.service_ref:getFacet(iface.repID),
             "o serviço encontrado não provê a faceta ofertada")
-
-require("cothread").verbose:level(2)
-require("oil.verbose"):level(4)
-require("oil.verbose"):output(assert(io.open("oil.log", "w")))
-require("cothread").verbose.viewer.output = require("oil.verbose").viewer.output
-
           assert(facet:__narrow()):newTrigger(index, Callback{
             loginId = conn.login.id,
             timerOffer = offer,
           })
-          OpenBusContext:getCurrentConnection():logout()
         end)
         if not ok then
           utils.showerror(result, params, utils.errmsg.Service)
         else
           pending = pending+1
         end
-        OpenBusContext:setCurrentConnection(nil)
         conn:logout()
       end
     end)
