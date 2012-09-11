@@ -562,7 +562,7 @@ function Connection:logout()
     })
     local result, except = pcallWithin(self, self.AccessControl, "logout")
     if not result and(except._repid ~= sysex.NO_PERMISSION
-                   or except.minor ~= loginconst.InvalidLoginCode
+                   or except.minor ~= loginconst.NoLoginCode
                    or except.completed ~= "COMPLETED_NO") then error(except) end
     localLogout(self)
     return result
