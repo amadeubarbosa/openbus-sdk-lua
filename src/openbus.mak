@@ -9,12 +9,13 @@ OPENBUSLIBIDL= ${OPENBUS_HOME}/idl/lib
 
 LUADIR= ../lua
 LUASRC= \
+  $(LUADIR)/openbus/assistant.lua \
   $(LUADIR)/openbus/core/Access.lua \
   $(LUADIR)/openbus/core/idl/makeaux.lua \
   $(LUADIR)/openbus/core/idl/parsed.lua \
   $(LUADIR)/openbus/core/idl.lua \
-  $(LUADIR)/openbus/core/legacy/parsed.lua \
   $(LUADIR)/openbus/core/legacy/idl.lua \
+  $(LUADIR)/openbus/core/legacy/parsed.lua \
   $(LUADIR)/openbus/core/messages.lua \
   $(LUADIR)/openbus/idl/parsed.lua \
   $(LUADIR)/openbus/idl.lua \
