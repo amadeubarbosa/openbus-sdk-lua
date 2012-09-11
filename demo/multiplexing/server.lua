@@ -59,6 +59,7 @@ orb:loadidlfile("Multiplexing/timer.idl")
 local iface = orb.types:lookup("Timer")
 params.interface = iface.name
 
+local connprops = { accesskey = assert(openbus.newKey()) }
 for i = 1, 3 do
   -- instantiate implementaiton
   local timer = Timer()
@@ -72,7 +73,7 @@ for i = 1, 3 do
   })
   component:addFacet(iface.name, iface.repID, timer)
   -- connect to the bus
-  local conn = OpenBusContext:createConnection(bushost, busport)
+  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
   OpenBusContext:setCurrentConnection(conn)
   -- associate connection to the servant
   TimerConn[timer] = conn
