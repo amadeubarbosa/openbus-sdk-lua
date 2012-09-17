@@ -5,12 +5,12 @@ local ComponentContext = require "scs.core.ComponentContext"
 
 -- process command-line arguments
 local bushost, busport, entity, privatekeypath = ...
-bushost = assert(bushost, "o 1o. argumento Ã© o host do barramento")
-busport = assert(busport, "o 2o. argumento Ã© a porta do barramento")
-busport = assert(tonumber(busport), "o 2o. argumento Ã© um nÃºmero de porta")
-entity = assert(entity, "o 3o. argumento Ã© a entidade a ser autenticada")
+bushost = assert(bushost, "o 1o. argumento é o host do barramento")
+busport = assert(busport, "o 2o. argumento é a porta do barramento")
+busport = assert(tonumber(busport), "o 2o. argumento é um número de porta")
+entity = assert(entity, "o 3o. argumento é a entidade a ser autenticada")
 privatekeypath = assert(privatekeypath,
-  "o 4o. argumento Ã© o caminho da chave privada de autenticaÃ§Ã£o da entidade")
+  "o 4o. argumento é o caminho da chave privada de autenticação da entidade")
 local privatekey = assert(openbus.readKeyFile(privatekeypath))
 local params = {
   bushost = bushost,
@@ -44,7 +44,7 @@ local function chain2str(chain)
 end
 local function callService(offer, message)
   local facet = assert(offer.service_ref:getFacet(iface.repID),
-    "o serviÃ§o encontrado nÃ£o provÃª a faceta ofertada")
+    "o serviço encontrado não provê a faceta ofertada")
   facet:__narrow():showMessage(message)
 end
 local messenger = {}
@@ -60,7 +60,7 @@ function messenger:showMessage(message)
       return
     end
   end
-  io.stderr:write("serviÃ§os encontrados nÃ£o estÃ£o disponÃ­veis\n")
+  io.stderr:write("serviços encontrados não estão disponíveis\n")
   error{_repid="IDL:Unavailable:1.0"}
 end
 
@@ -91,14 +91,14 @@ local ok, result = pcall(function ()
   offers = OfferRegistry:findServices{
     {name="openbus.component.interface",value=iface.repID},
     {name="offer.role",value="actual messenger"},
-    {name="offer.domain",value="Demo Chain Validation"},
+    {name="offer.domain",value="Demo Call Chain"},
   }
-  assert(#offers, "nenhum serviÃ§o encontrado para repassar mensagens")
+  assert(#offers, "nenhum serviço encontrado para repassar mensagens")
   
   -- register service at the bus
   OfferRegistry:registerService(component.IComponent, {
     {name="offer.role",value="proxy messenger"},
-    {name="offer.domain",value="Demo Chain Validation"},
+    {name="offer.domain",value="Demo Call Chain"},
   })
 end)
 

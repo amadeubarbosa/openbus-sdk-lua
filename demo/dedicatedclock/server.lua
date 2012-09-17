@@ -5,14 +5,14 @@ local ComponentContext = require "scs.core.ComponentContext"
 
 -- process command-line arguments
 local bushost, busport, entity, privatekeypath, interval = ...
-bushost = assert(bushost, "o 1o. argumento Ã© o host do barramento")
-busport = assert(busport, "o 2o. argumento Ã© a porta do barramento")
-busport = assert(tonumber(busport), "o 2o. argumento Ã© um nÃºmero de porta")
-entity = assert(entity, "o 3o. argumento Ã© a entidade a ser autenticada")
+bushost = assert(bushost, "o 1o. argumento é o host do barramento")
+busport = assert(busport, "o 2o. argumento é a porta do barramento")
+busport = assert(tonumber(busport), "o 2o. argumento é um número de porta")
+entity = assert(entity, "o 3o. argumento é a entidade a ser autenticada")
 privatekeypath = assert(privatekeypath,
-  "o 4o. argumento Ã© o caminho da chave privada de autenticaÃ§Ã£o da entidade")
+  "o 4o. argumento é o caminho da chave privada de autenticação da entidade")
 local privatekey = assert(openbus.readKeyFile(privatekeypath))
-interval = assert(tonumber(interval or 1), "o 5o. argumento Ã© um tempo entre "..
+interval = assert(tonumber(interval or 1), "o 5o. argumento é um tempo entre "..
                   "tentativas de acesso ao barramento em virtude de falhas")
 local params = {
   bushost = bushost,
@@ -46,7 +46,7 @@ local component = ComponentContext(orb, {
   platform_spec = "Lua",
 })
 component:addFacet(iface.name, iface.repID, clock)
-local props = {{name="offer.domain",value="Demo Independent Clock"}}
+local props = {{name="offer.domain",value="Demo Dedicated Clock"}}
 
 
 -- get bus context manager

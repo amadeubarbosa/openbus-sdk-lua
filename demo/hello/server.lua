@@ -5,12 +5,12 @@ local ComponentContext = require "scs.core.ComponentContext"
 
 -- process command-line arguments
 local bushost, busport, entity, privatekeypath = ...
-bushost = assert(bushost, "o 1o. argumento Ã© o host do barramento")
-busport = assert(busport, "o 2o. argumento Ã© a porta do barramento")
-busport = assert(tonumber(busport), "o 2o. argumento Ã© um nÃºmero de porta")
-entity = assert(entity, "o 3o. argumento Ã© a entidade a ser autenticada")
+bushost = assert(bushost, "o 1o. argumento é o host do barramento")
+busport = assert(busport, "o 2o. argumento é a porta do barramento")
+busport = assert(tonumber(busport), "o 2o. argumento é um número de porta")
+entity = assert(entity, "o 3o. argumento é a entidade a ser autenticada")
 privatekeypath = assert(privatekeypath,
-  "o 4o. argumento Ã© o caminho da chave privada de autenticaÃ§Ã£o da entidade")
+  "o 4o. argumento é o caminho da chave privada de autenticação da entidade")
 local privatekey = assert(openbus.readKeyFile(privatekeypath))
 local params = {
   bushost = bushost,
@@ -60,7 +60,7 @@ local ok, result = pcall(function ()
   -- register service at the bus
   local OfferRegistry = OpenBusContext:getOfferRegistry()
   OfferRegistry:registerService(component.IComponent,
-    {{name="offer.domain",value="Hello Demo"}})
+    {{name="offer.domain",value="Demo Hello"}})
 end)
 
 -- show eventual errors

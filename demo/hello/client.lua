@@ -4,10 +4,10 @@ local openbus = require "openbus"
 
 -- process command-line arguments
 local bushost, busport, entity, password = ...
-bushost = assert(bushost, "o 1o. argumento Ã© o host do barramento")
-busport = assert(busport, "o 2o. argumento Ã© a porta do barramento")
-busport = assert(tonumber(busport), "o 2o. argumento Ã© um nÃºmero de porta")
-entity = assert(entity, "o 3o. argumento Ã© a entidade a ser autenticada")
+bushost = assert(bushost, "o 1o. argumento é o host do barramento")
+busport = assert(busport, "o 2o. argumento é a porta do barramento")
+busport = assert(tonumber(busport), "o 2o. argumento é um número de porta")
+entity = assert(entity, "o 3o. argumento é a entidade a ser autenticada")
 local params = {
   bushost = bushost,
   busport = busport,
@@ -27,7 +27,7 @@ local ok, result = pcall(function ()
                                                                 or entity)
   -- find offers of the required service
   local OfferRegistry = OpenBusContext:getOfferRegistry()
-  return OfferRegistry:findServices{{name="offer.domain",value="Hello Demo"}}
+  return OfferRegistry:findServices{{name="offer.domain",value="Demo Hello"}}
 end)
 
 -- show eventual errors or call services found
@@ -41,7 +41,7 @@ else
     local ok, result = pcall(function ()
       -- get the facet providing the service
       local facet = assert(offer.service_ref:getFacetByName("Hello"),
-        "o serviÃ§o encontrado nÃ£o provÃª a faceta ofertada")
+        "o serviço encontrado não provê a faceta ofertada")
       -- invoke the service
       facet:__narrow():sayHello()
     end)

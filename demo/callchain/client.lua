@@ -4,10 +4,10 @@ local openbus = require "openbus"
 
 -- process command-line arguments
 local bushost, busport, entity, password = ...
-bushost = assert(bushost, "o 1o. argumento √© o host do barramento")
-busport = assert(busport, "o 2o. argumento √© a porta do barramento")
-busport = assert(tonumber(busport), "o 2o. argumento √© um n√∫mero de porta")
-entity = assert(entity, "o 3o. argumento √© a entidade a ser autenticada")
+bushost = assert(bushost, "o 1o. argumento È o host do barramento")
+busport = assert(busport, "o 2o. argumento È a porta do barramento")
+busport = assert(tonumber(busport), "o 2o. argumento È um n˙mero de porta")
+entity = assert(entity, "o 3o. argumento È a entidade a ser autenticada")
 local params = {
   bushost = bushost,
   busport = busport,
@@ -31,7 +31,7 @@ local ok, result = pcall(function ()
   local OfferRegistry = OpenBusContext:getOfferRegistry()
   return OfferRegistry:findServices{
     {name="openbus.component.interface",value=repID},
-    {name="offer.domain",value="Demo Chain Validation"},
+    {name="offer.domain",value="Demo Call Chain"},
   }
 end)
 if not ok then
@@ -43,24 +43,24 @@ else
     ok, result = pcall(function ()
       -- get the facet providing the service
       local facet = assert(offer.service_ref:getFacet(repID),
-        "o servi√ßo encontrado n√£o prov√™ a faceta ofertada")
+        "o serviÁo encontrado n„o provÍ a faceta ofertada")
       -- invoke the service
       facet:__narrow():showMessage("Hello!")
     end)
     if not ok then
       if result._repid == "IDL:Unauthorized:1.0" then
-        io.stderr:write("servi√ßo com papel ",utils.getprop(offer, "offer.role"),
-                        " n√£o autorizou a chamada\n")
+        io.stderr:write("serviÁo com papel ",utils.getprop(offer, "offer.role"),
+                        " n„o autorizou a chamada\n")
       elseif result._repid == "IDL:Unavailable:1.0" then
-        io.stderr:write("servi√ßo com papel ",utils.getprop(offer, "offer.role"),
-                        " est√° indispon√≠vel\n")
+        io.stderr:write("serviÁo com papel ",utils.getprop(offer, "offer.role"),
+                        " est· indisponÌvel\n")
       else
         utils.showerror(result, params, utils.errmsg.Service)
       end
     end
   end
   if ok == nil then
-    io.stderr:write("n√£o foi poss√≠vel encontrar o servi√ßo esperado\n")
+    io.stderr:write("n„o foi possÌvel encontrar o serviÁo esperado\n")
   end
 end
 
