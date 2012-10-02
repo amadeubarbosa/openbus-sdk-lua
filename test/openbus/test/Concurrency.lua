@@ -24,6 +24,7 @@ bushost, busport, verbose = ...
 require "openbus.test.configs"
 
 local smalltime = .1
+local connprops = { accesskey = openbus.newKey() }
 
 -- login as admin and provide additional functionality for the test
 local invalidate, shutdown do
@@ -42,7 +43,6 @@ end
 local orb = openbus.initORB()
 local OpenBusContext = orb.OpenBusContext
 assert(OpenBusContext.orb == orb)
-local connprops = { accesskey = openbus.newKey() }
 
 
 do log:TEST("Two threads logging in")
