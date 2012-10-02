@@ -63,18 +63,14 @@ local OpenBusContext = orb.OpenBusContext
 
 -- create thread to register offer after (re)login
 local registerer = {}
-function registerer:enable()
-  self.disabled = nil
-end
 function registerer:activate()
-  if not self.disabled and self.active == nil then
+  if self.active == nil then
+    self.active = true
     openbus.newThread(function ()
-      self.active = true
       repeat
         local ok, result = pcall(function ()
           local OfferRegistry = OpenBusContext:getOfferRegistry()
           OfferRegistry:registerService(component.IComponent, props)
-          self.disabled = true
         end)
         if not ok then
           utils.showerror(result, params, utils.errmsg.Register,
@@ -93,20 +89,18 @@ OpenBusContext:setDefaultConnection(conn)
 
 -- define callback for auto-relogin
 function conn:onInvalidLogin()
-  registerer:enable()
   repeat
     local ok, result = pcall(self.loginByCertificate, self, entity, privatekey)
-    if not ok then
-      if result._repid == except.repid.AlreadyLoggedIn then
-        ok = true -- ignore this exception
-      else
-        utils.showerror(result, params, utils.errmsg.LoginByCertificate,
-                                        utils.errmsg.BusCore)
-        openbus.sleep(interval)
-      end
+    if ok then
+      registerer:activate()
+    elseif result._repid == except.AlreadyLoggedIn then
+      ok = true -- ignore this exception and terminate
+    else
+      utils.showerror(result, params, utils.errmsg.LoginByCertificate,
+                                      utils.errmsg.BusCore)
+      openbus.sleep(interval)
     end
   until ok
-  registerer:activate()
 end
 
 -- login to the bus

@@ -75,7 +75,7 @@ local ok, result = pcall(function ()
   local OfferRegistry = OpenBusContext:getOfferRegistry()
   OfferRegistry:registerService(component.IComponent, {
     {name="offer.role",value="actual messenger"},
-    {name="offer.domain",value="Demo Chain Validation"},
+    {name="offer.domain",value="Demo Call Chain"},
   })
 end)
 
