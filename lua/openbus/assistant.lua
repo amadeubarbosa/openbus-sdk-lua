@@ -1,3 +1,17 @@
+local _G = require "_G"
+local assert = _G.assert
+local error = _G.error
+local ipairs = _G.ipairs
+local pairs = _G.pairs
+local pcall = _G.pcall
+
+local coroutine = require "coroutine"
+local running = coroutine.running
+
+local cothread = require "cothread"
+local resume = cothread.next
+local suspend = cothread.suspend
+
 local vararg = require "vararg"
 local packargs = vararg.pack
 
@@ -42,7 +56,14 @@ local function tcall(assistant, kind, func, ...)
 end
 
 local function newoffer(context, component, properties)
-  return context:getOfferRegistry():registerService(component, properties)
+  local offer = context:getOfferRegistry():registerService(component,properties)
+  properties = offer:_get_properties()
+  for _, property in ipairs(properties) do
+    if property.name == "openbus.offer.login" then
+      return property.value, offer
+    end
+  end
+  error("automatic service property 'openbus.offer.login' is missing")
 end
 
 local function getoffers(context, properties)
@@ -50,36 +71,50 @@ local function getoffers(context, properties)
 end
 
 
-local Offerrer = class()
+local BackgroundTask = class()
 
-function Offerrer:reset()
-  self.offer = nil
-end
-
-function Offerrer:cancel()
-  local offer = self.offer
-  if offer then
-    self.offer = false
-    tcall(self.assistant, "Offer", offer.remove, offer)
-  end
-  self.offer = false
-end
-
-function Offerrer:activate()
-  if self.offer == nil and self.active == nil then
-    openbus.newThread(function ()
-      self.active = true
-      local assistant = self.assistant
-      local offer = tcall(assistant, "Offer", newoffer, assistant.context,
-                                                        self.component,
-                                                        self.properties)
-      if self.offer == nil then
-        self.offer = offer
-      elseif self.offer == false then
-        tcall(assistant, "Offer", offer.remove, offer)
+function BackgroundTask:__init()
+  newthread(function ()
+    local thread = running()
+    repeat
+      local event = self.event
+      if event == nil then   -- no event yet
+        self.thread = thread -- registers it is waiting for an event
+        event = suspend()    -- wait the event
+      else                   -- event is pending
+        self.event = nil     -- consume the event and continue
       end
-      self.active = nil
-    end)
+      self:receive(event)
+    until false
+  end)
+end
+
+function BackgroundTask:send(event)
+  local thread = self.thread
+  if thread == nil then   -- no thread waiting for events
+    self.event = event    -- register event to be processed later
+  else                    -- there is a thread waiting for the event
+    self.thread = nil     -- clear the thread waiting
+    resume(thread, event) -- wake thread waiting
+  end
+end
+
+
+local function processOfferTask(self, keepOffer)
+  local assistant = self.assistant
+  if keepOffer then
+    local conn = assistant.connection
+    while conn.login ~= nil and conn.login.id ~= self.offerLogin do
+      local loginId, offer = tcall(assistant, "Offer", newoffer,
+                                                       assistant.context,
+                                                       self.component,
+                                                       self.properties)
+      self.offer = offer
+      self.offerLogin = loginId
+    end
+  else
+    local offer = self.offer
+    tcall(assistant, "Offer", offer.remove, offer)
   end
 end
 
@@ -88,21 +123,19 @@ local function reloginOnInvalidLogin(assistant, conn, loginWay, ...)
   local loginop = conn["loginBy"..loginWay]
   repeat
     local ok, result = pcall(loginop, conn, ...)
+    if ok then
+      for _, offerrer in pairs(assistant.offers) do
+        offerrer:send(true)
+      end
+    end
   until ok or result._repid == types.AlreadyLoggedIn
   if assistant.canceled then
     conn:logout()
-  else
-    for _, offerrer in pairs(assistant.offers) do
-      offerrer:activate()
-    end
   end
 end
 
 local function handleOnInvalidLogin(conn)
   local assistant = conn.assistant
-  for _, offerrer in pairs(assistant.offers) do
-    offerrer:reset()
-  end
   return reloginOnInvalidLogin(assistant, conn,
     tcall(assistant, "Login", assistant.loginargs, assistant))
 end
@@ -141,21 +174,22 @@ function Assistant:__init()
 end
 
 function Assistant:registerService(component, properties)
-  local offerrer = Offerrer{
+  local offerrer = BackgroundTask{
+    receive = processOfferTask,
     assistant = self,
     component = component,
     properties = properties,
   }
   self.offers[component] = offerrer
   if self.connection.login ~= nil then
-    offerrer:activate()
+    offerrer:send(true)
   end
 end
 
 function Assistant:unregisterService(component)
   local offerrer = self.offers[component]
   if offerrer ~= nil then
-    offerrer:cancel()
+    offerrer:send(false)
     return offerrer.properties
   end
 end
@@ -180,7 +214,7 @@ end
 function Assistant:shutdown()
   self.canceled = true
   for _, offerrer in pairs(self.offers) do
-    offerrer:cancel()
+    offerrer:send(false)
   end
   self.connection:logout()
 end
