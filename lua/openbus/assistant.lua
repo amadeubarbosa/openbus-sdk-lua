@@ -2,6 +2,7 @@ local _G = require "_G"
 local assert = _G.assert
 local error = _G.error
 local ipairs = _G.ipairs
+local next = _G.next
 local pairs = _G.pairs
 local pcall = _G.pcall
 
@@ -9,19 +10,33 @@ local coroutine = require "coroutine"
 local running = coroutine.running
 
 local cothread = require "cothread"
+cothread.plugin(require "cothread.plugin.sleep")
+cothread.plugin(require "cothread.plugin.signal")
 local resume = cothread.next
+local notify = cothread.notify
+local schedule = cothread.schedule
 local suspend = cothread.suspend
+local wait = cothread.wait
 
 local vararg = require "vararg"
 local packargs = vararg.pack
 
+local Wrapper = require "loop.object.Wrapper"
+
+local giop = require "oil.corba.giop"
+local sysexid = giop.SystemExceptionIDs
+
 local log = require "openbus.util.logger"
 local msg = require "openbus.util.messages"
-
 local oo = require "openbus.util.oo"
 local class = oo.class
+local sysex = require "openbus.util.sysex"
+
+local coreidl = require "openbus.core.idl"
+local const = coreidl.const.services.access_control
 
 local libidl = require "openbus.idl"
+local throw = libidl.throw
 local types = libidl.types
 
 local openbus = require "openbus"
@@ -29,45 +44,82 @@ local sleep = openbus.sleep
 local newthread = openbus.newThread
 local initORB = openbus.initORB
 
+-- must be loaded after OiL is loaded because OiL is the one that installs
+-- the cothread plug-in that supports these operations.
 
 
 local function callobserver(assistant, kind, ...)
+  log:exception(msg.OperationFailure:tag{kind=kind, errmsg=...})
   local observer = assistant.observer
   if observer ~= nil then
     local callback = observer["on"..kind.."Failure"]
     if callback ~= nil then
-      local ok, interval = pcall(callback, observer, assistant, ...)
-      if ok then
-        return interval
+      if not pcall(callback, observer, assistant, ...) then
+        log:exception(msg.FailureOnFailureObserver:tag{
+          errmsg=assistant.interval,
+        })
       end
-      log:exception(msg.FailureOnFailureObserver:tag{errmsg=interval})
     end
   end
 end
 
 local function tcall_cont(assistant, kind, func, args, ok, ...)
-  if ok then return ... end
-  sleep(callobserver(assistant, kind, ...) or assistant.interval)
+  if ok then
+    log:action(false, msg.InsistentCallFinished:tag{category=kind})
+    return ...
+  end
+  callobserver(assistant, kind, ...)
+  log:action(msg.InsistentCallAttemptFailed:tag{category=kind,interval=assistant.interval})
+  sleep(assistant.interval)
   return tcall_cont(assistant, kind, func, args, pcall(func, args()))
 end
 
 local function tcall(assistant, kind, func, ...)
+  log:action(true, msg.InsistentCallStarted:tag{category=kind})
   return tcall_cont(assistant, kind, func, packargs(...), pcall(func, ...))
+end
+
+local function subscribeRegObs(context, observer, properties)
+  return context:getOfferRegistry():subscribeObserver(observer, properties)
+end
+
+local function subscribeOffObs(observer, offer)
+  return offer:subscribeObserver(observer)
 end
 
 local function newoffer(context, component, properties)
   local offer = context:getOfferRegistry():registerService(component,properties)
-  properties = offer:_get_properties()
-  for _, property in ipairs(properties) do
-    if property.name == "openbus.offer.login" then
-      return property.value, offer
-    end
-  end
-  error("automatic service property 'openbus.offer.login' is missing")
+  return offer:describe()
 end
 
-local function getoffers(context, properties)
-  return context:getOfferRegistry():findServices(properties)
+local function loginConnection(conn, loginWay, ...)
+  log:action(msg.LoginAttempt:tag{mode=loginWay})
+  return pcall(conn["loginBy"..loginWay], conn, ...)
+end
+
+local function loginAssistant(assistant)
+  local conn = assistant.connection
+  local ok, result = loginConnection(conn,
+    tcall(assistant, "LoginArgs", assistant.loginargs, assistant))
+  if ok then
+    assistant.login = conn.login
+    assistant.busid = conn.busid
+    for task in pairs(assistant.tasks) do
+      task:send(true)
+    end
+  end
+  return ok, result
+end
+
+local function onInvalidLogin(conn)
+  local assistant = conn.assistant
+  while assistant.logouttask == nil do
+    local ok, result = loginAssistant(assistant)
+    if ok or result._repid == types.AlreadyLoggedIn then
+      break
+    end
+    callobserver(assistant, "Login", result)
+  end
 end
 
 
@@ -75,69 +127,198 @@ local BackgroundTask = class()
 
 function BackgroundTask:__init()
   newthread(function ()
+    local assistant = self.assistant
+    assistant.context:setCurrentConnection(assistant.connection)
     local thread = running()
     repeat
       local event = self.event
-      if event == nil then   -- no event yet
-        self.thread = thread -- registers it is waiting for an event
-        event = suspend()    -- wait the event
-      else                   -- event is pending
-        self.event = nil     -- consume the event and continue
+      while event == nil do
+        self.thread = thread   -- registers it is waiting for an event
+        suspend()              -- wait the event
+        event = self.event
       end
+      self.event = nil         -- consume the event and continue
       self:receive(event)
     until false
   end)
 end
 
 function BackgroundTask:send(event)
+  self.event = event    -- register event to be processed later
   local thread = self.thread
-  if thread == nil then   -- no thread waiting for events
-    self.event = event    -- register event to be processed later
-  else                    -- there is a thread waiting for the event
-    self.thread = nil     -- clear the thread waiting
-    resume(thread, event) -- wake thread waiting
+  if thread ~= nil then -- there is a thread waiting for the event
+    self.thread = nil   -- clear the thread waiting
+    schedule(thread)    -- wake thread waiting
   end
 end
 
 
-local function processOfferTask(self, keepOffer)
+local LoginTriggeredTask = oo.class({}, BackgroundTask)
+
+function LoginTriggeredTask:__init()
+  self.description = self
+  self.ref = self
   local assistant = self.assistant
-  if keepOffer then
-    local conn = assistant.connection
-    while conn.login ~= nil and conn.login.id ~= self.offerLogin do
-      local loginId, offer = tcall(assistant, "Offer", newoffer,
-                                                       assistant.context,
-                                                       self.component,
-                                                       self.properties)
-      self.offer = offer
-      self.offerLogin = loginId
+  assistant.tasks[self] = true
+  if assistant.connection.login ~= nil and assistant.logouttask == nil then
+    self:send(true)
+  end
+end
+
+function LoginTriggeredTask:terminate()
+  local assistant = self.assistant
+  local tasks = assistant.tasks
+  local logouttask = assistant.logouttask
+  tasks[self] = nil
+  if next(tasks) == nil and logouttask ~= nil then
+    log:action(msg.NotifyTasksConclusion)
+    assistant.logouttask = nil
+    schedule(logouttask)
+  end
+end
+
+function LoginTriggeredTask:invalid()
+  local conn = self.assistant.connection
+  return conn.login ~= nil and conn.login.id ~= self.login
+end
+
+function LoginTriggeredTask:describe()
+  if not self:invalid() then
+    self.description = self.description.ref:describe()
+  end
+  return self.description
+end
+
+function LoginTriggeredTask:remove()
+  self:send(false)
+end
+
+
+local OfferRegistryObserverSubscription = class({}, LoginTriggeredTask)
+
+function OfferRegistryObserverSubscription:receive(keepSubscription)
+  local assistant = self.assistant
+  if keepSubscription then
+    while self:invalid() do
+      log:action(msg.SubscribeServiceOfferObserver)
+      local description = tcall(assistant, "OfferRegObsSubs", subscribeRegObs,
+                                                              assistant.context,
+                                                              self.observer,
+                                                              self.properties)
+      local login = assistant.connection.login
+      self.login = login and login.id
+      self.description = description
     end
   else
-    local offer = self.offer
-    tcall(assistant, "Offer", offer.remove, offer)
+    log:action(msg.UnsubscribeServiceOfferObserver)
+    local subscription = self.description.ref
+    tcall(assistant, "OfferRegObsRemoval", subscription.remove, subscription)
+    self.description = self
+    self.login = nil
+    self:terminate()
   end
 end
 
 
-local function reloginOnInvalidLogin(assistant, conn, loginWay, ...)
-  local loginop = conn["loginBy"..loginWay]
-  repeat
-    local ok, result = pcall(loginop, conn, ...)
-    if ok then
-      for _, offerrer in pairs(assistant.offers) do
-        offerrer:send(true)
+local OfferObserverSubscription = class({}, LoginTriggeredTask)
+
+function OfferObserverSubscription:receive(keepSubscription)
+  local assistant = self.assistant
+  if keepSubscription then
+    while self:invalid() do
+      log:action(msg.SubscribeOfferRegistryObserver)
+      local description = tcall(assistant, "OfferObsSubs", subscribeOffObs,
+                                                           self.observer,
+                                                           self.offer)
+      local login = assistant.connection.login
+      self.login = login and login.id
+      self.description = description
+    end
+  else
+    log:action(msg.UnsubscribeOfferRegistryObserver)
+    local subscription = self.description.ref
+    tcall(assistant, "OfferObsRemoval", subscription.remove, subscription)
+    self.description = self
+    self.login = nil
+    self:terminate()
+  end
+end
+
+
+local SetPropTask = class({}, BackgroundTask)
+
+function SetPropTask:receive()
+  local offer = self.offer
+  while not offer:invalid() do
+    log:action(msg.SetServiceOfferProperties)
+    local ref = offer.description.ref
+    local properties = offer.properties
+    local ok, result = pcall(ref.setProperties, ref, properties)
+    if ok or result._repid == sysexid.OBJECT_NOT_EXIST then
+      offer.description.properties = properties
+      break
+    end
+    callobserver(self, "SetOfferProps", result)
+  end
+end
+
+
+local RegisteredOffer = class({}, LoginTriggeredTask)
+
+function RegisteredOffer:__init()
+  self.setPropTask = SetPropTask{ assistant = self.assistant, offer = self }
+  self.description = self
+  self.ref = self
+end
+
+function RegisteredOffer:receive(keepOffer)
+  local assistant = self.assistant
+  if keepOffer then
+    while self:invalid() do
+      log:action(msg.RegisterServiceOffer)
+      local proptask = self.setPropTask
+      local properties = self.properties
+      local description = tcall(assistant, "OfferReg", newoffer,
+                                                       assistant.context,
+                                                       self.service_ref,
+                                                       properties)
+      properties = description.properties
+      for _, property in ipairs(properties) do
+        if property.name == "openbus.offer.login" then
+          self.login = property.value
+        end
+      end
+      self.description = description
+      if properties ~= self.properties then
+        proptask:send(true)
       end
     end
-  until ok or result._repid == types.AlreadyLoggedIn
-  if assistant.canceled then
-    conn:logout()
+  else
+    log:action(msg.RemoveServiceOffer)
+    local offer = self.description.ref
+    tcall(assistant, "OfferRemoval", offer.remove, offer)
+    self.description = self
+    self.login = nil
+    self:terminate()
   end
 end
 
-local function handleOnInvalidLogin(conn)
-  local assistant = conn.assistant
-  return reloginOnInvalidLogin(assistant, conn,
-    tcall(assistant, "Login", assistant.loginargs, assistant))
+function RegisteredOffer:setProperties(properties)
+  self.properties = properties
+  self.setPropTask:send(true)
+end
+
+function RegisteredOffer:subscribeObserver(observer, properties)
+  local assistant = self.assistant
+  if assistant.loginargs == nil then
+    sysex.NO_PERMISSION{ minor = const.NoLogin }
+  end
+  return OfferObserverSubscription{
+    assistant = assistant,
+    offer = self,
+    observer = observer,
+    properties = properties,
+  }
 end
 
 
@@ -145,78 +326,137 @@ local Assistant = class{ interval = 3 }
 
 function Assistant:__init()
   if self.orb == nil then self.orb = initORB() end
-  local password = self.password
-  if self.password ~= nil then
-    function self.loginargs()
-      return "Password", self.entity, password
-    end
-    self.password = nil
-  else
-    local privatekey = self.privatekey
-    if self.privatekey ~= nil then
-      function self.loginargs()
-        return "Certificate", self.entity, privatekey
-      end
-      self.privatekey = nil
-    end
-  end
-  assert(self.loginargs ~= nil, "invalid login params callback")
   local OpenBusContext = assert(self.orb.OpenBusContext, "invalid ORB")
   local conn = OpenBusContext:createConnection(self.bushost, self.busport, self)
-  assert(OpenBusContext:getDefaultConnection() == nil, "ORB already in use")
-  OpenBusContext:setDefaultConnection(conn)
-  self.offers = {}
+  if OpenBusContext:getDefaultConnection() == nil then
+    OpenBusContext:setDefaultConnection(conn)
+  end
+  self.tasks = {}
   self.context = OpenBusContext
   self.connection = conn
   conn.assistant = self
-  conn.onInvalidLogin = handleOnInvalidLogin
-  newthread(handleOnInvalidLogin, conn)
+  conn.onInvalidLogin = onInvalidLogin
+end
+
+do
+  local function localLogin(assistant)
+    local ok, result = loginAssistant(assistant)
+    if not ok then
+      assistant:logout()
+      error(result)
+    end
+  end
+
+  function Assistant:loginByPassword(entity, password)
+    if self.loginargs ~= nil then throw.AlreadyLoggedIn() end
+    function self.loginargs() return "Password", entity, password end
+    localLogin(self)
+  end
+
+  function Assistant:loginByCertificate(entity, key)
+    if self.loginargs ~= nil then throw.AlreadyLoggedIn() end
+    function self.loginargs() return "Certificate", entity, key end
+    localLogin(self)
+  end
+
+  function Assistant:loginByCallback(callback)
+    if self.loginargs ~= nil then throw.AlreadyLoggedIn() end
+    self.loginargs = callback
+    localLogin(self)
+  end
+end
+
+for _, name in ipairs{"startSharedAuth", "cancelSharedAuth"} do
+  Assistant[name] = function (self, ...)
+    local conn = self.connection
+    return conn[name](conn, ...)
+  end
+end
+
+do
+  local function wrapOffers(assistant, offers)
+    for _, desc in ipairs(offers) do
+      desc.ref = Wrapper{
+        __object = desc.ref,
+        assistant = self,
+        description = desc,
+        describe = RegisteredOffer.describe,
+        subscribeObserver = RegisteredOffer.subscribeObserver,
+      }
+    end
+    return offers
+  end
+
+  local function callOfferReg(context, opname, ...)
+    local offers = context:getOfferRegistry()
+    return offers[opname](offers, ...)
+  end
+
+  for _, name in ipairs{"findServices", "getAllServices"} do
+    Assistant[name] = function (self, ...)
+      local context = self.context
+      local conn = context:setCurrentConnection(self.connection)
+      local ok, result = pcall(callOfferReg, context, name, ...)
+      context:setCurrentConnection(conn)
+      if not ok then error(result) end
+      return wrapOffers(self, result)
+    end
+  end
 end
 
 function Assistant:registerService(component, properties)
-  local offerrer = BackgroundTask{
-    receive = processOfferTask,
+  if self.loginargs == nil then
+    sysex.NO_PERMISSION{ minor = const.NoLogin }
+  end
+  return RegisteredOffer{
     assistant = self,
-    component = component,
+    service_ref = component,
     properties = properties,
   }
-  self.offers[component] = offerrer
-  if self.connection.login ~= nil then
-    offerrer:send(true)
-  end
 end
 
-function Assistant:unregisterService(component)
-  local offerrer = self.offers[component]
-  if offerrer ~= nil then
-    offerrer:send(false)
-    return offerrer.properties
+function Assistant:subscribeObserver(observer, properties)
+  if self.loginargs == nil then
+    sysex.NO_PERMISSION{ minor = const.NoLogin }
   end
+  return OfferRegistryObserverSubscription{
+    assistant = self,
+    observer = observer,
+    properties = properties,
+  }
 end
 
-function Assistant:findServices(properties, retries, interval)
-  if retries == nil then retries = -1 end
-  local ok, result
-  repeat
-    ok, result = pcall(getoffers, self.context, properties)
-    if not ok then
-      local newinterval = callobserver(self, "Find", result)
-      if retries == 0 then
-        return {}
+function Assistant:logout()
+  if self.loginargs ~= nil then
+    local task = self.logouttask
+    if task == nil then             -- no one is performing a logout
+      log:request(msg.LogoutProcessInitiated)
+      task = running()
+      self.logouttask = task        -- indicate is waiting tasks termination
+      local tasks = self.tasks
+      if next(tasks) ~= nil then    -- there are active tasks
+        for task in pairs(tasks) do -- for all active tasks
+          task:send(false)          -- send event asking task to terminate
+        end
+        log:request(msg.WaitingTasksConclusion)
+        suspend()                   -- wait until all tasks terminate
+        log:request(msg.BackgroundTasksConcluded)
       end
-      retries = retries-1
-      sleep(newinterval or interval or self.interval)
+      local result = self.connection:logout()
+      self.login = nil              -- forget about the last valid login
+      self.busid = nil              -- forget about the last valid busid
+      self.loginargs = nil          -- indicate assistant is no longer logged
+      self.logouttask = nil         -- indicate logout terminated
+      log:request(msg.LogoutProcessConcluded)
+      notify(task)                  -- notify logout process concluded
+      return result
+    else                            -- some other thread is performing a logout
+      log:request(msg.WaitingForLogoutProcessToBeConcluded)
+      wait(task)                    -- wait for logout termination
+      log:request(msg.LogoutProcessConclusionNotificationReceived)
     end
-  until ok
-  return result
-end
-
-function Assistant:shutdown()
-  self.canceled = true
-  for _, offerrer in pairs(self.offers) do
-    offerrer:send(false)
   end
-  self.connection:logout()
+  return false
 end
 
 
@@ -249,5 +489,31 @@ function module.activeOffers(offers)
   end
   return active
 end
+
+
+-- insert function argument typing
+local argcheck = require "openbus.util.argcheck"
+argcheck.convertclass(Assistant, {
+  loginByPassword = { "string", "string" },
+  loginByCertificate = { "string", "userdata" },
+  loginByCallback = { "function" },
+  startSharedAuth = {},
+  cancelSharedAuth = { "table" },
+  logout = {},
+  getAllServices = {},
+  findServices = { "table" },
+  registerService = { "table|userdata", "table" },
+  subscribeObserver = { "table|userdata", "table" },
+})
+argcheck.convertmodule(module, {
+  create = {
+    bushost = "string",
+    busport = "number|string",
+  },
+  newSearchProps = { "string", "string" },
+  getProperty = { "table", "string" },
+  activeOffers = { "table" },
+})
+
 
 return module
