@@ -17,7 +17,6 @@ local libidl = require "openbus.idl"
 local idl = require "openbus.core.idl"
 local msg = require "openbus.util.messages"
 local log = require "openbus.util.logger"
-local server = require "openbus.util.server"
 
 require "openbus.test.configs"
 
