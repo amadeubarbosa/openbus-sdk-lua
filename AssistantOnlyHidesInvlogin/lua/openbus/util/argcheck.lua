@@ -14,7 +14,7 @@ local insert = array.insert
 
 
 
-local function checktype(funcname, index, typenames, value)
+local function checktype(funcname, valname, typenames, value)
   local luatype = type(value)
   for typename in typenames:gmatch("[^|]+") do
     if typename == "string" and luatype == "number" then
@@ -26,29 +26,51 @@ local function checktype(funcname, index, typenames, value)
       return value
     end
   end
-  error("bad argument #"..index.." to '"..funcname.."' (expected "..typenames
+  error("bad "..valname.." to '"..funcname.."' (expected "..typenames
       ..", got "..luatype..")", 3)
 end
 
-local function checkmeta(funcname, index, expected, value)
+local function checkmeta(funcname, valname, expected, value)
   local actual = getmetatable(value)
   if actual == expected then
     return value
   end
-  error("bad argument #"..index.." to '"..funcname
+  error("bad "..valname.." to '"..funcname
       .."' (expected object, got "..type(value)..")", 3)
+end
+
+local function convertconstructor(constructor, typedef)
+  assert(type(constructor) == "function", "constructor was not a function (got "..type(constructor)..")")
+  return function(fields, ...)
+    for name, typename in pairs(typedef) do
+      local checker = (type(typename)=="string") and checktype or checkmeta
+      checker(name, "field '"..name.."'", typename, fields[name])
+      return constructor(fiedls, ...)
+    end
+  end
 end
 
 local function convertmodule(module, typedefs)
   for name, typedef in pairs(typedefs) do
     local func = module[name]
-    assert(type(func) == "function", name.." was not a function (got "..type(func)..")")
-    module[name] = function(...)
-      for index, typename in ipairs(typedef) do
-        local checker = (type(typename)=="string") and checktype or checkmeta
-        checker(name, index, typename, select(index, ...))
+    --assert(type(func) == "function", name.." was not a function (got "..type(func)..")")
+    if next(typedef) ~= nil and #typedef == 0 then
+      module[name] = function(fields, ...)
+        checktype(name, "fields", "table", fields)
+        for field, typename in pairs(typedef) do
+          local checker = (type(typename)=="string") and checktype or checkmeta
+          checker(name, "field '"..field.."'", typename, fields[field])
+        end
+        return func(fields, ...)
       end
-      return func(...)
+    else
+      module[name] = function(...)
+        for index, typename in ipairs(typedef) do
+          local checker = (type(typename)=="string") and checktype or checkmeta
+          checker(name, "argument #"..index, typename, select(index, ...))
+        end
+        return func(...)
+      end
     end
   end
 end

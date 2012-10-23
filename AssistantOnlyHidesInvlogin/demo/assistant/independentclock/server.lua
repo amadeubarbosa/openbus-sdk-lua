@@ -42,10 +42,11 @@ end)
 local OpenBusAssistant = assistant.create{
   bushost = bushost,
   busport = busport,
-  entity = entity,
-  privatekey = privatekey,
   observer = utils.failureObserver(params),
 }
+
+-- login to the bus
+OpenBusAssistant:loginByCertificate(entity, privatekey)
 
 -- setup and start the ORB
 local OpenBusORB = OpenBusAssistant.orb

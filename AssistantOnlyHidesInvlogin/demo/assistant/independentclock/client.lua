@@ -22,10 +22,11 @@ local params = {
 local OpenBusAssistant = assistant.create{
   bushost = bushost,
   busport = busport,
-  entity = entity,
-  password = password or entity,
   observer = utils.failureObserver(params),
 }
+
+-- login to the bus
+OpenBusAssistant:loginByPassword(entity, password or entity)
 
 
 -- create object to search for offer
@@ -80,6 +81,6 @@ end
 
 
 -- free any resoures allocated
-OpenBusAssistant:shutdown()
+OpenBusAssistant:logout()
 
 clock = true
