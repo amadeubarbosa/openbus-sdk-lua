@@ -90,7 +90,7 @@ do log:TEST("Two threads getting invalid login")
   local failures = 0
   local threads = 2
   local function callop()
-    local ok, ex = pcall(OfferRegistry.getServices, OfferRegistry)
+    local ok, ex = pcall(OfferRegistry.getAllServices, OfferRegistry)
     threads = threads-1
     if not ok then
       failures = failures+1
@@ -143,7 +143,7 @@ do log:TEST("Two threads getting invalid login while other relogs")
   local failures = 0
   local threads = 2
   local function callop()
-    OfferRegistry:getServices()
+    OfferRegistry:getAllServices()
     threads = threads-1
   end
   
@@ -197,7 +197,7 @@ do log:TEST("Two threads getting invalid login and trying to relog")
   local failures = 0
   local threads = 2
   local function callop()
-    local ok, ex = pcall(OfferRegistry.getServices, OfferRegistry)
+    local ok, ex = pcall(OfferRegistry.getAllServices, OfferRegistry)
     threads = threads-1
     if not ok then
       failures = failures+1
