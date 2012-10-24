@@ -42,8 +42,8 @@ do -- connect to the bus
   end))
 
   -- get offered services
-  login.busSession:newCred("getServices")
-  offers = bus.OfferRegistry:getServices()
+  login.busSession:newCred("getAllServices")
+  offers = bus.OfferRegistry:getAllServices()
 
   -- test found services
   local function isfalse(value) assert(value == false) end
