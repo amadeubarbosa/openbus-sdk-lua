@@ -261,6 +261,7 @@ function Interceptor:unmarshalCredential(contexts)
       credential.chain = {
         originators = originators,
         caller = caller,
+        target = self.login.id,
       }
       return credential
     end

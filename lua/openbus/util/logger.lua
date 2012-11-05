@@ -21,16 +21,13 @@ local log = Verbose{
     {"warn"},           -- condições adversas encontradas, mas que são ignoradas
     {"info"},           -- informações de depuração para o adminstrador
     {"debug"},          -- informações de depuração para usuários do serviço
-    {"extra"},
+    {"access"},
     {"multiplex"},
     
     error = { "unexpected", "failure" },
     warn = { "exception", "misconfig" },
     info = { "config", "admin", "uptime" },
     debug = { "request", "action" },
-    extra = { "access", "badaccess" },
-    
-    DEBUG = { "LOGIN_CACHE" } -- TODO:[maia] to be removed after all tests
   },
 }
 log:settimeformat(TimeFormat) -- inclui data e hora no log
