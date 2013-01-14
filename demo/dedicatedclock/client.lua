@@ -60,7 +60,7 @@ conn:onInvalidLogin()
 
 -- search for offer
 local timestamp
-local props = {{name="offer.domain",value="Demo Deditaced Clock"}}
+local props = {{name="offer.domain",value="Demo Dedicated Clock"}}
 repeat
   local OfferRegistry = OpenBusContext:getOfferRegistry()
   local ok, result = pcall(OfferRegistry.findServices, OfferRegistry, props)
