@@ -21,8 +21,8 @@ LUASRC= \
   $(LUADIR)/openbus/idl.lua \
   $(LUADIR)/openbus/util/argcheck.lua \
   $(LUADIR)/openbus/util/autotable.lua \
+  $(LUADIR)/openbus/util/corba.lua \
   $(LUADIR)/openbus/util/database.lua \
-  $(LUADIR)/openbus/util/except.lua \
   $(LUADIR)/openbus/util/logger.lua \
   $(LUADIR)/openbus/util/messages.lua \
   $(LUADIR)/openbus/util/oo.lua \
