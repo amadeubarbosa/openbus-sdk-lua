@@ -221,33 +221,4 @@ end
 
 
 
-local module = { create = Assistant }
-
-function module.newSearchProps(entity, facet)
-  return {
-    {name="openbus.offer.entity",value=entity},
-    {name="openbus.component.facet",value=facet},
-  }
-end
-
-function module.getProperty(properties, name)
-  for _, prop in ipairs(properties) do
-    if prop.name == name then
-      return prop.value
-    end
-  end
-end
-
-function module.activeOffers(offers)
-  local active = {}
-  for _, offer in ipairs(offers) do
-    local service = offer.service_ref
-    local ok, result = pcall(service._non_existent, service)
-    if ok and not result then
-      active[#active+1] = offer
-    end
-  end
-  return active
-end
-
-return module
+return { create = Assistant }

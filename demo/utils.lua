@@ -11,9 +11,9 @@ local clone = proto.clone
 local openbus = require "openbus"
 local sleep = openbus.sleep
 
-local except = require "openbus.util.except"
-local repid = except.repid
-local minor = except.minor
+local corba = require "openbus.util.corba"
+local repid = corba.repid
+local minor = corba.minor
 
 require "openbus.util.messages"
 

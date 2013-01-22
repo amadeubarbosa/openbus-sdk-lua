@@ -12,6 +12,7 @@ local io = require "io"
 local uuid = require "uuid"
 local giop = require "oil.corba.giop"
 local cothread = require "cothread"
+cothread.plugin(require "cothread.plugin.socket")
 local openbus = require "openbus"
 local libidl = require "openbus.idl"
 local idl = require "openbus.core.idl"

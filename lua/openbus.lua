@@ -38,7 +38,10 @@ local LRUCache = require "loop.collection.LRUCache"
 local Wrapper = require "loop.object.Wrapper"
 
 local cothread = require "cothread"
+cothread.plugin(require "cothread.plugin.socket")
+local delay = cothread.delay
 local resume = cothread.next
+local time = cothread.now
 local threadtrap = cothread.trap
 local unschedule = cothread.unschedule
 
@@ -74,11 +77,6 @@ local sendBusRequest = BaseInterceptor.sendrequest
 local receiveBusReply = BaseInterceptor.receivereply
 local receiveBusRequest = BaseInterceptor.receiverequest
 local unmarshalCredential = BaseInterceptor.unmarshalCredential
-
--- must be loaded after OiL is loaded because OiL is the one that installs
--- the cothread plug-in that supports the 'now' operation.
-local delay = cothread.delay
-local time = cothread.now
 
 
 local function getLoginEntry(self, loginId)

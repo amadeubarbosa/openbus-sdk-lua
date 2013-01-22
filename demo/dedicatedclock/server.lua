@@ -1,5 +1,5 @@
 local utils = require "utils"
-local except = require "openbus.util.except"
+local corba = require "openbus.util.corba"
 local openbus = require "openbus"
 local ComponentContext = require "scs.core.ComponentContext"
 
@@ -85,7 +85,7 @@ function conn:onInvalidLogin()
     local ok, result = pcall(self.loginByCertificate, self, entity, privatekey)
     if ok then
       registerer:activate()
-    elseif result._repid == except.AlreadyLoggedIn then
+    elseif result._repid == corba.AlreadyLoggedIn then
       ok = true -- ignore this exception and terminate
     else
       utils.showerror(result, params, utils.errmsg.LoginByCertificate,

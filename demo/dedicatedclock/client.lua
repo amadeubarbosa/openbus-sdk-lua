@@ -1,5 +1,5 @@
 local utils = require "utils"
-local except = require "openbus.util.except"
+local corba = require "openbus.util.corba"
 local openbus = require "openbus"
 
 
@@ -45,7 +45,7 @@ function conn:onInvalidLogin()
     local ok, result = pcall(self.loginByPassword, self, entity, password
                                                                  or entity)
     if not ok then
-      if result._repid == except.repid.AlreadyLoggedIn then
+      if result._repid == corba.repid.AlreadyLoggedIn then
         ok = true -- ignore this exception
       else
         utils.showerror(result, params, utils.errmsg.LoginByPassword,

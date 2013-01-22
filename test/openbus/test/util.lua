@@ -1,5 +1,6 @@
 local array = require "table"
 local msg = require "openbus.util.messages"
+local corba = require "openbus.util.corba"
 local server = require "openbus.util.server"
 local openbus = require "openbus"
 
@@ -39,7 +40,7 @@ function findoffers(offers, props, count, tries, interval)
   for i = 1, tries do
     local offers = offers:findServices(props)
     for _, offer in ipairs(offers) do
-      if not offer.service_ref:_non_existent() then
+      if corba.refStatus(offer.service_ref) == "accessible" then
         found[#found+1] = offer
       end
     end

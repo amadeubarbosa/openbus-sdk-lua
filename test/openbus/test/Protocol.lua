@@ -6,8 +6,9 @@ local coroutine = require "coroutine"
 local newthread = coroutine.create
 
 local cothread = require "cothread"
-local startthread = cothread.next
+cothread.plugin(require "cothread.plugin.socket")
 local sleep = cothread.delay
+local startthread = cothread.next
 
 local pubkey = require "lce.pubkey"
 local newkey = pubkey.create
