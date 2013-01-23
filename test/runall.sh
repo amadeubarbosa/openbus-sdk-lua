@@ -11,7 +11,6 @@ fi
 
 LUACASES="\
 openbus/test/util/tickets \
-openbus/test/util/database \
 openbus/test/LoginLogout \
 openbus/test/Concurrency \
 openbus/test/NoLoginIceptorCalls \

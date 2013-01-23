@@ -8,12 +8,11 @@ OPENBUSLIB= ${OPENBUS_HOME}/lib
 
 SRC= console.c
 
-LIBS:= lce lfs luavararg luastruct  luasocket loop luatuple \
-  luacoroutine luacothread luainspector luaidl oil luascs luaopenbus lua5.1
+LIBS:= lce luavararg luastruct  luasocket loop luatuple \
+  luacoroutine luacothread luainspector luaidl oil luascs luaopenbus
 
 INCLUDES+= . $(SRCLUADIR) \
   $(OPENBUSINC)/lce \
-  $(OPENBUSINC)/luafilesystem \
   $(OPENBUSINC)/luavararg \
   $(OPENBUSINC)/luastruct \
   $(OPENBUSINC)/luasocket2 \

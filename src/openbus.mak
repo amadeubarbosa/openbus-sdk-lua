@@ -18,7 +18,6 @@ LUASRC= \
   $(LUADIR)/openbus/util/argcheck.lua \
   $(LUADIR)/openbus/util/autotable.lua \
   $(LUADIR)/openbus/util/corba.lua \
-  $(LUADIR)/openbus/util/database.lua \
   $(LUADIR)/openbus/util/logger.lua \
   $(LUADIR)/openbus/util/messages.lua \
   $(LUADIR)/openbus/util/oo.lua \
@@ -26,6 +25,8 @@ LUASRC= \
   $(LUADIR)/openbus/util/sysex.lua \
   $(LUADIR)/openbus/util/tickets.lua \
   $(LUADIR)/openbus.lua
+
+SCSIDL= $(OPENBUS_SCSIDL)/scs.idl
 
 LIBIDL= $(OPENBUS_LIBIDL)/openbus.idl
 
@@ -40,14 +41,14 @@ OLDIDL= \
 
 include ${OIL_HOME}/openbus/base.mak
 
-$(LUADIR)/openbus/idl/parsed.lua: $(IDL2LUA) $(LIBIDL) $(NEWIDL)
-	$(OILBIN) $(IDL2LUA) -I $(OPENBUS_NEWIDL) -o $@ $(LIBIDL)
+$(LUADIR)/openbus/idl/parsed.lua: $(IDL2LUA) $(LIBIDL) $(NEWIDL) $(SCSIDL)
+	$(OILBIN) $(IDL2LUA) -I $(OPENBUS_SCSIDL) -I $(OPENBUS_NEWIDL) -o $@ $(LIBIDL)
 
-$(LUADIR)/openbus/core/idl/parsed.lua: $(IDL2LUA) $(NEWIDL)
-	$(OILBIN) $(IDL2LUA) -o $@ $(NEWIDL)
+$(LUADIR)/openbus/core/idl/parsed.lua: $(IDL2LUA) $(NEWIDL) $(SCSIDL)
+	$(OILBIN) $(IDL2LUA) -I $(OPENBUS_SCSIDL) -o $@ $(NEWIDL)
 
-$(LUADIR)/openbus/core/legacy/parsed.lua: $(IDL2LUA) $(OLDIDL)
-	$(OILBIN) $(IDL2LUA) -o $@ $(OLDIDL)
+$(LUADIR)/openbus/core/legacy/parsed.lua: $(IDL2LUA) $(OLDIDL) $(SCSIDL)
+	$(OILBIN) $(IDL2LUA) -I $(OPENBUS_SCSIDL) -o $@ $(OLDIDL)
 
 $(PRELOAD_DIR)/$(LIBNAME).c: $(LUAPRELOADER) $(LUASRC)
 	$(LOOPBIN) $(LUAPRELOADER) -m \

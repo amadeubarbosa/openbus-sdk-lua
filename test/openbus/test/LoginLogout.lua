@@ -34,14 +34,6 @@ local OpenBusContext = orb.OpenBusContext
 assert(OpenBusContext.orb == orb)
 local conns = {}
 
-local checkuuid do
-  local used = {}
-  function checkuuid(id)
-    assert(used[id] == nil)
-    used[id] = true
-  end
-end
-
 local function catcherr(...)
   local ok, err = pcall(...)
   assert(not ok)
@@ -81,8 +73,8 @@ local function assertlogged(conn)
   -- check logged in only attributes
   assert(conn.login ~= nil)
   assert(conn.login.entity == entity)
-  checkuuid(conn.login.id)
-  checkuuid(conn.busid)
+  assert(conn.login.id ~= nil)
+  assert(conn.busid ~= nil)
   local loginid = conn.login.id
   local busid = conn.busid
   -- check the attempt to login again

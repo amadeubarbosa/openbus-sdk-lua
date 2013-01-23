@@ -18,7 +18,6 @@
 #include "lualib.h"
 
 #include "lce.h"
-#include "lfs.h"
 #include "luavararg.h"
 #include "luastruct.h"
 #include "luasocket.h"
@@ -407,7 +406,6 @@ static int pmain (lua_State *L) {
 
   /* preload binded C libraries */
   luaL_findtable(L, LUA_GLOBALSINDEX, "package.preload", 1);
-  lua_pushcfunction(L,luaopen_lfs);lua_setfield(L,-2,"lfs");
   lua_pushcfunction(L,luaopen_vararg);lua_setfield(L,-2,"vararg");
   lua_pushcfunction(L,luaopen_struct);lua_setfield(L,-2,"struct");
   lua_pushcfunction(L,luaopen_socket_core);lua_setfield(L,-2,"socket.core");
