@@ -17,7 +17,6 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
-#include "luuid.h"
 #include "lce.h"
 #include "lfs.h"
 #include "luavararg.h"
@@ -408,7 +407,6 @@ static int pmain (lua_State *L) {
 
   /* preload binded C libraries */
   luaL_findtable(L, LUA_GLOBALSINDEX, "package.preload", 1);
-  lua_pushcfunction(L,luaopen_uuid);lua_setfield(L,-2,"uuid");
   lua_pushcfunction(L,luaopen_lfs);lua_setfield(L,-2,"lfs");
   lua_pushcfunction(L,luaopen_vararg);lua_setfield(L,-2,"vararg");
   lua_pushcfunction(L,luaopen_struct);lua_setfield(L,-2,"struct");

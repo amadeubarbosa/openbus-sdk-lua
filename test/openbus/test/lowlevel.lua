@@ -7,10 +7,6 @@ local newORB = oil.init
 local cothread = require "cothread"
 local running = cothread.running
 
-local uuid = require "uuid"
-local newid = uuid.new
-local validid = uuid.isvalid
-
 local hash = require "lce.hash"
 local sha256 = hash.sha256
 local pubkey = require "lce.pubkey"
@@ -135,6 +131,14 @@ do -- protocol data encoding functions
   end
 end
 
+do
+  local used = {}
+  function checkuuid(id)
+    assert(used[id] == nil)
+    used[id] = true
+  end
+end
+
 do -- protocol predefined formats
   NullChain = {
     signature = string.rep("\000", EncryptedBlockSize),
@@ -208,7 +212,7 @@ function loginByPassword(bus, user, password, prvkey)
   local pubkey = prvkey:encode("public")
   local encrypted = encodeLogin(bus.key, password, pubkey)
   local login, lease = bus.AccessControl:loginByPassword(user, pubkey, encrypted)
-  assert(validid(login.id))
+  checkuuid(login.id)
   assert(login.entity == user)
   assert(lease > 0)
   login.prvkey = prvkey
@@ -314,7 +318,7 @@ function testBusCall(bus, login, otherkey, assertresults, proxy, opname, ...)
   do -- credential with wrong busid
     local credential = {
       opname = opname,
-      bus = newid(),
+      bus = "f3fc2bd8-64bd-11e2-bbf3-8df49019c88",
       login = login.id,
       session = reset.session,
       ticket = 2,
@@ -437,7 +441,7 @@ function testBusCall(bus, login, otherkey, assertresults, proxy, opname, ...)
     putreqcxt(CredentialContextId, encodeCredential{
       opname = opname,
       bus = bus.id,
-      login = newid(),
+      login = "f41c15ce-64bd-11e2-bbf3-8df49019c88b",
       session = reset.session,
       ticket = 7,
       secret = reset.secret,

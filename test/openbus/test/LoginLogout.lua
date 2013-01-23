@@ -9,7 +9,6 @@ local unpack = _G.unpack
 local coroutine = require "coroutine"
 local string = require "string"
 local io = require "io"
-local uuid = require "uuid"
 local giop = require "oil.corba.giop"
 local cothread = require "cothread"
 cothread.plugin(require "cothread.plugin.socket")
@@ -34,6 +33,14 @@ local orb = openbus.initORB()
 local OpenBusContext = orb.OpenBusContext
 assert(OpenBusContext.orb == orb)
 local conns = {}
+
+local checkuuid do
+  local used = {}
+  function checkuuid(id)
+    assert(used[id] == nil)
+    used[id] = true
+  end
+end
 
 local function catcherr(...)
   local ok, err = pcall(...)
@@ -74,8 +81,8 @@ local function assertlogged(conn)
   -- check logged in only attributes
   assert(conn.login ~= nil)
   assert(conn.login.entity == entity)
-  assert(uuid.isvalid(conn.login.id))
-  assert(uuid.isvalid(conn.busid))
+  checkuuid(conn.login.id)
+  checkuuid(conn.busid)
   local loginid = conn.login.id
   local busid = conn.busid
   -- check the attempt to login again

@@ -9,7 +9,6 @@ local unpack = _G.unpack
 local coroutine = require "coroutine"
 local string = require "string"
 local io = require "io"
-local uuid = require "uuid"
 local giop = require "oil.corba.giop"
 local cothread = require "cothread"
 local openbus = require "openbus"

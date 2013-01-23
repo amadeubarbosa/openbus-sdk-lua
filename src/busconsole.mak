@@ -8,11 +8,10 @@ OPENBUSLIB= ${OPENBUS_HOME}/lib
 
 SRC= console.c
 
-LIBS:= lce luuid lfs luavararg luastruct  luasocket loop luatuple \
+LIBS:= lce lfs luavararg luastruct  luasocket loop luatuple \
   luacoroutine luacothread luainspector luaidl oil luascs luaopenbus lua5.1
 
 INCLUDES+= . $(SRCLUADIR) \
-  $(OPENBUSINC)/luuid \
   $(OPENBUSINC)/lce \
   $(OPENBUSINC)/luafilesystem \
   $(OPENBUSINC)/luavararg \
@@ -37,15 +36,11 @@ ifeq "$(TEC_SYSNAME)" "SunOS"
 endif
 
 ifdef USE_STATIC
-  SLIB:= $(foreach libname, $(LIBS) uuid crypto, $(OPENBUSLIB)/lib$(libname).a)
+  SLIB:= $(foreach libname, $(LIBS) crypto, $(OPENBUSLIB)/lib$(libname).a)
   ifeq "$(TEC_SYSNAME)" "SunOS"
     LIBS:= rt nsl socket resolv
   else
     LIBS:= 
-  endif
-else
-  ifneq "$(TEC_SYSNAME)" "Darwin"
-    LIBS+= uuid
   endif
 endif
 

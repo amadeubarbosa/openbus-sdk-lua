@@ -9,7 +9,6 @@ local unpack = _G.unpack
 local coroutine = require "coroutine"
 local string = require "string"
 local io = require "io"
-local uuid = require "uuid"
 local giop = require "oil.corba.giop"
 local cothread = require "cothread"
 cothread.plugin(require "cothread.plugin.socket")
@@ -26,6 +25,7 @@ require "openbus.test.configs"
 
 local smalltime = .1
 local connprops = { accesskey = openbus.newKey() }
+local usedlogins = {}
 
 -- login as admin and provide additional functionality for the test
 local invalidate, shutdown do
@@ -65,7 +65,7 @@ do log:TEST("Two threads logging in")
   repeat cothread.delay(smalltime) until threads == 0
   
   assert(conn.login ~= nil)
-  assert(uuid.isvalid(conn.login.id))
+  assert(conn.login.id ~= nil)
   assert(conn.login.entity == user)
   assert(failures == 1)
   
