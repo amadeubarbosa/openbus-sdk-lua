@@ -9,6 +9,7 @@ for case, services in pairs{
   Simple = { "Hello" },
   Multiplexing = { "Hello" },
   SharedAuth = { "Hello" },
+  ReloggedJoin = { "Hello" },
   Delegation = { "Messenger","Broadcaster","Forwarder" },
 } do
   for _, iface in ipairs(services) do
