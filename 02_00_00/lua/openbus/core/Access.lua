@@ -111,7 +111,7 @@ local function validateCredential(self, credential, login, request)
   local hash = credential.hash
   if hash ~= nil then
     local chain = credential.chain
-    if chain == nil or chain.target == self.login.id then
+    if chain == nil or chain.target == self.login.entity then
       -- get current credential session
       local session = self.incomingSessions:rawget(credential.session)
       if session ~= nil then
@@ -168,7 +168,6 @@ function Context:__init()
     idltypes[name] = types:lookup_id(repid)
   end
   self.types = idltypes
-  self.profile2login = LRUCache() -- [iop_profile] = loginid
   self.callerChainOf = setmetatable({}, WeakKeys) -- [thread] = chain
   self.joinedChainOf = setmetatable({}, WeakKeys) -- [thread] = chain
 end
@@ -261,7 +260,7 @@ function Interceptor:unmarshalCredential(contexts)
       credential.chain = {
         originators = originators,
         caller = caller,
-        target = self.login.id,
+        target = self.login.entity,
       }
       return credential
     end
@@ -278,27 +277,21 @@ function Interceptor:sendrequest(request)
   local chain = context.joinedChainOf[running()]
   if chain==nil or chain.signature~=nil then -- no legacy chain (OpenBus 1.5)
     local sessionid, ticket, hash = 0, 0, NullHash
-    local remoteid = context.profile2login:get(request.profile_data)
-    if remoteid ~= nil then -- known IOR profile, so it supports OpenBus 2.0
+    local session = self.outgoingSessions:get(request.profile_data)
+    if session ~= nil then -- credential session is established
       legacy = nil -- do not send legacy credential (OpenBus 1.5)
-      chain = self:signChainFor(remoteid, chain or NullChain)
-      local session = self.outgoingSessions:get(remoteid)
-      if session ~= nil then -- credential session is established
-        sessionid = session.id
-        ticket = session.ticket+1
-        session.ticket = ticket
-        hash = calculateHash(session.secret, ticket, request)
-        log:access(self, msg.PerformBusCall:tag{
-          operation = request.operation_name,
-          remote = remoteid,
-        })
-      else
-        log:access(self, msg.ReinitiateCredentialSession:tag{
-          operation = request.operation_name,
-        })
-      end
+      chain = self:signChainFor(session.target, chain or NullChain)
+      sessionid = session.id
+      ticket = session.ticket+1
+      session.ticket = ticket
+      hash = calculateHash(session.secret, ticket, request)
+      log:access(self, msg.PerformBusCall:tag{
+        operation = request.operation_name,
+        remote = session.target,
+      })
     else
-      log:access(self, msg.InitiateCredentialSession:tag{
+      chain = nil
+      log:access(self, msg.ReinitiateCredentialSession:tag{
         operation = request.operation_name,
       })
     end
@@ -349,16 +342,13 @@ function Interceptor:receivereply(request)
         if secret ~= nil then
           log:access(self, msg.GotCredentialReset:tag{
             operation = request.operation_name,
-            remote = remoteid,
+            remote = reset.target,
           })
-          reset.secret = secret
           -- initialize session and set credential session information
-          local remoteid = reset.login
-          context.profile2login:put(request.profile_data, remoteid)
-          self.outgoingSessions:put(remoteid, {
+          self.outgoingSessions:put(request.profile_data, {
             id = reset.session,
-            secret = reset.secret,
-            remoteid = remoteid,
+            secret = secret,
+            target = reset.target,
             ticket = -1,
           })
           request.success = nil -- reissue request to the same reference
@@ -431,7 +421,7 @@ function Interceptor:receiverequest(request, credential)
             })
             local encoder = context.orb:newencoder()
             encoder:put({
-              login = self.login.id,
+              target = self.login.entity,
               session = newsession.id,
               challenge = challenge,
             }, context.types.CredentialReset)
