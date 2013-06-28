@@ -54,7 +54,7 @@ local sysexthrow = require "openbus.util.sysex"
 local libidl = require "openbus.idl"
 local throw = libidl.throw
 local coreidl = require "openbus.core.idl"
-local BusLogin = coreidl.const.BusLogin
+local BusEntity = coreidl.const.BusEntity
 local EncryptedBlockSize = coreidl.const.EncryptedBlockSize
 local CredentialContextId = coreidl.const.credential.CredentialContextId
 local coresrvtypes = coreidl.types.services
@@ -226,7 +226,7 @@ end
 
 local function getCoreFacet(self, name, module)
   return self.context.orb:narrow(self.bus:getFacetByName(name),
-                         coresrvtypes[module][name])
+                                 coresrvtypes[module][name])
 end
 
 local function intiateLogin(self)
@@ -354,13 +354,13 @@ function Connection:resetCaches()
   self.signedChainOf = memoize(function(chain) return LRUCache() end, "k")
 end
 
-function Connection:signChainFor(remoteid, chain)
-  if remoteid == BusLogin then return chain end
+function Connection:signChainFor(target, chain)
+  if target == BusEntity then return chain end
   local access = self.AccessControl
   local cache = self.signedChainOf[chain]
-  local joined = cache:get(remoteid)
+  local joined = cache:get(target)
   while joined == nil do
-    joined = access:signChainFor(remoteid)
+    joined = access:signChainFor(target)
     local login = getLogin(self)
     if login == nil then
       sysexthrow.NO_PERMISSION{
@@ -370,10 +370,10 @@ function Connection:signChainFor(remoteid, chain)
     end
     cache = self.signedChainOf[chain]
     if unmarshalChain(self, joined).caller.id == login.id then
-      cache:put(remoteid, joined)
+      cache:put(target, joined)
       break
     end
-    joined = cache:get(remoteid)
+    joined = cache:get(target)
   end
   return joined
 end

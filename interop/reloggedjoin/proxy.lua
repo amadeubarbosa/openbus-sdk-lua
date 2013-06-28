@@ -32,7 +32,6 @@ function hello:sayHello()
   local chain = OpenBusContext:getCallerChain()
   local entity = chain.caller.entity
   log:TEST("got call from ",entity)
-  OpenBusContext:joinChain(chain)
   
   -- define service properties
   local searchprops = table.copy(properties)
@@ -46,6 +45,7 @@ function hello:sayHello()
     local entity = getprop(offer.properties, "openbus.offer.entity")
     log:TEST("found service of ",entity,"!")
     local hello = offer.service_ref:getFacetByName(iface.name):__narrow(iface)
+    OpenBusContext:joinChain(chain)
     return hello:sayHello()
   end
   return "no service found!"

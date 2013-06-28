@@ -18,7 +18,7 @@ local decodepubkey = pubkey.decodepublic
 
 local idl = require "openbus.core.idl"
 local loadIDL = idl.loadto
-local BusLogin = idl.const.BusLogin
+local BusEntity = idl.const.BusEntity
 local EncryptedBlockSize = idl.const.EncryptedBlockSize
 local CredentialContextId = idl.const.credential.CredentialContextId
 local loginconst = idl.const.services.access_control
@@ -186,7 +186,7 @@ function initBusSession(bus, login)
   assert(ex.completed == "COMPLETED_NO")
   assert(ex.minor == loginconst.InvalidCredentialCode)
   local reset = decodeReset(assert(getrepcxt(CredentialContextId)), login.prvkey)
-  assert(reset.login == BusLogin)
+  assert(reset.target == BusEntity)
   reset.ticket = 0
   function reset:newCred(opname, chain)
     local ticket = self.ticket+1
@@ -289,12 +289,12 @@ function testBusCall(bus, login, otherkey, assertresults, proxy, opname, ...)
     assert(ex.minor == loginconst.InvalidCredentialCode)
     reset = decodeReset(assert(getrepcxt(CredentialContextId)), login.prvkey)
     if bus.objects[proxy] then
-      assert(reset.login == BusLogin)
+      assert(reset.target == BusEntity)
       chain = NullChain
     else
-      assert(reset.login ~= BusLogin)
+      assert(reset.target ~= BusEntity)
       login.busSession:newCred("signChainFor")
-      chain = bus.AccessControl:signChainFor(reset.login)
+      chain = bus.AccessControl:signChainFor(reset.target)
     end
   end
 
@@ -404,7 +404,7 @@ function testBusCall(bus, login, otherkey, assertresults, proxy, opname, ...)
     local newchain = NullChain
     if not bus.objects[proxy] then
       newlogin.busSession:newCred("signChainFor")
-      newchain = bus.AccessControl:signChainFor(reset.login)
+      newchain = bus.AccessControl:signChainFor(reset.target)
     end
 
     local credential = {
