@@ -585,7 +585,7 @@ local Context = class({}, BaseContext)
 
 function Context:__init()
   if self.prvkey == nil then self.prvkey = newkey(EncryptedBlockSize) end
-  self.connectionOf = setmetatable({}, WeakKeyMeta) -- [thread]=connection
+  self.connectionOf = setmetatable({}, WeakKeys) -- [thread]=connection
   self.types.LoginAuthenticationInfo =
     self.orb.types:lookup_id(logintypes.LoginAuthenticationInfo)
   self.context = self -- to execute 'BaseInterceptor.unmarshalCredential(self)'
