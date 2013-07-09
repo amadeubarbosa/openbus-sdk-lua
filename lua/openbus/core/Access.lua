@@ -50,6 +50,7 @@ local tickets = require "openbus.util.tickets"
 local msg = require "openbus.core.messages"
 local idl = require "openbus.core.idl"
 local loadidl = idl.loadto
+local InvalidLoginsException = idl.types.services.access_control.InvalidLogins
 local EncryptedBlockSize = idl.const.EncryptedBlockSize
 local CredentialContextId = idl.const.credential.CredentialContextId
 local loginconst = idl.const.services.access_control
@@ -210,6 +211,7 @@ function Interceptor:__init()
 end
 
 function Interceptor:resetCaches()
+  self.profile2login = LRUCache() -- [iop_profile] = loginid
   self.outgoingSessions = LRUCache()
   self.incomingSessions = LRUCache{
     retrieve = function(id)
@@ -260,7 +262,7 @@ function Interceptor:unmarshalCredential(contexts)
       credential.chain = {
         originators = originators,
         caller = caller,
-        target = self.login.entity,
+        target = self.login.id,
       }
       return credential
     end
@@ -277,21 +279,41 @@ function Interceptor:sendrequest(request)
   local chain = context.joinedChainOf[running()]
   if chain==nil or chain.signature~=nil then -- no legacy chain (OpenBus 1.5)
     local sessionid, ticket, hash = 0, 0, NullHash
-    local session = self.outgoingSessions:get(request.profile_data)
-    if session ~= nil then -- credential session is established
+    local target = self.profile2login:get(request.profile_data)
+    if target ~= nil then -- known IOR profile, so it supports OpenBus 2.0
       legacy = nil -- do not send legacy credential (OpenBus 1.5)
-      chain = self:signChainFor(session.target, chain or NullChain)
-      sessionid = session.id
-      ticket = session.ticket+1
-      session.ticket = ticket
-      hash = calculateHash(session.secret, ticket, request)
-      log:access(self, msg.PerformBusCall:tag{
-        operation = request.operation_name,
-        remote = session.target,
-      })
+      local ok, result = pcall(self.signChainFor, self, target, chain or NullChain)
+      if not ok then
+        log:exception(msg.UnableToSignChainForTarget:tag{
+          error = result,
+          target = target,
+          chain = chain,
+        })
+        local minor = loginconst.BusUnavailableCode
+        if result._repid == InvalidLoginsException then
+          minor = loginconst.InvalidTargetCode
+        end
+        setNoPermSysEx(request, minor)
+        return
+      end
+      chain = result
+      local session = self.outgoingSessions:get(target)
+      if session ~= nil then -- credential session is established
+        sessionid = session.id
+        ticket = session.ticket+1
+        session.ticket = ticket
+        hash = calculateHash(session.secret, ticket, request)
+        log:access(self, msg.PerformBusCall:tag{
+          operation = request.operation_name,
+          remote = target,
+        })
+      else
+        log:access(self, msg.ReinitiateCredentialSession:tag{
+          operation = request.operation_name,
+        })
+      end
     else
-      chain = nil
-      log:access(self, msg.ReinitiateCredentialSession:tag{
+      log:access(self, msg.InitiateCredentialSession:tag{
         operation = request.operation_name,
       })
     end
@@ -340,22 +362,25 @@ function Interceptor:receivereply(request)
         local reset = decoder:get(context.types.CredentialReset)
         local secret, errmsg = self.prvkey:decrypt(reset.challenge)
         if secret ~= nil then
+          local target = reset.target
           log:access(self, msg.GotCredentialReset:tag{
             operation = request.operation_name,
-            remote = reset.target,
+            remote = target,
           })
+          reset.secret = secret
           -- initialize session and set credential session information
-          self.outgoingSessions:put(request.profile_data, {
+          self.profile2login:put(request.profile_data, target)
+          self.outgoingSessions:put(target, {
             id = reset.session,
-            secret = secret,
-            target = reset.target,
+            secret = reset.secret,
+            remote = target,
             ticket = -1,
           })
           request.success = nil -- reissue request to the same reference
         else
           log:exception(msg.GotCredentialResetWihtBadChallenge:tag{
             operation = request.operation_name,
-            remote = reset.login,
+            remote = reset.target,
             error = errmsg,
           })
           except.minor = loginconst.InvalidRemoteCode
@@ -421,7 +446,7 @@ function Interceptor:receiverequest(request, credential)
             })
             local encoder = context.orb:newencoder()
             encoder:put({
-              target = self.login.entity,
+              target = self.login.id,
               session = newsession.id,
               challenge = challenge,
             }, context.types.CredentialReset)

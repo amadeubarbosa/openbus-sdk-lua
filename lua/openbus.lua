@@ -54,7 +54,7 @@ local sysexthrow = require "openbus.util.sysex"
 local libidl = require "openbus.idl"
 local throw = libidl.throw
 local coreidl = require "openbus.core.idl"
-local BusEntity = coreidl.const.BusEntity
+local BusLogin = coreidl.const.BusLogin
 local EncryptedBlockSize = coreidl.const.EncryptedBlockSize
 local CredentialContextId = coreidl.const.credential.CredentialContextId
 local coresrvtypes = coreidl.types.services
@@ -355,7 +355,7 @@ function Connection:resetCaches()
 end
 
 function Connection:signChainFor(target, chain)
-  if target == BusEntity then return chain end
+  if target == BusLogin then return chain end
   local access = self.AccessControl
   local cache = self.signedChainOf[chain]
   local joined = cache:get(target)
