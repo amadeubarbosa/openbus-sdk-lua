@@ -1,7 +1,7 @@
 SUNOS64_TECMAKE_FLAGS="USE_NODEPEND=Yes TEC_UNAME=SunOS510_64 BUILD_64=yes"
 descriptors = {
   { name = "oil-source",
-    url = SVNREPURL.."/openbus/libs/trunk/oil-0.5.0",
+    url = SVNREPURL.."/openbus/libs/tags/OB_LIBS_v1_03_01_2011_12_12/oil-0.5.0",
     directory = PRODAPP.."/oil-0.5.0",
   },
   { name = "loop",
@@ -17,7 +17,7 @@ descriptors = {
     },
   },
   { name = "lua5.1-source",
-    url = SVNREPURL.."/openbus/libs/trunk/lua5.1.3",
+    url = SVNREPURL.."/openbus/libs/tags/OB_LIBS_v1_03_01_2011_12_12/lua5.1.3",
     directory = PRODAPP.."/lua5.1",
   },
   { name = "lua5.1",
@@ -48,41 +48,37 @@ descriptors = {
       ["../bin/${TEC_UNAME}/lua5.1"] = "bin",
     },
   },
-  {
-    name = "latt-1.0.0",
-    url = SVNREPURL .. "/luautils/latt/tags/v1_00_01_2011_07_12",
+  { name = "latt",
+    url = SVNREPURL.."/luautils/latt/tags/v1_00_01_2011_07_12",
     build = {
       type = "tecmake",
-      src = PRODAPP .."/latt-1.0.0",
+      src = PRODAPP .."/latt",
       mf = { },
     },
     dev_files = {
       ["lua/*"] = "lib/lua/5.1"
     },
   },
-  { name = "openbus-api",
+  { name = "openbus-lua",
     build = {
       type = "tecmake",
       src = SVNDIR,
       mf = { "config LUA51="..PRODAPP.."/lua5.1" },
       Darwin = { mf = { "config LUA51="..PRODAPP.."/lua5.1","config LUA51="..PRODAPP.."/lua5.1 BUILD_DYLIB=YES" }, },
+      MacOS = { mf = { "config LUA51="..PRODAPP.."/lua5.1","config LUA51="..PRODAPP.."/lua5.1 BUILD_DYLIB=YES" }, },
+      SunOS510_64 = { mf = { "config LUA51="..PRODAPP.."/lua5.1 ".. SUNOS64_TECMAKE_FLAGS } },
     },
     install_files = {
       ["lib/${TEC_UNAME}/libluaopenbus.so"] = "lib",
       ["lib/${TEC_UNAME}/libluaopenbus.dylib"] = "lib",
-      ["openbus"] = "lib/lua/5.1",
     },
     dev_files = {
       ["lib/${TEC_UNAME}/libluaopenbus.*"] = "lib",
       ["obj/${TEC_UNAME}/openbus.h"] = "include/openbus/lua/",
     },
   },
-  { name = "openbus-demo-hello",
-    build = {
-      type = "tecmake",
-      src = SVNDIR .."/demo/hello",
-      mf = { },
-    },
+  { name = "openbus-demo-hello-lua",
+    directory = SVNDIR .."/demo/hello",
     dev_files = {
       ["client.lua"] = "demo/lua/hello",
       ["server.lua"] = "demo/lua/hello",
@@ -92,12 +88,8 @@ descriptors = {
       ["management"] = "demo/lua/hello",
     },
   },
-  { name = "openbus-demo-eventsink",
-    build = {
-      type = "tecmake",
-      src = SVNDIR .."/demo/eventSink",
-      mf = { },
-    },
+  { name = "openbus-demo-eventsink-lua",
+    directory = SVNDIR .."/demo/eventSink",
     dev_files = {
       ["client.lua"] = "demo/lua/eventSink",
       ["client.sh"] = "demo/lua/eventSink",
@@ -107,12 +99,8 @@ descriptors = {
       ["management"] = "demo/lua/eventSink",
     },
   },
-  { name = "openbus-demo-delegate",
-    build = {
-      type = "tecmake",
-      src = SVNDIR .."/demo/delegate",
-      mf = { },
-    },
+  { name = "openbus-demo-delegate-lua",
+    directory = SVNDIR .."/demo/delegate",
     dev_files = {
       ["client.lua"] = "demo/lua/delegate",
       ["server.lua"] = "demo/lua/delegate",

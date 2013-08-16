@@ -34,7 +34,7 @@ end
 -- Execução
 function main ()
   -- Carga da IDL Hello
-  orb:loadidlfile("../idl/hello.idl")
+  orb:loadidlfile("idl/hello.idl")
 
   -- Permite que o ORB comece a aguardar requisições
   openbus:run()
