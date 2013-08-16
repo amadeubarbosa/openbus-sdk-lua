@@ -408,17 +408,7 @@ end
 -- Executa o ORB.
 ---
 function Openbus:run()
-  local run = function()
-    while true do
-      local status, errMsg = oil.pcall(self.orb.run, self.orb)
-      if not status then
-        Log:error(format("Ocorreu um erro inesperado no ORB: %s.",
-            tostring(errMsg)))
-      end
-      Log:info("Reiniciando o ORB.")
-    end
-  end
-  oil.newthread(run)
+  oil.newthread(self.orb.run, self.orb)
 end
 
 ---
@@ -440,7 +430,7 @@ function Openbus:finish()
   end
   local status, err = oil.pcall(self.orb.shutdown, self.orb)
   if not status then
-    Log:warn("Não foi possível executar o shutdown no ORB.")
+    Log:warn(format("Não foi possível executar o shutdown no ORB: %s.", tostring(err)))
   end
 end
 
