@@ -426,9 +426,6 @@ static int pmain (lua_State *L) {
   luapreload_oil(L);
   luapreload_luascs(L);
   luapreload_luaopenbus(L);
-  /* ??? */
-  if (luaL_dostring(L, callerchunk) == 0)
-    lua_setfield(L, LUA_REGISTRYINDEX, OPENBUS_EXECUTOR);
 
   s->status = handle_luainit(L);
   if (s->status != 0) return 0;
@@ -442,6 +439,11 @@ static int pmain (lua_State *L) {
   if (has_d)
     s->status = enable_dynload(L);
   if (s->status != 0) return 0;
+
+  /* ??? */
+  if (luaL_dostring(L, callerchunk) == 0)
+    lua_setfield(L, LUA_REGISTRYINDEX, OPENBUS_EXECUTOR);
+
   s->status = runargs(L, argv, (script > 0) ? script : s->argc);
   if (s->status != 0) return 0;
   if (script)
