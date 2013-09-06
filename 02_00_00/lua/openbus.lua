@@ -726,23 +726,15 @@ function Context:getLoginRegistry()
   return conn.LoginRegistry
 end
 
-local CoreServices = {
-  CertificateRegistry = "access_control",
-  InterfaceRegistry = "offer_registry",
-  EntityRegistry = "offer_registry",
-  OfferRegistry = "offer_registry",
-}
-for name, modname in pairs(CoreServices) do
-  Context["get"..name] = function (self)
-    local conn = self:getCurrentConnection()
-    if conn == nil or conn.login == nil then
-      sysexthrow.NO_PERMISSION{
-        completed = "COMPLETED_NO",
-        minor = loginconst.NoLoginCode,
-      }
-    end
-    return getCoreFacet(conn, name, modname)
+function Context:getOfferRegistry()
+  local conn = self:getCurrentConnection()
+  if conn == nil or conn.login == nil then
+    sysexthrow.NO_PERMISSION{
+      completed = "COMPLETED_NO",
+      minor = loginconst.NoLoginCode,
+    }
   end
+  return getCoreFacet(conn, "OfferRegistry", "offer_registry")
 end
 
 
@@ -835,10 +827,8 @@ local ContextOperations = {
   exitChain = {},
   getJoinedChain = {},
   getLoginRegistry = {},
+  getOfferRegistry = {},
 }
-for name in pairs(CoreServices) do
-  ContextOperations["get"..name] = {}
-end
 argcheck.convertclass(Context, ContextOperations)
 argcheck.convertmodule(openbus, {
   sleep = { "number" },
