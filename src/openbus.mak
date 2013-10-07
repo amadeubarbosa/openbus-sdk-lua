@@ -33,24 +33,35 @@ LUASRC= \
 
 LIBIDL= $(OPENBUSLIBIDL)/openbus.idl
 
+LIBDEPENDENTIDL= $(OPENBUSLIBIDL)/corba.idl
+
 NEWIDL= \
   $(OPENBUSNEWIDL)/access_control.idl \
   $(OPENBUSNEWIDL)/offer_registry.idl
 
+NEWDEPENDENTIDL= \
+  $(OPENBUSNEWIDL)/core.idl \
+  $(OPENBUSNEWIDL)/credential.idl \
+  $(OPENBUSNEWIDL)/scs.idl 
+  
 OLDIDL= \
   $(OPENBUSOLDIDL)/access_control_service.idl \
   $(OPENBUSOLDIDL)/registry_service.idl \
   $(OPENBUSOLDIDL)/fault_tolerance.idl
 
+OLDDEPENDENTIDL= \
+  $(OPENBUSOLDIDL)/core.idl \
+  $(OPENBUSOLDIDL)/scs.idl
+
 include ${OIL_HOME}/openbus/base.mak
 
-$(LUADIR)/openbus/idl/parsed.lua: $(IDL2LUA) $(LIBIDL) $(NEWIDL)
+$(LUADIR)/openbus/idl/parsed.lua: $(IDL2LUA) $(LIBIDL) $(NEWIDL) $(NEWDEPENDENTIDL) $(LIBDEPENDENTIDL)
 	$(OILBIN) $(IDL2LUA) -I $(OPENBUSNEWIDL) -o $@ $(LIBIDL)
 
-$(LUADIR)/openbus/core/idl/parsed.lua: $(IDL2LUA) $(NEWIDL)
+$(LUADIR)/openbus/core/idl/parsed.lua: $(IDL2LUA) $(NEWIDL) $(NEWDEPENDENTIDL)
 	$(OILBIN) $(IDL2LUA) -o $@ $(NEWIDL)
 
-$(LUADIR)/openbus/core/legacy/parsed.lua: $(IDL2LUA) $(OLDIDL)
+$(LUADIR)/openbus/core/legacy/parsed.lua: $(IDL2LUA) $(OLDIDL) $(OLDDEPENDENTIDL)
 	$(OILBIN) $(IDL2LUA) -o $@ $(OLDIDL)
 
 $(PRELOAD_DIR)/$(LIBNAME).c: $(LUAPRELOADER) $(LUASRC)
