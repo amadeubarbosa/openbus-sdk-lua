@@ -1,3 +1,5 @@
+local table = table
+local unpack = table.unpack or unpack
 local log = require "openbus.util.logger"
 local openbus = require "openbus"
 

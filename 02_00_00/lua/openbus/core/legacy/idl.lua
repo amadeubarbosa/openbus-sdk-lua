@@ -1,6 +1,8 @@
 local _G = require "_G"
 local ipairs = _G.ipairs
-local unpack = _G.unpack
+
+local array = require "table"
+local unpack = array.unpack or _G.unpack
 
 local makeaux = require "openbus.core.idl.makeaux"
 local parsed = require "openbus.core.legacy.parsed"

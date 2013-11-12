@@ -8,6 +8,7 @@ local pcall = _G.pcall
 local rawget = _G.rawget
 local setmetatable = _G.setmetatable
 local tostring = _G.tostring
+local unpack = _G.table.unpack or _G.unpack
 
 local coroutine = require "coroutine"
 local running = coroutine.running
@@ -77,6 +78,7 @@ local unmarshalCredential = BaseInterceptor.unmarshalCredential
 
 -- must be loaded after OiL is loaded because OiL is the one that installs
 -- the cothread plug-in that supports the 'now' operation.
+cothread.plugin(require "cothread.plugin.sleep")
 local delay = cothread.delay
 local time = cothread.now
 

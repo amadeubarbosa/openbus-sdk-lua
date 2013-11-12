@@ -1,5 +1,4 @@
 local _G = require "_G"
-local error = _G.error
 local ipairs = _G.ipairs
 
 local array = require "table"
