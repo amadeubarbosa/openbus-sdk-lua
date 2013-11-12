@@ -334,7 +334,7 @@ function Openbus:init(host, port, props, serverInterceptorConfig,
   if not props.tcpoptions then
     props.tcpoptions = {}
   end
-  if not props.tcpoptions.reuseaddr then
+  if props.tcpoptions.reuseaddr == nil then
     props.tcpoptions.reuseaddr = true
   end
   if not props.flavor then
