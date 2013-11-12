@@ -1,15 +1,17 @@
 PROJNAME= busconsole
 APPNAME= $(PROJNAME)
 
-USE_LUA51= YES
-
 OPENBUSINC= ${OPENBUS_HOME}/include
 OPENBUSLIB= ${OPENBUS_HOME}/lib
 
-SRC= console.c
+ifdef USE_LUA52
+	SRC= console.c
+else
+	SRC= consoleLua51.c
+endif
 
 LIBS:= lce luuid lfs luavararg luastruct  luasocket loop luatuple \
-  luacoroutine luacothread luainspector luaidl oil luascs luaopenbus lua5.1
+  luacoroutine luacothread luainspector luaidl oil luascs luaopenbus
 
 INCLUDES+= . $(SRCLUADIR) \
   $(OPENBUSINC)/luuid \

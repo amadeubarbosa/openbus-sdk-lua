@@ -5,7 +5,6 @@ local ipairs = _G.ipairs
 local pairs = _G.pairs
 local pcall = _G.pcall
 local type = _G.type
-local unpack = _G.unpack
 local coroutine = require "coroutine"
 local string = require "string"
 local io = require "io"
