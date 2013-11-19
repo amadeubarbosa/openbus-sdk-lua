@@ -4,7 +4,9 @@ local pairs = _G.pairs
 local pcall = _G.pcall
 local rawget = _G.rawget
 local setmetatable = _G.setmetatable
-local unpack = _G.table.unpack or _G.unpack
+
+local array = require "table"
+local unpack = array.unpack or _G.unpack
 
 local coroutine = require "coroutine"
 local running = coroutine.running

@@ -1,6 +1,7 @@
 local log = require "openbus.util.logger"
 local openbus = require "openbus"
 local ComponentContext = require "scs.core.ComponentContext"
+local oil = require "oil"
 
 require "openbus.test.util"
 
