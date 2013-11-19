@@ -107,16 +107,17 @@ static lua_State *globalL = NULL;
 static const char *progname = LUA_PROGNAME;
 
 static const char *callerchunk =
-" require 'coroutine.pcall'"
+" local coroutine = require 'coroutine'"
+" local newthread = coroutine.create"
+" local cothread = require 'cothread'"
+" local step = cothread.step"
+" local run = cothread.run"
 " return function(f, ...)"
-"   local coroutine = require 'coroutine'"
-"   local newthread = coroutine.create"
-"   local cothread = require 'cothread'"
-"   local step = cothread.step"
-"   local run = cothread.run"
 "   return run(step(newthread(f), ...))"
 " end";
 
+static const char *setdebugchunk =
+"table.insert(package.searchers, (table.remove(package.searchers, 1)))";
 
 static void lstop (lua_State *L, lua_Debug *ar) {
   (void)ar;  /* unused arg. */
@@ -243,9 +244,9 @@ static int dofile (lua_State *L, const char *name) {
 }
 
 
-static int dostring (lua_State *L, const char *s, const char *name) {
+static int dostring (lua_State *L, const char *s, const char *name, int nres) {
   int status = luaL_loadbuffer(L, s, strlen(s), name);
-  if (status == LUA_OK) status = docall(L, 0, 0);
+  if (status == LUA_OK) status = docall(L, 0, nres);
   return report(L, status);
 }
 
@@ -370,13 +371,6 @@ static int handle_script (lua_State *L, char **argv, int n) {
 }
 
 
-static int enable_dynload (lua_State *L) {
-  int status = luaL_dostring(L,
-    "table.insert(package.searchers, (table.remove(package.searchers, 1)))");
-  return report(L, status);
-}
-
-
 /* check that argument has no extra characters at the end */
 #define noextrachars(x)		{if ((x)[2] != '\0') return -1;}
 
@@ -442,7 +436,7 @@ static int runargs (lua_State *L, char **argv, int n) {
         const char *chunk = argv[i] + 2;
         if (*chunk == '\0') chunk = argv[++i];
         lua_assert(chunk != NULL);
-        if (dostring(L, chunk, "=(command line)") != LUA_OK)
+        if (dostring(L, chunk, "=(command line)", 0) != LUA_OK)
           return 0;
         break;
       }
@@ -472,7 +466,7 @@ static int handle_luainit (lua_State *L) {
   else if (init[0] == '@')
     return dofile(L, init+1);
   else
-    return dostring(L, init, name);
+    return dostring(L, init, name, 0);
 }
 
 
@@ -493,9 +487,6 @@ static int pmain (lua_State *L) {
     lua_pushboolean(L, 1);  /* signal for libraries to ignore env. vars. */
     lua_setfield(L, LUA_REGISTRYINDEX, "LUA_NOENV");
   }
-  
-  if (args[has_d] && enable_dynload(L) != LUA_OK) /* option '-d'? */
-    return 0;
   
   /* open standard libraries */
   luaL_checkversion(L);
@@ -524,11 +515,25 @@ static int pmain (lua_State *L) {
   luapreload_luascs(L);
   luapreload_luaopenbus(L);
   
+  /* option '-d'? */
+  if (args[has_d]) {
+    int status = luaL_dostring(L, setdebugchunk);
+    if (status != LUA_OK) {
+      report(L, status);
+      return 0;
+    }
+  }
+  
   /* create and register function to execute codes in a new thread */
-  if (luaL_dostring(L, callerchunk) == LUA_OK)
-    lua_setfield(L, LUA_REGISTRYINDEX, OPENBUS_EXECUTOR);
-  else
-    printf("opsss..\n");
+  {
+    int status = luaL_dostring(L, callerchunk);
+    if (status == LUA_OK) {
+      lua_setfield(L, LUA_REGISTRYINDEX, OPENBUS_EXECUTOR);
+    } else {
+      report(L, status);
+      return 0;
+    }
+  }
   
   if (!args[has_E] && handle_luainit(L) != LUA_OK)
     return 0;  /* error running LUA_INIT */

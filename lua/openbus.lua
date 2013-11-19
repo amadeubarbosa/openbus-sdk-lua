@@ -8,7 +8,9 @@ local pcall = _G.pcall
 local rawget = _G.rawget
 local setmetatable = _G.setmetatable
 local tostring = _G.tostring
-local unpack = _G.table.unpack or _G.unpack
+
+local array = require "table"
+local unpack = array.unpack or _G.unpack
 
 local coroutine = require "coroutine"
 local running = coroutine.running
@@ -799,7 +801,12 @@ function openbus.readKeyFile(path)
 end
 
 function openbus.initORB(configs)
-  local orb = neworb(copy(configs))
+  if configs == nil then
+    configs = {}
+  else
+    configs = copy(configs)
+  end
+  local orb = neworb(configs)
   local context = Context{ orb = orb }
   orb.OpenBusContext = context
   orb:setinterceptor(context, "corba")
