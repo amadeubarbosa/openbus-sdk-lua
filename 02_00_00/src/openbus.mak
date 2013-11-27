@@ -3,9 +3,10 @@ LIBNAME= $(PROJNAME)
 
 SRC= $(PRELOAD_DIR)/$(LIBNAME).c
 
-OPENBUSOLDIDL= ${OPENBUS_HOME}/idl/v1_05
-OPENBUSNEWIDL= ${OPENBUS_HOME}/idl/v2_0
-OPENBUSLIBIDL= ${OPENBUS_HOME}/idl/lib
+OPENBUSSCSIDL= ${SCS_IDL1_2_HOME}/src
+OPENBUSOLDIDL= ${OPENBUS_IDL1_5_HOME}/src
+OPENBUSNEWIDL= ${OPENBUS_IDL2_0_HOME}/src
+OPENBUSLIBIDL= ${SDK_IDL_SOURCE_HOME}/src
 
 LUADIR= ../lua
 LUASRC= \
@@ -42,7 +43,7 @@ NEWIDL= \
 NEWDEPENDENTIDL= \
   $(OPENBUSNEWIDL)/core.idl \
   $(OPENBUSNEWIDL)/credential.idl \
-  $(OPENBUSNEWIDL)/scs.idl 
+  $(OPENBUSSCSIDL)/scs.idl 
   
 OLDIDL= \
   $(OPENBUSOLDIDL)/access_control_service.idl \
@@ -51,7 +52,7 @@ OLDIDL= \
 
 OLDDEPENDENTIDL= \
   $(OPENBUSOLDIDL)/core.idl \
-  $(OPENBUSOLDIDL)/scs.idl
+  $(OPENBUSSCSIDL)/scs.idl
 
 include ${OIL_HOME}/openbus/base.mak
 
@@ -64,10 +65,7 @@ $(LUADIR)/openbus/core/idl/parsed.lua: $(IDL2LUA) $(NEWIDL) $(NEWDEPENDENTIDL)
 $(LUADIR)/openbus/core/legacy/parsed.lua: $(IDL2LUA) $(OLDIDL) $(OLDDEPENDENTIDL)
 	$(OILBIN) $(IDL2LUA) -o $@ $(OLDIDL)
 
-$(PRELOAD_DIR)/$(LIBNAME).c: $(LUAPRELOADER) $(LUASRC)
-	$(LOOPBIN) $(LUAPRELOADER) -m \
-                             -l "$(LUADIR)/?.lua" \
-                             -d $(PRELOAD_DIR) \
-                             -h $(LIBNAME).h \
-                             -o $(LIBNAME).c \
-                             $(LUASRC)
+debug:
+	echo $(LIBIDL)
+	echo $(OPENBUSLIBIDL)
+	echo ${SDK_IDL_SOURCE_HOME}

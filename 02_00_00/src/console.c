@@ -18,8 +18,8 @@
 #include "lualib.h"
 
 #include "luuid.h"
-#include "lce.h"
 #include "lfs.h"
+#include "lce.h"
 #include "luavararg.h"
 #include "luastruct.h"
 #include "luasocket.h"
