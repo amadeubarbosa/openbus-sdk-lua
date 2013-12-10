@@ -97,9 +97,14 @@ local function saveto(path, ...)
     if result == nil then
       errmsg = "unable to write temporary file '"..temp.."' ("..errmsg..")"
     else
-      result, errmsg = renamefile(temp, path)
+      result, errmsg, code = renamefile(temp, path)
       if result == nil then
-        errmsg = "unable to replace file '"..path.."' (with file "..errmsg..")"
+        if errmsg == "File exists" and code == 17 then
+          assert(removefile(path))
+          result, errmsg = assert(renamefile(temp, path))
+        else
+          errmsg = "unable to replace file '"..path.."' (with file "..errmsg..")"
+        end
       end
     end
     removefile(temp)
