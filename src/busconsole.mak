@@ -72,7 +72,7 @@ endif
 
 ifneq ($(findstring $(TEC_SYSNAME), Win32 Win64), )
   APPTYPE= console
-  LIBS+= wsock32 libeay32MD ssleay32MD
+  LIBS+= wsock32 rpcrt4 libeay32MD ssleay32MD
   ifeq "$(TEC_WORDSIZE)" "TEC_32"
     LDIR+= ../../OpenSSL-Win32/lib/VC
   else
