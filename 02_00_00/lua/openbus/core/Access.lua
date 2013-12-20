@@ -128,6 +128,7 @@ local function validateCredential(self, credential, login, request)
       end
     end
   elseif credential.owner == login.entity then -- got a OpenBus 1.5 credential
+    credential.chain.target = self.login.entity
     if credential.delegate == "" then
       return true
     end
@@ -264,7 +265,6 @@ function Interceptor:unmarshalCredential(contexts)
       credential.chain = {
         originators = originators,
         caller = caller,
-        target = self.login.id,
       }
       return credential
     end
