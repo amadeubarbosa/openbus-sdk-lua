@@ -21,13 +21,29 @@ local log = Verbose{
     {"warn"},           -- condições adversas encontradas, mas que são ignoradas
     {"info"},           -- informações de depuração para o adminstrador
     {"debug"},          -- informações de depuração para usuários do serviço
-    {"access"},
-    {"multiplex"},
+    {"access"},         -- informações sobre as chamadas interceptadas
+    {"multiplex"},      -- informações sobre logins utilizados nas chamadas
     
-    error = { "unexpected", "failure" },
-    warn = { "exception", "misconfig" },
-    info = { "config", "admin", "uptime" },
-    debug = { "request", "action" },
+    error = {
+      "unexpected", -- unexpected errors, usually indicates a bug.
+      "failure",    -- exceptions caused by problems in the service itself.
+    },
+    warn = {
+      "exception",  -- exceptions caused by problems in the requests received.
+      "misconfig",  -- errors of the service configuration that are ignored.
+    },
+    info = {
+      "config",     -- information about the service configuration parameters.
+      "admin",      -- requests performed that are exclusive to admin users.
+      "uptime",     -- startup and shutdown of the service and other life cycle
+                    -- events.
+    },
+    debug = {
+      "request",    -- changes of the state of the service as a result of a
+                    -- external request, like a remote operation.
+      "action",     -- changes of the state of the service initiated by the
+                    -- service itself, like some auto-cleaning.
+    },
   },
 }
 log:settimeformat(TimeFormat) -- inclui data e hora no log
