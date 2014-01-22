@@ -6,9 +6,7 @@ require "openbus.test.util"
 
 -- setup and start the ORBs
 local orb1 = openbus.initORB()
-openbus.newThread(orb1.run, orb1)
 local orb2 = openbus.initORB()
-openbus.newThread(orb2.run, orb2)
 
 -- load interface definition
 orb1:loadidlfile("idl/hello.idl")

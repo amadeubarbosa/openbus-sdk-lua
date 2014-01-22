@@ -109,3 +109,4 @@ end
 
 -- login to the bus
 conn:onInvalidLogin()
+orb:shutdown()

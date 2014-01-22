@@ -32,7 +32,6 @@ end
 
 -- setup and start the ORB
 local orb = openbus.initORB()
-openbus.newThread(orb.run, orb)
 
 -- load interface definition
 local iface = orb:loadidl("interface Clock { double getTime(); };")

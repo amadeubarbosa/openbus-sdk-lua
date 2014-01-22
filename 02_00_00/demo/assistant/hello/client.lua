@@ -46,3 +46,4 @@ end
 
 -- free any resoures allocated
 OpenBusAssistant:shutdown()
+OpenBusAssistant.orb:shutdown()
