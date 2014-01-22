@@ -35,11 +35,13 @@ function findoffers(offers, props, count, tries, interval)
   if count == nil then count = 1 end
   if tries == nil then tries = 10 end
   if interval == nil then interval = 1 end
-  local found = {}
   for i = 1, tries do
+    local found = {}
     local offers = offers:findServices(props)
     for _, offer in ipairs(offers) do
-      if not offer.service_ref:_non_existent() then
+      local service = offer.service_ref
+      local ok, ne = pcall(service._non_existent, service)
+      if ok and not ne then
         found[#found+1] = offer
       end
     end
