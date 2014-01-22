@@ -59,3 +59,4 @@ print(os.date(nil, timestamp))
 
 -- free any resoures allocated
 OpenBusAssistant:shutdown()
+OpenBusAssistant.orb:shutdown()

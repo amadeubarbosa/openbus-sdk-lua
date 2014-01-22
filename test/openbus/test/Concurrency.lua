@@ -27,7 +27,8 @@ local connprops = { accesskey = openbus.newKey() }
 
 -- login as admin and provide additional functionality for the test
 local invalidate, shutdown do
-  local OpenBusContext = openbus.initORB().OpenBusContext
+  local orb = openbus.initORB()
+  local OpenBusContext = orb.OpenBusContext
   local conn = OpenBusContext:createConnection(bushost, busport)
   conn:loginByPassword(admin, admpsw)
   OpenBusContext:setDefaultConnection(conn)
@@ -36,6 +37,7 @@ local invalidate, shutdown do
   end
   function shutdown()
     conn:logout()
+    orb:shutdown()
   end
 end
 
@@ -230,4 +232,5 @@ do log:TEST("Two threads getting invalid login and trying to relog")
   OpenBusContext:setDefaultConnection(nil)
 end
 
+orb:shutdown()
 shutdown()

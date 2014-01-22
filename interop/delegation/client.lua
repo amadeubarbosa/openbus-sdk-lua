@@ -117,5 +117,6 @@ end
 conn:loginByPassword("bill", "bill")
 services.Forwarder.ref:cancelForward("willian")
 conn:logout()
+orb:shutdown()
 
 assert(require("loop.debug.Matcher"){metatable=false}:match(actual, expected))

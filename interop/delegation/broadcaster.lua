@@ -7,7 +7,6 @@ require "openbus.test.util"
 
 -- setup and start the ORB
 local orb = openbus.initORB()
-openbus.newThread(orb.run, orb)
 
 -- load interface definitions
 orb:loadidlfile("idl/messages.idl")

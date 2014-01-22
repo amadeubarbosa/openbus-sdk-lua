@@ -89,7 +89,4 @@ until timestamp or not retry()
 
 -- free any resoures allocated
 conn:logout()
-
-
-print(os.date(nil, timestamp))
-
+orb:shutdown()

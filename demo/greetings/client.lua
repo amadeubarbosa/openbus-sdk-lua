@@ -18,7 +18,8 @@ local params = {
 
 
 -- setup the ORB and connect to the bus
-local OpenBusContext = openbus.initORB().OpenBusContext
+local orb = openbus.initORB()
+local OpenBusContext = orb.OpenBusContext
 OpenBusContext:setDefaultConnection(
   OpenBusContext:createConnection(bushost, busport))
 
@@ -56,3 +57,4 @@ end
 
 -- free any resoures allocated
 OpenBusContext:getCurrentConnection():logout()
+orb:shutdown()

@@ -24,7 +24,7 @@ syskey = assert(decodeprvkey(readfrom(syskey)))
 -- test initialization ---------------------------------------------------------
 
 do -- connect to the bus
-  local bus = connectToBus(bushost, busport)
+  local bus, orb = connectToBus(bushost, busport)
   local accesskey = newkey(EncryptedBlockSize)
   local otherkey = newkey(EncryptedBlockSize)
 
@@ -57,4 +57,5 @@ do -- connect to the bus
   -- logout from the bus
   login.busSession:newCred("logout")
   bus.AccessControl:logout()
+  orb:shutdown()
 end

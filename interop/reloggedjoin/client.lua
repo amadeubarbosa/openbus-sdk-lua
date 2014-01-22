@@ -41,3 +41,4 @@ end
 
 -- logout from the bus
 conn:logout()
+orb:shutdown()

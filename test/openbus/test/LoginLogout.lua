@@ -172,7 +172,8 @@ end
 local WrongKey = openbus.newKey()
 -- login as admin and provide additional functionality for the test
 local invalidate, shutdown, leasetime do
-  local OpenBusContext = openbus.initORB().OpenBusContext
+  local orb = openbus.initORB()
+  local OpenBusContext = orb.OpenBusContext
   local conn = OpenBusContext:createConnection(bushost, busport)
   conn:loginByPassword(admin, admpsw)
   OpenBusContext:setDefaultConnection(conn)
@@ -182,6 +183,7 @@ local invalidate, shutdown, leasetime do
   end
   function shutdown()
     conn:logout()
+    orb:shutdown()
   end
 end
 
@@ -410,4 +412,5 @@ end
 
 log:TEST(false)
 
+orb:shutdown()
 shutdown()

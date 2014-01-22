@@ -23,7 +23,6 @@ local params = {
 
 -- setup and start the ORB
 local orb = openbus.initORB()
-openbus.newThread(orb.run, orb)
 
 -- get bus context manager
 local OpenBusContext = orb.OpenBusContext

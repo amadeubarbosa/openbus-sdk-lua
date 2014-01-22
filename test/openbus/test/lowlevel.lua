@@ -166,7 +166,7 @@ function connectToBus(host, port, orb)
       [AccessControl] = true,
       [OfferRegistry] = true,
     }
-  }
+  }, orb
 end
 
 function initBusSession(bus, login)

@@ -60,3 +60,5 @@ for _, businfo in ipairs{
   -- logout from the bus
   conn:logout()
 end
+
+orb:shutdown()
