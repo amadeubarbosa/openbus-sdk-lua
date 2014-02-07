@@ -17,6 +17,7 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
+#include "luacompat52.h"
 #include "luuid.h"
 #include "lce.h"
 #include "lfs.h"
@@ -27,7 +28,6 @@
 #include "luatuple.h"
 #include "luacoroutine.h"
 #include "luacothread.h"
-#include "luainspector.h"
 #include "luaidl.h"
 #include "oil.h"
 #include "luascs.h"
@@ -41,20 +41,7 @@ static lua_State *globalL = NULL;
 static const char *progname = LUA_PROGNAME;
 
 static const char *callerchunk =
-" _G.lua51_pcall = _G.pcall"
-" _G.lua51_xpcall = _G.xpcall"
-" require 'coroutine.pcall'"
-
-" local _loadfile = _G.loadfile"
-" _G.lua51_loadfile = _loadfile"
-" function _G.loadfile(path, mode, env)"
-"   local result, errmsg = _loadfile(path)"
-"   if result ~= nil and env ~= nil then"
-"     setfenv(result, env)"
-"   end"
-"   return result, errmsg"
-" end"
-
+" require 'compat52'"
 " return function(f, ...)"
 "   local coroutine = require 'coroutine'"
 "   local newthread = coroutine.create"
@@ -398,6 +385,7 @@ struct Smain {
 static int pmain (lua_State *L) {
   struct Smain *s = (struct Smain *)lua_touserdata(L, 1);
   char **argv = s->argv;
+  int status;
   int script;
   int has_i = 0, has_v = 0, has_e = 0, has_d = 0;
   globalL = L;
@@ -414,6 +402,7 @@ static int pmain (lua_State *L) {
   lua_pushcfunction(L,luaopen_struct);lua_setfield(L,-2,"struct");
   lua_pushcfunction(L,luaopen_socket_core);lua_setfield(L,-2,"socket.core");
   lua_pop(L, 1);  /* pop 'package.preload' table */
+  luapreload_luacompat52(L);
   /* preload other C libraries */
   luapreload_lce(L);
   /* preload script libraries */
@@ -421,7 +410,6 @@ static int pmain (lua_State *L) {
   luapreload_luatuple(L);
   luapreload_luacoroutine(L);
   luapreload_luacothread(L);
-  luapreload_luainspector(L);
   luapreload_luaidl(L);
   luapreload_oil(L);
   luapreload_luascs(L);
@@ -441,22 +429,26 @@ static int pmain (lua_State *L) {
   if (s->status != 0) return 0;
 
   /* ??? */
-  if (luaL_dostring(L, callerchunk) == 0)
+  s->status = luaL_dostring(L, callerchunk);
+  if (s->status == 0) {
     lua_setfield(L, LUA_REGISTRYINDEX, OPENBUS_EXECUTOR);
 
-  s->status = runargs(L, argv, (script > 0) ? script : s->argc);
-  if (s->status != 0) return 0;
-  if (script)
-    s->status = handle_script(L, argv, script);
-  if (s->status != 0) return 0;
-  if (has_i)
-    dotty(L);
-  else if (script == 0 && !has_e && !has_v) {
-    if (lua_stdin_is_tty()) {
-      print_version();
+    s->status = runargs(L, argv, (script > 0) ? script : s->argc);
+    if (s->status != 0) return 0;
+    if (script)
+      s->status = handle_script(L, argv, script);
+    if (s->status != 0) return 0;
+    if (has_i)
       dotty(L);
+    else if (script == 0 && !has_e && !has_v) {
+      if (lua_stdin_is_tty()) {
+        print_version();
+        dotty(L);
+      }
+      else dofile(L, NULL);  /* executes stdin as a file */
     }
-    else dofile(L, NULL);  /* executes stdin as a file */
+  } else {
+    report(L, s->status);
   }
   return 0;
 }

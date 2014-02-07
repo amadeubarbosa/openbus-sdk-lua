@@ -43,6 +43,12 @@ LDIR+= \
   $(SCS_LUA_HOME)/lib/$(TEC_UNAME) \
   $(OPENBUS_LUA_HOME)/lib/$(TEC_UNAME)
 
+ifdef USE_LUA51
+  INCLUDES+= $(LUACOMPAT52_HOME)/c-api $(LUACOMPAT52_HOME)/obj/$(TEC_UNAME)
+  LDIR+= $(LUACOMPAT52_HOME)/lib/$(TEC_UNAME)
+  LIBS+= luacompat52 luabit32 luacompat52c
+endif
+
 ifeq "$(TEC_SYSNAME)" "Linux"
   LFLAGS = -Wl,-E
 endif
