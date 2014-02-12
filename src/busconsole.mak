@@ -78,11 +78,21 @@ endif
 
 ifneq ($(findstring $(TEC_SYSNAME), Win32 Win64), )
   APPTYPE= console
-  LIBS+= wsock32 rpcrt4 libeay32MD ssleay32MD
-  ifeq "$(TEC_WORDSIZE)" "TEC_32"
-    LDIR+= ../../OpenSSL-Win32/lib/VC
+  LIBS+= wsock32 rpcrt4
+  ifneq ($(findstring dll, $(TEC_UNAME)), ) # USE_DLL
+    ifdef DBG
+      LIBS+= libeay32MDd ssleay32MDd
+    else
+      LIBS+= libeay32MD ssleay32MD
+    endif
+    LDIR+= $(OPENSSL_HOME)/lib/VC
   else
-    LDIR+= ../../OpenSSL-Win64/lib/VC
+    ifdef DBG
+      LIBS+= libeay32MTd ssleay32MTd
+    else
+      LIBS+= libeay32MT ssleay32MT
+    endif
+    LDIR+= $(OPENSSL_HOME)/lib/VC/static
   endif
 else
   LIBS+= dl
