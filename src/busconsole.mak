@@ -7,39 +7,47 @@ else
 	SRC= consoleLua51.c
 endif
 
-LIBS:= lce luuid lfs luavararg luastruct luasocket loop luatuple \
-  luacoroutine luacothread luainspector luaidl oil luascs luaopenbus
+LIBS:= \
+  luastruct \
+  luasocket \
+  luatuple \
+  loop \
+  luacothread \
+  luaidl \
+  oil \
+  luavararg \
+  lfs \
+  luuid \
+  lce \
+  luascs \
+  luaopenbus
 
 INCLUDES+= . $(SRCLUADIR) \
-  $(LCE_HOME)/include \
-  $(LUUID_HOME)/include \
-  $(LUAFILESYSTEM_HOME)/include \
-  $(LUASOCKET_HOME)/include \
   $(LUASTRUCT_HOME)/src \
-  $(LUAVARARG_HOME)/src \
-  $(LUAINSPECTOR_HOME)/obj/$(TEC_UNAME) \
+  $(LUASOCKET_HOME)/include \
   $(LUATUPLE_HOME)/obj/$(TEC_UNAME) \
-  $(LUACOROUTINE_HOME)/obj/$(TEC_UNAME) \
-  $(LUACOTHREAD_HOME)/obj/$(TEC_UNAME) \
   $(LOOP_HOME)/obj/$(TEC_UNAME) \
+  $(LUACOTHREAD_HOME)/obj/$(TEC_UNAME) \
   $(LUAIDL_HOME)/obj/$(TEC_UNAME) \
   $(OIL_HOME)/obj/$(TEC_UNAME) \
+  $(LUAVARARG_HOME)/src \
+  $(LUAFILESYSTEM_HOME)/include \
+  $(LUUID_HOME)/include \
+  $(LCE_HOME)/include \
   $(SCS_LUA_HOME)/obj/$(TEC_UNAME) \
   $(OPENBUS_LUA_HOME)/obj/$(TEC_UNAME)
 LDIR+= \
-  $(LCE_HOME)/lib/$(TEC_UNAME) \
-  $(LUUID_HOME)/lib/$(TEC_UNAME) \
-  $(LUAFILESYSTEM_HOME)/lib/$(TEC_UNAME) \
-  $(LUASOCKET_HOME)/lib/$(TEC_UNAME) \
   $(LUASTRUCT_HOME)/lib/$(TEC_UNAME) \
-  $(LUAVARARG_HOME)/lib/$(TEC_UNAME) \
-  $(LUAINSPECTOR_HOME)/lib/$(TEC_UNAME) \
+  $(LUASOCKET_HOME)/lib/$(TEC_UNAME) \
   $(LUATUPLE_HOME)/lib/$(TEC_UNAME) \
-  $(LUACOROUTINE_HOME)/lib/$(TEC_UNAME) \
+  $(LOOP_HOME)/lib/$(TEC_UNAME) \
   $(LUACOTHREAD_HOME)/lib/$(TEC_UNAME) \
   $(LUAIDL_HOME)/lib/$(TEC_UNAME) \
-  $(LOOP_HOME)/lib/$(TEC_UNAME) \
   $(OIL_HOME)/lib/$(TEC_UNAME) \
+  $(LUAVARARG_HOME)/lib/$(TEC_UNAME) \
+  $(LUAFILESYSTEM_HOME)/lib/$(TEC_UNAME) \
+  $(LUUID_HOME)/lib/$(TEC_UNAME) \
+  $(LCE_HOME)/lib/$(TEC_UNAME) \
   $(SCS_LUA_HOME)/lib/$(TEC_UNAME) \
   $(OPENBUS_LUA_HOME)/lib/$(TEC_UNAME)
 
