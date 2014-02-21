@@ -152,14 +152,17 @@ function Table:setentryfield(key, field, ...)
   end
   local count = select("#", ...)
   local value = select(count, ...)
+  local place = result
   for i = 1, count-1 do
-    local field = select(i, ...)
-    local value = result[field]
-    if value == nil then value = {} end
-    result[field] = value
-    result = value
+    local value = place[field]
+    if value == nil then
+      value = {}
+      place[field] = value
+    end
+    place = value
+    field = select(i, ...)
   end
-  result[field] = value
+  place[field] = value
   result, errmsg = saveto(path, result)
   return result, errmsg
 end
