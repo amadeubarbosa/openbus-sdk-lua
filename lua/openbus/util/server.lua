@@ -222,7 +222,7 @@ function module.ConfigArgs:configs(_, path)
       end
     end
   else
-    report(msg.ConfigFileNotFound:tag{path=path})
+    report(msg.UnableToLoadConfigFile:tag{path=path,errmsg=errmsg})
   end
 end
 
