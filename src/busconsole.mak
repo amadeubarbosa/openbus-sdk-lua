@@ -19,6 +19,7 @@ LIBS:= \
   lfs \
   luuid \
   lce \
+  luasec \
   luascs \
   luaopenbus
 
@@ -34,6 +35,7 @@ INCLUDES+= . $(SRCLUADIR) \
   $(LUAFILESYSTEM_HOME)/include \
   $(LUUID_HOME)/include \
   $(LCE_HOME)/include \
+  $(LUASEC_HOME)/include \
   $(SCS_LUA_HOME)/obj/$(TEC_UNAME) \
   $(OPENBUS_LUA_HOME)/obj/$(TEC_UNAME)
 LDIR+= \
@@ -48,6 +50,7 @@ LDIR+= \
   $(LUAFILESYSTEM_HOME)/lib/$(TEC_UNAME) \
   $(LUUID_HOME)/lib/$(TEC_UNAME) \
   $(LCE_HOME)/lib/$(TEC_UNAME) \
+  $(LUASEC_HOME)/lib/$(TEC_UNAME) \
   $(SCS_LUA_HOME)/lib/$(TEC_UNAME) \
   $(OPENBUS_LUA_HOME)/lib/$(TEC_UNAME)
 

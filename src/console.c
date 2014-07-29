@@ -20,6 +20,7 @@
 #include "luuid.h"
 #include "lfs.h"
 #include "lce.h"
+#include "luasec.h"
 #include "luavararg.h"
 #include "luastruct.h"
 #include "luasocket.h"
@@ -502,6 +503,7 @@ static int pmain (lua_State *L) {
   lua_pop(L, 1);  /* pop 'package.preload' table */
   /* preload other C libraries */
   luapreload_lce(L);
+  luapreload_luasec(L);
   /* preload script libraries */
   luapreload_loop(L);
   luapreload_luatuple(L);
