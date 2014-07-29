@@ -1,0 +1,6 @@
+exception Unavailable {}; 
+exception Unauthorized {}; 
+
+interface Messenger {
+  void showMessage(in string message) raises (Unavailable, Unauthorized);
+};

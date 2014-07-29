@@ -1,0 +1,12 @@
+System {
+  id = "OpenbusLegacyTest",
+  description = "Categoria para testes Legados",
+}
+
+SystemDeployment {
+  id = "TesteBarramento",
+  system = "OpenbusLegacyTest",
+  description = "Entidade de testes Legados",
+  certificate = "TesteBarramento.crt",
+}
+

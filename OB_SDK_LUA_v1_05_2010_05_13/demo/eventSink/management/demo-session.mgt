@@ -1,0 +1,37 @@
+System {
+  id = "HelloSession",
+  description = "Demo do Serviço de Sessão",
+}
+
+SystemDeployment {
+  id = "HelloSession",
+  system = "HelloSession",
+  description = "Demo do Serviço de Sessão",
+  certificate = "HelloSession.crt",
+}
+
+Interface {
+  id = "IDL:openbusidl/ss/ISession:1.0"
+}
+ 
+Interface {
+  id = "IDL:tecgraf/openbus/session_service/v1_05/ISession:1.0"
+}
+
+Interface {
+  id = "IDL:openbusidl/ss/SessionEventSink:1.0"
+}
+
+Interface {
+  id = "IDL:tecgraf/openbus/session_service/v1_05/SessionEventSink:1.0"
+}
+ 
+Grant {
+  id = "HelloSession",
+  interfaces = {
+    "IDL:openbusidl/ss/ISession:1.0", 
+    "IDL:tecgraf/openbus/session_service/v1_05/ISession:1.0",
+    "IDL:openbusidl/ss/SessionEventSink:1.0",
+    "IDL:tecgraf/openbus/session_service/v1_05/SessionEventSink:1.0", 
+  }
+}
