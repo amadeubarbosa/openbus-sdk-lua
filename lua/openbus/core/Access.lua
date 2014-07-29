@@ -537,7 +537,7 @@ function module.initORB(configs)
   if configs.tcpoptions == nil then
     configs.tcpoptions = {reuseaddr = true}
   end
-  configs.flavor = "cooperative;corba.intercepted"
+  configs.flavor = configs.flavor or "cooperative;corba.intercepted"
   local orb = neworb(configs)
   loadidl(orb)
   loadoldidl(orb)
