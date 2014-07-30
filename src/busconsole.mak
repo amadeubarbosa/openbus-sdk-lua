@@ -73,7 +73,7 @@ ifeq "$(TEC_SYSNAME)" "SunOS"
 endif
 
 ifdef USE_STATIC
-  SLIB:= $(foreach libname, $(LIBS) uuid crypto ssl, ${OPENBUS_HOME}/lib/lib$(libname).a)
+  SLIB:= $(foreach libname, $(LIBS) uuid ssl crypto, ${OPENBUS_HOME}/lib/lib$(libname).a)
   ifeq "$(TEC_SYSNAME)" "SunOS"
     LIBS:= rt nsl socket resolv
   else
