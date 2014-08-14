@@ -342,14 +342,14 @@ end
 
 local Connection = class({}, BaseInterceptor)
 
-function Connection:__init()
+function Connection:setlegacy(legacy, delegorig)
   -- retrieve IDL definitions for login
-  local legacy = self.legacy
   if legacy ~= nil then
     self.legacy = LegacyACSWrapper{
       idltype = self.context.types.LegacyACS,
       bus = legacy,
     }
+    self.legacyDelegOrig = delegorig
   end
 end
 
@@ -646,21 +646,8 @@ function Context:sendreply(request)
   end
 end
 
-
-function Context:createConnection(host, port, props)
+function Context:connectByReference(bus, props)
   if props == nil then props = {} end
-  local orb = self.orb
-  local legacy = not props.nolegacy
-  local delegorig
-  if legacy then
-    local delegorig = props.legacydelegate
-    if delegorig == "originator" then
-      delegorig = true
-    elseif delegorig ~= nil and delegorig ~= "caller" then
-      throw.InvalidPropertyValue{property="legacydelegate",value=delegorig}
-    end
-    legacy = busaddress2component(orb, host, port, "openbus_v1_05")
-  end
   -- validate access key if provided
   local prvkey = props.accesskey
   if prvkey ~= nil then
@@ -689,12 +676,29 @@ function Context:createConnection(host, port, props)
   return Connection{
     context = self,
     orb = orb,
-    bus = busaddress2component(orb, host, port, BusObjectKey),
-    legacy = legacy,
-    legacyDelegOrig = delegorig,
+    bus = bus,
     prvkey = prvkey or self.prvkey,
   }
 end
+
+function Context:connectByAddress(host, port, props)
+  if props == nil then props = {} end
+  local orb = self.orb
+  local conn = self:connectByReference(busaddress2component(orb, host, port, BusObjectKey), props)
+  local legacy = not props.nolegacy
+  if legacy then
+    local delegorig = props.legacydelegate
+    if delegorig == "originator" then
+      delegorig = true
+    elseif delegorig ~= nil and delegorig ~= "caller" then
+      throw.InvalidPropertyValue{property="legacydelegate",value=delegorig}
+    end
+    conn:setlegacy(busaddress2component(orb, host, port, "openbus_v1_05"), delegorig)
+  end
+  return conn
+end
+
+Context.createConnection = Context.connectByAddress
 
 function Context:setDefaultConnection(conn)
   local old = self.defaultConnection
