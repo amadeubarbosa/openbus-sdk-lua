@@ -11,6 +11,7 @@ OPENBUSLIBIDL= ${SDK_IDL_SOURCE_HOME}/src
 LUADIR= ../lua
 LUASRC= \
   $(LUADIR)/openbus/assistant.lua \
+  $(LUADIR)/openbus/assistant2.lua \
   $(LUADIR)/openbus/core/Access.lua \
   $(LUADIR)/openbus/core/idl/makeaux.lua \
   $(LUADIR)/openbus/core/idl/parsed.lua \

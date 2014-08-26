@@ -15,6 +15,10 @@ openbus/test/util/database \
 openbus/test/LoginLogout \
 openbus/test/Concurrency \
 openbus/test/NoLoginIceptorCalls \
+openbus/test/assistant/LoginLogout \
+openbus/test/assistant/Concurrency \
+openbus/test/assistant/NoLoginIceptorCalls \
+openbus/test/assistant/AssistantLoginLogout \
 "
 for case in ${LUACASES}; do
 	echo -n "Test '${case}' ... "
