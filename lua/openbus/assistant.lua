@@ -158,7 +158,7 @@ function Assistant:findServices(properties, retries, interval)
     ok, result = pcall(conn.findServices, conn, properties)
     if not ok then
       local newinterval = callobserver(self, "Find", result)
-      if retries == 0 then
+      if retries == 0 or self.canceled then
         return {}
       end
       retries = retries-1
@@ -176,7 +176,7 @@ do
       ok, result = pcall(method, object, ...)
       if not ok then
         local newinterval = callobserver(self, event, ...)
-        if retries == 0 then
+        if retries == 0 or self.canceled then
           return error(result) -- TODO: is this the correct thing to do?
         end
         retries = retries-1

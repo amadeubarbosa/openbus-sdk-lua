@@ -9,9 +9,9 @@ local coroutine = require "coroutine"
 local string = require "string"
 local io = require "io"
 local uuid = require "uuid"
+local socket = require "socket.core"
 local Matcher = require "loop.debug.Matcher"
 local Viewer = require "loop.debug.Viewer"
-local Wrapper = require "loop.object.Wrapper"
 local table = require "loop.table"
 local giop = require "oil.corba.giop"
 local cothread = require "cothread"
@@ -130,6 +130,12 @@ do
       [thread] = "bad field 'busport' to 'create' %(expected number|string, got thread%)$",
       [userdata] = "bad field 'busport' to 'create' %(expected number|string, got userdata%)$",
     },
+    interval = {
+      [-1] = "interval too small, minimum is 1 second",
+      [0] = "interval too small, minimum is 1 second",
+      [0.1] = "interval too small, minimum is 1 second",
+      [0.9999] = "interval too small, minimum is 1 second",
+    },
   }
   local ValidParams = {
     orb = orb,
@@ -155,28 +161,32 @@ log:TEST(true, "Illegal Login Parameters")
 
 local function assertLoginFailure(params, expected)
   local theAssistant
-  local complete
+  local last, notified
   local observer = {
     onLoginFailure = function (self, anAssistant, ex)
+      local now = socket.gettime()
       if type(expected) == "string" then
         assert(string.find(ex, expected, 1+#ex-#expected, true))
       else
         assert(Matcher{isomorphic=false,metatable=false}:match(expected, ex))
       end
-      if theAssistant ~= nil then
+      if last ~= nil then
+        assert(now - last > 1)
         assert(anAssistant == theAssistant)
         anAssistant:shutdown()
-        complete = true
+        notified = true
       end
+      last = now
     end
   }
+  params.interval = 1
   params.observer = observer
   theAssistant = assistant.create(params)
   for i = 1, 3 do
-    if complete then break end
+    if notified then break end
     cothread.delay(theAssistant.interval)
   end
-  assert(complete)
+  assert(notified)
 end
 
 do
@@ -270,12 +280,12 @@ local invalidate, sharedauth, shutdown, leasetime do
   end
 end
 
-local events = table.memoize(function () return 0 end)
-local observer = table.memoize(function (event)
-  return function (...)
-    events[event] = events[event] + 1
-  end
-end)
+--local events = table.memoize(function () return 0 end)
+--local observer = table.memoize(function (event)
+--  return function (...)
+--    events[event] = events[event] + 1
+--  end
+--end)
 
 do
   local function testlogin(params)
@@ -326,8 +336,9 @@ do
   log:TEST(false)
 end
 
-do log:TEST "access denied on relogin"
-  local ready, notified
+for interval = 1, 3 do
+  log:TEST("access denied on relogin with interval of ",interval," seconds")
+  local last, notified
   local entity, secret = user, password
   local a
   a = assistant.create{
@@ -335,28 +346,27 @@ do log:TEST "access denied on relogin"
     bushost = bushost,
     busport = busport,
     loginargs = function () return "Password", entity, secret end,
-    observer = Wrapper{
-      __object = observer,
+    interval = interval,
+    observer = {
       onLoginFailure = function (self, assist, except)
+        local now = socket.gettime()
         assert(except._repid == idl.types.services.access_control.AccessDenied)
-        if ready then
+        if last ~= nil then
+          assert(now - last > interval)
           assert(assist == a)
           assist:shutdown()
           notified = true
         end
-        return self.__object:onLoginFailure(assist, except)
+        last = now
       end,
     },
   }
-  assert(#(a:findServices({}, -1)) == 0) -- wait until login
+  assert(#(a:findServices{}) == 0) -- wait until login
   assertlogged(a)
   secret = "WrongPassword"
   invalidate(OpenBusContext:getCurrentConnection().login.id)
-  sleep(leasetime+a.interval)
-  ready = true
-  sleep(a.interval)
+  assert(#(a:findServices{}) == 0) -- wait until relogin
   assert(notified)
-  assert(events.onLoginFailure < 5)
 end
 
 orb:shutdown()
