@@ -124,7 +124,6 @@ function Assistant:__init()
     end
   end
   assert(self.loginargs ~= nil, "invalid login params callback")
-  local OpenBusContext = assert(self.orb.OpenBusContext, "invalid ORB")
   local conn = createConnection{
     interval = interval,
     orb = self.orb,
@@ -136,6 +135,7 @@ function Assistant:__init()
     observer = self.observer ~= nil and Observer{observer=self.observer} or nil,
   }
   if self.orb == nil then self.orb = conn.orb end
+  local OpenBusContext = assert(self.orb.OpenBusContext, "invalid ORB")
   assert(OpenBusContext:getDefaultConnection() == nil, "ORB already in use")
   OpenBusContext:setDefaultConnection(conn.connection)
   self.offers = {}
