@@ -92,8 +92,8 @@ local function getLoginEntry(self, loginId)
   local cache = self.cache
   local entry = cache:get(loginId)
   if entry == nil then
-    local ok, result, enckey = pcall(LoginRegistry.getLoginInfo, LoginRegistry,
-                                     loginId)
+    local ok, result, signedkey = pcall(LoginRegistry.getLoginInfo,
+                                        LoginRegistry, loginId)
     entry = cache:get(loginId) -- Check again to see if anything changed
                                -- after the completion of the remote call.
                                -- The information in the cache should be
@@ -102,6 +102,13 @@ local function getLoginEntry(self, loginId)
                                -- than the one would be generated now.
     if entry == nil then
       if ok then
+        local enckey = signedkey.encoded
+        if not self.buskey:verify(sha256(enckey), signedkey.signature) then
+          sysexthrow.NO_PERMISSION{
+            completed = "COMPLETED_NO",
+            minor = loginconst.InvalidPublicKeyCode,
+          }
+        end
         local pubkey, exception = decodepubkey(enckey)
         if pubkey == nil then
           sysexthrow.NO_PERMISSION{
@@ -153,10 +160,11 @@ local function getLoginInfo(self, loginId)
   InvalidLogins{loginIds={loginId}}
 end
 
-local function newLoginRegistryWrapper(LoginRegistry)
+local function newLoginRegistryWrapper(LoginRegistry, buskey)
   local self = Wrapper{
     __object = LoginRegistry,
     cache = LRUCache(),
+    buskey = buskey,
     getLoginEntry = getLoginEntry,
     getLoginValidity = getLoginValidity,
     getLoginInfo = getLoginInfo,
@@ -258,7 +266,7 @@ local function localLogin(self, AccessControl, buskey, login, lease)
   self.busid = busid
   self.buskey = buskey
   self.AccessControl = AccessControl
-  self.LoginRegistry = newLoginRegistryWrapper(LoginRegistry)
+  self.LoginRegistry = newLoginRegistryWrapper(LoginRegistry, buskey)
   self.login = login
   newRenewer(self, lease)
 end
@@ -675,7 +683,7 @@ function Context:connectByReference(bus, props)
   end
   return Connection{
     context = self,
-    orb = orb,
+    orb = self.orb,
     bus = bus,
     prvkey = prvkey or self.prvkey,
   }
