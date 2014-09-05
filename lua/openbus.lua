@@ -277,10 +277,6 @@ local function localLogout(self)
   self.AccessControl = nil
   self.LoginRegistry = nil
   self.login = nil
-  local legacy = self.legacy
-  if legacy ~= nil then
-    legacy:resetRef()
-  end
   self:resetCaches()
   local renewer = self.renewer
   if renewer ~= nil then
@@ -325,41 +321,7 @@ end
 
 
 
-local LegacyACSWrapper = class()
-
-function LegacyACSWrapper:resetRef()
-  self.facet = nil
-end
-
-function LegacyACSWrapper:isValid(...)
-  local facet = self.facet
-  if facet == nil then
-    local bus = self.bus
-    local ok, result = pcall(bus.getFacetByName, bus,
-                             "IAccessControlService_v1_05")
-    if not ok or result == nil then return end
-    facet = result:__narrow(self.idltype)
-    self.facet = facet
-  end
-  local ok, result = pcall(facet.isValid, facet, ...)
-  if ok then return result end
-  log:exception(msg.UnableToAccessBusLegacySupport:tag{error=result})
-end
-
-
-
 local Connection = class({}, BaseInterceptor)
-
-function Connection:setlegacy(legacy, delegorig)
-  -- retrieve IDL definitions for login
-  if legacy ~= nil then
-    self.legacy = LegacyACSWrapper{
-      idltype = self.context.types.LegacyACS,
-      bus = legacy,
-    }
-    self.legacyDelegOrig = delegorig
-  end
-end
 
 function Connection:resetCaches()
   BaseInterceptor.resetCaches(self)
@@ -598,7 +560,6 @@ function Context:__init()
   self.types.LoginAuthenticationInfo =
     self.orb.types:lookup_id(logintypes.LoginAuthenticationInfo)
   self.context = self -- to execute 'BaseInterceptor.unmarshalCredential(self)'
-  self.legacy = true -- to execute 'BaseInterceptor.unmarshalCredential(self)'
 end
 
 function Context:sendrequest(request)
@@ -691,19 +652,8 @@ end
 
 function Context:connectByAddress(host, port, props)
   if props == nil then props = {} end
-  local orb = self.orb
-  local conn = self:connectByReference(busaddress2component(orb, host, port, BusObjectKey), props)
-  local legacy = not props.nolegacy
-  if legacy then
-    local delegorig = props.legacydelegate
-    if delegorig == "originator" then
-      delegorig = true
-    elseif delegorig ~= nil and delegorig ~= "caller" then
-      throw.InvalidPropertyValue{property="legacydelegate",value=delegorig}
-    end
-    conn:setlegacy(busaddress2component(orb, host, port, "openbus_v1_05"), delegorig)
-  end
-  return conn
+  local ref = busaddress2component(self.orb, host, port, BusObjectKey)
+  return self:connectByReference(ref, props)
 end
 
 Context.createConnection = Context.connectByAddress

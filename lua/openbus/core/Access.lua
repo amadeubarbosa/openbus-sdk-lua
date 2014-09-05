@@ -56,19 +56,13 @@ local InvalidLoginsException = idl.types.services.access_control.InvalidLogins
 local EncryptedBlockSize = idl.const.EncryptedBlockSize
 local CredentialContextId = idl.const.credential.CredentialContextId
 local loginconst = idl.const.services.access_control
-local oldidl = require "openbus.core.legacy.idl"
-local loadoldidl = oldidl.loadto
 
 local repids = {
   CallChain = idl.types.services.access_control.CallChain,
   CredentialData = idl.types.credential.CredentialData,
   CredentialReset = idl.types.credential.CredentialReset,
-  LegacyCredential = oldidl.types.access_control_service.Credential,
-  LegacyACS = oldidl.types.access_control_service.IAccessControlService,
 }
-local VersionHeader = char(idl.const.MajorVersion,
-                           idl.const.MinorVersion)
-local LegacyCredentialContextId = 1234
+local VersionHeader = char(2, 0)
 local SecretSize = 16
 
 local NullChar = "\0"
@@ -111,33 +105,19 @@ local function setNoPermSysEx(request, minor)
 end
 
 local function validateCredential(self, credential, login, request)
-  local hash = credential.hash
-  if hash ~= nil then
-    local chain = credential.chain
-    if chain == nil or chain.target == self.login.entity then
-      -- get current credential session
-      local session = self.incomingSessions:rawget(credential.session)
-      if session ~= nil then
-        local ticket = credential.ticket
-        -- validate credential data with session data
-        if login.id == session.login
-        and hash == calculateHash(session.secret, ticket, request)
-        and session.tickets:check(ticket) then
-          return true
-        end
+  local chain = credential.chain
+  if chain == nil or chain.target == self.login.entity then
+    -- get current credential session
+    local session = self.incomingSessions:rawget(credential.session)
+    if session ~= nil then
+      local ticket = credential.ticket
+      -- validate credential data with session data
+      if login.id == session.login
+      and credential.hash == calculateHash(session.secret, ticket, request)
+      and session.tickets:check(ticket) then
+        return true
       end
     end
-  elseif credential.owner == login.entity then -- got a OpenBus 1.5 credential
-    credential.chain.target = self.login.entity
-    if credential.delegate == "" then
-      return true
-    end
-    local allowLegacyDelegate = login.allowLegacyDelegate
-    if allowLegacyDelegate == nil then
-      allowLegacyDelegate = self.legacy:isValid(credential)
-      login.allowLegacyDelegate = allowLegacyDelegate
-    end
-    return allowLegacyDelegate
   end
   -- create a new session for the invalid credential
   return false
@@ -145,13 +125,11 @@ end
 
 local function validateChain(self, chain, caller)
   if chain ~= nil then
-    local signature = chain.signature
-    if signature then -- no legacy chain (OpenBus 1.5)
-      return self.buskey:verify(sha256(chain.encoded), signature)
-         and chain.caller.id == caller.id
-    end
-    return true
+    return chain.caller.id == caller.id
+       and( chain.signature == nil or -- hack for 'openbus.core.services.Access'
+            self.buskey:verify(sha256(chain.encoded), chain.signature) )
   end
+  return false
 end
 
 
@@ -207,7 +185,6 @@ local Interceptor = class()
 
 -- Optional field that may be provided to configure the interceptor:
 -- prvkey: private key associated to the key registered to the login
--- legacy: ACS facet of OpenBus 1.5 to validate legacy invocations
 
 function Interceptor:__init()
   self:resetCaches()
@@ -249,104 +226,65 @@ function Interceptor:unmarshalCredential(contexts)
     end
     return credential
   end
-  if self.legacy ~= nil then
-    local data = contexts[LegacyCredentialContextId]
-    if data ~= nil then
-      local credential = orb:newdecoder(data):get(types.LegacyCredential)
-      local loginId = credential.identifier
-      local entity = credential.owner
-      local delegate = credential.delegate
-      local caller = {id=loginId, entity=entity}
-      local originators = {}
-      if delegate ~= "" then
-        originators[1] = {id="<unknown>",entity=delegate}
-      end
-      credential.login = loginId
-      credential.chain = {
-        originators = originators,
-        caller = caller,
-      }
-      return credential
-    end
-  end
 end
 
 
 
 function Interceptor:sendrequest(request)
   local contexts = {}
-  local legacy = self.legacy
   local context = self.context
   local orb = context.orb
   local chain = context.joinedChainOf[running()]
-  if chain==nil or chain.signature~=nil then -- no legacy chain (OpenBus 1.5)
-    local sessionid, ticket, hash = 0, 0, NullHash
-    local target = self.profile2login:get(request.profile_data)
-    if target ~= nil then -- known IOR profile, so it supports OpenBus 2.0
-      legacy = nil -- do not send legacy credential (OpenBus 1.5)
-      local ok, result = pcall(self.signChainFor, self, target, chain or NullChain)
-      if not ok then
-        log:exception(msg.UnableToSignChainForTarget:tag{
-          error = result,
-          target = target,
-          chain = chain,
-        })
-        local minor = loginconst.BusUnavailableCode
-        if result._repid == InvalidLoginsException then
-          minor = loginconst.InvalidTargetCode
-        end
-        setNoPermSysEx(request, minor)
-        return
+  local sessionid, ticket, hash = 0, 0, NullHash
+  local target = self.profile2login:get(request.profile_data)
+  if target ~= nil then -- known IOR profile, so it supports OpenBus 2.0
+    local ok, result = pcall(self.signChainFor, self, target, chain or NullChain)
+    if not ok then
+      log:exception(msg.UnableToSignChainForTarget:tag{
+        error = result,
+        target = target,
+        chain = chain,
+      })
+      local minor = loginconst.BusUnavailableCode
+      if result._repid == InvalidLoginsException then
+        minor = loginconst.InvalidTargetCode
       end
-      chain = result
-      local session = self.outgoingSessions:get(target)
-      if session ~= nil then -- credential session is established
-        sessionid = session.id
-        ticket = session.ticket+1
-        session.ticket = ticket
-        hash = calculateHash(session.secret, ticket, request)
-        log:access(self, msg.PerformBusCall:tag{
-          operation = request.operation_name,
-          remote = target,
-        })
-      else
-        log:access(self, msg.ReinitiateCredentialSession:tag{
-          operation = request.operation_name,
-        })
-      end
+      setNoPermSysEx(request, minor)
+      return
+    end
+    chain = result
+    local session = self.outgoingSessions:get(target)
+    if session ~= nil then -- credential session is established
+      sessionid = session.id
+      ticket = session.ticket+1
+      session.ticket = ticket
+      hash = calculateHash(session.secret, ticket, request)
+      log:access(self, msg.PerformBusCall:tag{
+        operation = request.operation_name,
+        remote = target,
+      })
     else
-      log:access(self, msg.InitiateCredentialSession:tag{
+      log:access(self, msg.ReinitiateCredentialSession:tag{
         operation = request.operation_name,
       })
     end
-    -- marshal credential information
-    local credential = {
-      bus = self.busid,
-      login = self.login.id,
-      session = sessionid,
-      ticket = ticket,
-      hash = hash,
-      chain = chain or NullChain,
-    }
-    local encoder = orb:newencoder()
-    encoder:put(credential, context.types.CredentialData)
-    contexts[CredentialContextId] = encoder:getdata()
+  else
+    log:access(self, msg.InitiateCredentialSession:tag{
+      operation = request.operation_name,
+    })
   end
-  -- marshal legacy credential (OpenBus 1.5)
-  if legacy ~= nil then
-    local encoder = orb:newencoder()
-    local login = self.login
-    encoder:string(login.id)
-    encoder:string(login.entity)
-    if chain == nil then
-      encoder:string("")
-    elseif #chain.originators > 0 and self.legacyDelegOrig then
-      encoder:string(chain.originators[1].entity)
-    else
-      encoder:string(chain.caller.entity)
-    end
-    contexts[LegacyCredentialContextId] = encoder:getdata()
-  end
+  -- marshal credential information
+  local credential = {
+    bus = self.busid,
+    login = self.login.id,
+    session = sessionid,
+    ticket = ticket,
+    hash = hash,
+    chain = chain or NullChain,
+  }
+  local encoder = orb:newencoder()
+  encoder:put(credential, context.types.CredentialData)
+  contexts[CredentialContextId] = encoder:getdata()
   request.service_context = contexts
 end
 
@@ -425,14 +363,6 @@ function Interceptor:receiverequest(request, credential)
             })
             setNoPermSysEx(request, loginconst.InvalidChainCode)
           end
-        elseif busid == nil then
-          -- invalid legacy credential (OpenBus 1.5)
-          log:exception(msg.GotLegacyCallWithInvalidCredential:tag{
-            operation = request.operation_name,
-            remote = caller.id,
-            entity = caller.entity,
-            delegate = credential.delegate,
-          })
         else
           -- invalid credential, try to reset credetial session
           local sessions = self.incomingSessions
@@ -466,19 +396,13 @@ function Interceptor:receiverequest(request, credential)
             setNoPermSysEx(request, loginconst.InvalidPublicKeyCode)
           end
         end
-      elseif busid ~= nil then
+      else
         -- credential with invalid login
         log:exception(msg.GotCallWithInvalidLogin:tag{
           operation = request.operation_name,
           remote = credential.login,
         })
         setNoPermSysEx(request, loginconst.InvalidLoginCode)
-      else
-        -- legacy credential with invalid login (OpenBus 1.5)
-        log:exception(msg.GotLegacyCallWithInvalidLogin:tag{
-          operation = request.operation_name,
-          remote = credential.login,
-        })
       end
     else
       -- credential for another bus
@@ -540,7 +464,6 @@ function module.initORB(configs)
   configs.flavor = configs.flavor or "cooperative;corba.intercepted"
   local orb = neworb(configs)
   loadidl(orb)
-  loadoldidl(orb)
   return orb
 end
 

@@ -7,9 +7,8 @@ local luaidl = require "luaidl"
 local parse = luaidl.parse
 
 local idlspec = [[
-#include "fault_tolerance.idl"
-#include "access_control_service.idl"
-#include "registry_service.idl"
+#include "access_control.idl"
+#include "offer_registry.idl"
 ]]
 
 local idlpath = os.getenv("OPENBUS_IDLPATH")
@@ -21,7 +20,7 @@ end
 local Compiler = require "oil.corba.idl.Compiler"
 local options = Compiler().defaults
 options.incpath = {
-  idlpath.."/v1_05",
+  idlpath.."/old",
   idlpath.."/scs",
 }
 return { assert(parse(idlspec, options)) }

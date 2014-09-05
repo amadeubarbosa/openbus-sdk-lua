@@ -18,7 +18,7 @@ local Compiler = require "oil.corba.idl.Compiler"
 local options = Compiler().defaults
 options.incpath = {
   idlpath.."/lib",
-  idlpath.."/v2_1",
+  idlpath.."/core",
   idlpath.."/scs",
 }
 return { assert(parse(idlspec, options)) }
