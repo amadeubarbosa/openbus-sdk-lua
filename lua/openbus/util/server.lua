@@ -26,6 +26,7 @@ local Arguments = require "loop.compiler.Arguments"
 
 local ComponentContext = require "scs.core.ComponentContext"
 
+local log = require "openbus.util.logger"
 local msg = require "openbus.util.messages"
 local oo = require "openbus.util.oo"
 local class = oo.class
@@ -42,10 +43,6 @@ local function defaultAdd(list, value)
   list[#list+1] = tostring(value)
 end
 
-local function report(msg)
-  stderr:write("CONFIG WARNING: ", msg, "\n")
-end
-
 function module.setuplog(log, level, path, mode)
   log:level(level)
   if path ~= nil and path ~= "" then
@@ -54,6 +51,7 @@ function module.setuplog(log, level, path, mode)
       log:misconfig(msg.BadLogFile:tag{path=path,errmsg=errmsg})
     else
       log.viewer.output = file
+      return path
     end
   end
 end
@@ -72,8 +70,8 @@ function module.readfrom(path, mode)
 end
 
 function module.readpublickey(path)
-  local file, errmsg = assert(io.open(path, "rb"))
-  if file then
+  local file, errmsg = io.open(path, "rb")
+  if file ~= nil then
     local certificate
     certificate, errmsg = file:read("*a")
     file:close()
@@ -90,8 +88,8 @@ function module.readpublickey(path)
 end
 
 function module.readprivatekey(path)
-  local file, errmsg = assert(io.open(path, "rb"))
-  if file then
+  local file, errmsg = io.open(path, "rb")
+  if file ~=  nil then
     local key
     key, errmsg = file:read("*a")
     file:close()
@@ -186,43 +184,48 @@ module.ConfigArgs = class({
 
 function module.ConfigArgs:configs(_, path)
   local sandbox = setmetatable({}, SafeEnv)
-  local loader, errmsg = loadfile(path, "t", sandbox)
-  if loader ~= nil then
-    loader() -- let errors in config file propagate
-    for name, value in pairs(sandbox) do
-      local kind = type(self[name])
-      if kind == "nil" then
-        report(msg.BadParamInConfigFile:tag{
-          configname = name,
-          path = path,
-        })
-        self[name] = value
-      elseif kind ~= type(value) then
-        report(msg.BadParamTypeInConfigFile:tag{
-          configname = name,
-          path = path,
-          expected = kind,
-          actual = type(value),
-        })
-      elseif kind == "table" then
-        local list = self[name]
-        local add = list.add or defaultAdd
-        for index, value in ipairs(value) do
-          local errmsg = add(list, tostring(value))
-          if errmsg ~= nil then
-            report(msg.BadParamListInConfigFile:tag{
-              configname = name,
-              index = index,
-              path = path,
-            })
+  local result, errmsg = loadfile(path, "t", sandbox)
+  if result ~= nil then
+    result, errmsg = xpcall(result, traceback)
+    if result then
+      for name, value in pairs(sandbox) do
+        local kind = type(self[name])
+        if kind == "nil" then
+          log:misconfig(msg.BadParamInConfigFile:tag{
+            configname = name,
+            path = path,
+          })
+          self[name] = value
+        elseif kind ~= type(value) then
+          log:misconfig(msg.BadParamTypeInConfigFile:tag{
+            configname = name,
+            path = path,
+            expected = kind,
+            actual = type(value),
+          })
+        elseif kind == "table" then
+          local list = self[name]
+          local add = list.add or defaultAdd
+          for index, value in ipairs(value) do
+            local errmsg = add(list, tostring(value))
+            if errmsg ~= nil then
+              log:misconfig(msg.BadParamListInConfigFile:tag{
+                configname = name,
+                index = index,
+                path = path,
+              })
+            end
           end
+        else
+          self[name] = value
         end
-      else
-        self[name] = value
       end
+      log:config(msg.ConfigFileLoaded:tag{path=path})
+    else
+      log:misconfig(msg.UnableToLoadConfigFile:tag{path=path,errmsg=errmsg})
     end
   else
-    report(msg.UnableToLoadConfigFile:tag{path=path,errmsg=errmsg})
+    log:misconfig(msg.UnableToLoadConfigFile:tag{path=path,errmsg=errmsg})
   end
 end
 
