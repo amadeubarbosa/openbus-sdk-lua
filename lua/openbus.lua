@@ -358,10 +358,11 @@ function Connection:resetCaches()
   self.signedChainOf = memoize(function(chain) return LRUCache() end, "k")
 end
 
+local NullChain = {}
 function Connection:signChainFor(target, chain)
   if target == BusLogin then return chain end
   local access = self.AccessControl
-  local cache = self.signedChainOf[chain]
+  local cache = self.signedChainOf[chain or NullChain]
   local joined = cache:get(target)
   while joined == nil do
     joined = access:signChainFor(target)
@@ -372,7 +373,7 @@ function Connection:signChainFor(target, chain)
         minor = loginconst.NoLoginCode,
       }
     end
-    cache = self.signedChainOf[chain]
+    cache = self.signedChainOf[chain or NullChain]
     if unmarshalChain(self, joined).caller.id == login.id then
       cache:put(target, joined)
       break
@@ -589,8 +590,10 @@ function Context:__init()
   self.connectionOf = setmetatable({}, WeakKeys) -- [thread]=connection
   self.types.LoginAuthenticationInfo =
     self.orb.types:lookup_id(logintypes.LoginAuthenticationInfo)
-  self.context = self -- to execute 'BaseInterceptor.unmarshalCredential(self)'
-  self.legacy = true -- to execute 'BaseInterceptor.unmarshalCredential(self)'
+  -- following necessary to execute 'BaseInterceptor.unmarshalCredential(self)'
+  self.context = self 
+  self.legacy = true
+  self.unmarshalSignedChain = BaseInterceptor.unmarshalSignedChain
 end
 
 function Context:sendrequest(request)
@@ -739,6 +742,18 @@ function Context:getOfferRegistry()
     }
   end
   return getCoreFacet(conn, "OfferRegistry", "offer_registry")
+end
+
+function Context:makeChainFor(loginId)
+  local conn = self:getCurrentConnection()
+  if conn == nil or conn.login == nil then
+    sysexthrow.NO_PERMISSION{
+      completed = "COMPLETED_NO",
+      minor = loginconst.NoLoginCode,
+    }
+  end
+  local signed = conn:signChainFor(loginId, self:getJoinedChain())
+  return conn:unmarshalSignedChain(signed)
 end
 
 

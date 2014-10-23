@@ -227,6 +227,23 @@ function Interceptor:resetCaches()
   }
 end
 
+function Interceptor:unmarshalSignedChain(chain)
+  local encoded = chain.encoded
+  if encoded ~= "" then
+    local context = self.context
+    local types = context.types
+    local orb = context.orb
+    local decoder = orb:newdecoder(chain.encoded)
+    local decoded = decoder:get(types.CallChain)
+    local originators = decoded.originators
+    originators.n = nil -- remove field 'n' created by OiL unmarshal
+    chain.originators = originators
+    chain.caller = decoded.caller
+    chain.target = decoded.target
+    return chain
+  end
+end
+
 function Interceptor:unmarshalCredential(contexts)
   local context = self.context
   local types = context.types
@@ -234,19 +251,7 @@ function Interceptor:unmarshalCredential(contexts)
   local data = contexts[CredentialContextId]
   if data ~= nil then
     local credential = orb:newdecoder(data):get(types.CredentialData)
-    local chain = credential.chain
-    local encoded = chain.encoded
-    if encoded == "" then
-      credential.chain = nil
-    else
-      local decoder = orb:newdecoder(encoded)
-      local decoded = decoder:get(types.CallChain)
-      local originators = decoded.originators
-      originators.n = nil -- remove field 'n' created by OiL unmarshal
-      chain.originators = originators
-      chain.caller = decoded.caller
-      chain.target = decoded.target
-    end
+    credential.chain = self:unmarshalSignedChain(credential.chain)
     return credential
   end
   if self.legacy ~= nil then
