@@ -227,7 +227,7 @@ function Interceptor:resetCaches()
   }
 end
 
-function Interceptor:unmarshalSignedChain(chain)
+function Interceptor:unmarshalSignedChain(chain, busid)
   local encoded = chain.encoded
   if encoded ~= "" then
     local context = self.context
@@ -240,10 +240,12 @@ function Interceptor:unmarshalSignedChain(chain)
     chain.originators = originators
     chain.caller = decoded.caller
     chain.target = decoded.target
+    chain.busid = busid
     return chain
   end
 end
 
+local unmarshalSignedChain = Interceptor.unmarshalSignedChain
 function Interceptor:unmarshalCredential(contexts)
   local context = self.context
   local types = context.types
@@ -251,7 +253,7 @@ function Interceptor:unmarshalCredential(contexts)
   local data = contexts[CredentialContextId]
   if data ~= nil then
     local credential = orb:newdecoder(data):get(types.CredentialData)
-    credential.chain = self:unmarshalSignedChain(credential.chain)
+    credential.chain = unmarshalSignedChain(self, credential.chain, credential.bus)
     return credential
   end
   if self.legacy ~= nil then

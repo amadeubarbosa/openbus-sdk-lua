@@ -1,20 +1,9 @@
 local _G = require "_G"
 local assert = _G.assert
-local error = _G.error
-local ipairs = _G.ipairs
-local pairs = _G.pairs
 local pcall = _G.pcall
-local type = _G.type
-local coroutine = require "coroutine"
-local string = require "string"
-local io = require "io"
-local uuid = require "uuid"
 local giop = require "oil.corba.giop"
-local cothread = require "cothread"
 local openbus = require "openbus"
-local libidl = require "openbus.idl"
 local idl = require "openbus.core.idl"
-local msg = require "openbus.util.messages"
 local log = require "openbus.util.logger"
 
 local sysex = giop.SystemExceptionIDs
@@ -24,7 +13,6 @@ require "openbus.test.configs"
 
 syskey = assert(openbus.readKeyFile(syskey))
 
-local smalltime = .1
 local connprops = { accesskey = openbus.newKey() }
 
 local orb = openbus.initORB()
@@ -38,12 +26,19 @@ do log:TEST("Make chains for active logins")
   conn1:loginByPassword(user, password)
   local conn2 = OpenBusContext:createConnection(bushost, busport, connprops)
   conn2:loginByCertificate(system, syskey)
+  assert(conn1.busid == conn2.busid)
+  local busid = conn1.busid
+  local login1 = conn1.login.id
+  local entity1 = conn1.login.entity
+  local login2 = conn2.login.id
+  local entity2 = conn2.login.entity
 
   OpenBusContext:setDefaultConnection(conn1)
   local chain1to2 = OpenBusContext:makeChainFor(conn2.login.id)
-  assert(chain1to2.target == conn2.login.entity)
-  assert(chain1to2.caller.id == conn1.login.id)
-  assert(chain1to2.caller.entity == conn1.login.entity)
+  assert(chain1to2.busid == busid)
+  assert(chain1to2.target == entity2)
+  assert(chain1to2.caller.id == login1)
+  assert(chain1to2.caller.entity == entity1)
   assert(#chain1to2.originators == 0)
 
   OpenBusContext:joinChain(chain1to2)
@@ -55,11 +50,12 @@ do log:TEST("Make chains for active logins")
 
   OpenBusContext:setDefaultConnection(conn2)
   local chain1to2to1 = OpenBusContext:makeChainFor(conn1.login.id)
-  assert(chain1to2to1.target == conn1.login.entity)
-  assert(chain1to2to1.caller.id == conn2.login.id)
-  assert(chain1to2to1.caller.entity == conn2.login.entity)
-  assert(chain1to2to1.originators[1].id == conn1.login.id)
-  assert(chain1to2to1.originators[1].entity == conn1.login.entity)
+  assert(chain1to2to1.busid == busid)
+  assert(chain1to2to1.target == entity1)
+  assert(chain1to2to1.caller.id == login2)
+  assert(chain1to2to1.caller.entity == entity2)
+  assert(chain1to2to1.originators[1].id == login1)
+  assert(chain1to2to1.originators[1].entity == entity1)
   OpenBusContext:exitChain()
 
   OpenBusContext:setDefaultConnection(nil)
