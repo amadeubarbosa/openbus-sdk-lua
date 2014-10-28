@@ -103,6 +103,7 @@ local function newSecret()
 end
 
 local function setNoPermSysEx(request, minor)
+  request.islocal = true
   request.success = false
   request.results = {CORBAException{"NO_PERMISSION",
     completed = "COMPLETED_NO",
@@ -356,46 +357,60 @@ function Interceptor:sendrequest(request)
   request.service_context = contexts
 end
 
+local ExclusivelyLocal = {
+  [loginconst.NoLoginCode] = true,
+  [loginconst.InvalidRemoteCode] = true,
+  [loginconst.UnavailableBusCode] = true,
+  [loginconst.InvalidTargetCode] = true,
+}
+
 function Interceptor:receivereply(request)
   if not request.success then
     local except = request.results[1]
     if except._repid == sysex.NO_PERMISSION
-    and except.completed == "COMPLETED_NO"
-    and except.minor == loginconst.InvalidCredentialCode then
-      -- got invalid credential exception
-      local data = request.reply_service_context[CredentialContextId]
-      if data ~= nil then
-        local context = self.context
-        local decoder = context.orb:newdecoder(data)
-        local reset = decoder:get(context.types.CredentialReset)
-        local secret, errmsg = self.prvkey:decrypt(reset.challenge)
-        if secret ~= nil then
-          local target = reset.target
-          log:access(self, msg.GotCredentialReset:tag{
-            operation = request.operation_name,
-            remote = target,
-          })
-          reset.secret = secret
-          -- initialize session and set credential session information
-          self.profile2login:put(request.profile_data, target)
-          self.outgoingSessions:put(target, {
-            id = reset.session,
-            secret = reset.secret,
-            remote = target,
-            ticket = -1,
-          })
-          request.success = nil -- reissue request to the same reference
+    and except.completed == "COMPLETED_NO" then
+      if except.minor == loginconst.InvalidCredentialCode then
+        -- got invalid credential exception
+        local data = request.reply_service_context[CredentialContextId]
+        if data ~= nil then
+          local context = self.context
+          local decoder = context.orb:newdecoder(data)
+          local reset = decoder:get(context.types.CredentialReset)
+          local secret, errmsg = self.prvkey:decrypt(reset.challenge)
+          if secret ~= nil then
+            local target = reset.target
+            log:access(self, msg.GotCredentialReset:tag{
+              operation = request.operation_name,
+              remote = target,
+            })
+            reset.secret = secret
+            -- initialize session and set credential session information
+            self.profile2login:put(request.profile_data, target)
+            self.outgoingSessions:put(target, {
+              id = reset.session,
+              secret = reset.secret,
+              remote = target,
+              ticket = -1,
+            })
+            request.success = nil -- reissue request to the same reference
+          else
+            log:exception(msg.GotCredentialResetWithBadChallenge:tag{
+              operation = request.operation_name,
+              remote = reset.target,
+              error = errmsg,
+            })
+            except.minor = loginconst.InvalidRemoteCode
+          end
         else
-          log:exception(msg.GotCredentialResetWihtBadChallenge:tag{
+          log:exception(msg.CredentialResetMissing:tag{
             operation = request.operation_name,
-            remote = reset.target,
-            error = errmsg,
           })
           except.minor = loginconst.InvalidRemoteCode
         end
-      else
-        log:exception(msg.CredentialResetMissing:tag{
+      elseif not request.islocal and ExclusivelyLocal[except.minor] ~= nil then
+        log:exception(msg.IllegalUseOfLocalMinorCodeByRemoteSite:tag{
           operation = request.operation_name,
+          codeused = except.minor,
         })
         except.minor = loginconst.InvalidRemoteCode
       end
