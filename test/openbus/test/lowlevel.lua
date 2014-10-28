@@ -117,9 +117,7 @@ do -- protocol data encoding functions
   end
 
   function encodeCredential(data)
-    if data.hash == nil then
-      data.hash = calcHash(data.secret, data.ticket, data.opname)
-    end
+    data.hash = calculateHash(data.secret, data.ticket, data.opname)
     return encodeCDR(data, credtypes.CredentialData)
   end
 
