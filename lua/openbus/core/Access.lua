@@ -281,7 +281,8 @@ function Interceptor:sendrequest(request)
   local chain = context.joinedChainOf[running()]
   if chain==nil or chain.signature~=nil then -- no legacy chain (OpenBus 1.5)
     local sessionid, ticket, hash = 0, 0, NullHash
-    local target = self.profile2login:get(request.profile_data)
+    local profile2login = self.profile2login
+    local target = profile2login:get(request.profile_data)
     if target ~= nil then -- known IOR profile, so it supports OpenBus 2.0
       legacy = nil -- do not send legacy credential (OpenBus 1.5)
       local ok, result = pcall(self.signChainFor, self, target, chain or NullChain)
@@ -291,8 +292,13 @@ function Interceptor:sendrequest(request)
           target = target,
           chain = chain,
         })
-        local minor = loginconst.BusUnavailableCode
+        local minor = loginconst.UnavailableBusCode
         if result._repid == InvalidLoginsException then
+          for profile_data, profile_target in pairs(profile2login.map) do
+            if target == profile_target then
+              profile2login:remove(profile_data)
+            end
+          end
           minor = loginconst.InvalidTargetCode
         end
         setNoPermSysEx(request, minor)
