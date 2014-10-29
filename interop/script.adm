@@ -11,6 +11,7 @@ for case, services in pairs{
   SharedAuth = { "Hello" },
   ReloggedJoin = { "Hello" },
   Delegation = { "Messenger","Broadcaster","Forwarder" },
+  Protocol = { "Server" },
   Chaining = { "Hello","HelloProxy" },
 } do
   for _, iface in ipairs(services) do

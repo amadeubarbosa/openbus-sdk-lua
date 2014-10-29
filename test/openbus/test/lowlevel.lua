@@ -108,13 +108,25 @@ do -- CORBA GIOP message context manipuation functions
 end
 
 do -- protocol data encoding functions
+  function calculateHash(secret, ticket, opname)
+    return sha256("\002\000"..encode(
+      "<c0I4c0", -- '<' flag to set to little endian
+      secret,    -- 'c0' sequence of all chars of a string
+      ticket,    -- 'I4' unsigned integer with 4 bytes
+      opname))   -- 'c0' sequence of all chars of a string
+  end
+
   function encodeCredential(data)
-    data.hash = sha256("\002\000"..encode(
-      "<c0I4c0",    -- '<' flag to set to little endian
-      data.secret,  -- 'c0' sequence of all chars of a string
-      data.ticket,  -- 'I4' unsigned integer with 4 bytes
-      data.opname)) -- 'c0' sequence of all chars of a string
+    data.hash = calculateHash(data.secret, data.ticket, data.opname)
     return encodeCDR(data, credtypes.CredentialData)
+  end
+
+  function decodeCredential(stream)
+    return decodeCDR(stream, credtypes.CredentialData)
+  end
+
+  function encodeReset(data)
+    return encodeCDR(data, credtypes.CredentialReset)
   end
 
   function decodeReset(stream, prvkey)
