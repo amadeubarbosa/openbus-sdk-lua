@@ -17,7 +17,7 @@ local running = coroutine.running
 local newthread = coroutine.create
 
 local string = require "string"
-local strrep = string.rep
+local repeatstr = string.rep
 
 local math = require "math"
 local inf = math.huge
@@ -56,13 +56,25 @@ local sysexthrow = require "openbus.util.sysex"
 
 local libidl = require "openbus.idl"
 local throw = libidl.throw
+local AlreadyLoggedIn = throw.AlreadyLoggedIn
+local InvalidBusAddress = throw.InvalidBusAddress
+local InvalidLoginProcess = throw.InvalidLoginProcess
+local InvalidPropertyValue = throw.InvalidPropertyValue
 local coreidl = require "openbus.core.idl"
 local BusLogin = coreidl.const.BusLogin
 local EncryptedBlockSize = coreidl.const.EncryptedBlockSize
 local CredentialContextId = coreidl.const.credential.CredentialContextId
 local coresrvtypes = coreidl.types.services
 local loginconst = coreidl.const.services.access_control
+local InvalidPublicKeyCode = loginconst.InvalidPublicKeyCode
+local NoLoginCode = loginconst.NoLoginCode
+local InvalidLoginCode = loginconst.InvalidLoginCode
+local NoCredentialCode = loginconst.NoCredentialCode
+local UnknownBusCode = loginconst.UnknownBusCode
+local UnverifiedLoginCode = loginconst.UnverifiedLoginCode
 local logintypes = coreidl.types.services.access_control
+local InvalidLoginsRepId = logintypes.InvalidLogins
+local LoginAuthenticationInfoRepId = logintypes.LoginAuthenticationInfo
 local loginthrow = coreidl.throw.services.access_control
 local AccessDenied = loginthrow.AccessDenied
 local InvalidLogins = loginthrow.InvalidLogins
@@ -106,14 +118,14 @@ local function getLoginEntry(self, loginId)
         if pubkey == nil then
           sysexthrow.NO_PERMISSION{
             completed = "COMPLETED_NO",
-            minor = loginconst.InvalidPublicKeyCode,
+            minor = InvalidPublicKeyCode,
           }
         end
         entry = result
         entry.encodedkey = enckey
         entry.pubkey = pubkey
         entry.deadline = time() -- valid until this moment
-      elseif result._repid == logintypes.InvalidLogins then
+      elseif result._repid == InvalidLoginsRepId then
         entry = false
       else
         error(result)
@@ -253,7 +265,7 @@ end
 local function localLogin(self, AccessControl, buskey, login, lease)
   local busid = AccessControl:_get_busid()
   local LoginRegistry = getCoreFacet(self, "LoginRegistry", "access_control")
-  if self.login ~= nil then throw.AlreadyLoggedIn() end
+  if self.login ~= nil then AlreadyLoggedIn() end
   self.invalidLogin = nil
   self.busid = busid
   self.buskey = buskey
@@ -304,13 +316,13 @@ local function getLogin(self)
   return login
 end
 
-local MaxEncryptedData = strrep("\255", EncryptedBlockSize-11)
+local MaxEncryptedData = repeatstr("\255", EncryptedBlockSize-11)
 
 local function busaddress2component(orb, host, port, key)
   local ref = "corbaloc::"..host..":"..port.."/"..key
   local ok, result = pcall(orb.newproxy, orb, ref, nil, "scs::core::IComponent")
   if not ok then
-    throw.InvalidBusAddress{host=host,port=port,message=tostring(result)}
+    InvalidBusAddress{host=host,port=port,message=tostring(result)}
   end
   return result
 end
@@ -369,7 +381,7 @@ function Connection:signChainFor(target, chain)
     if login == nil then
       sysexthrow.NO_PERMISSION{
         completed = "COMPLETED_NO",
-        minor = loginconst.NoLoginCode,
+        minor = NoLoginCode,
       }
     end
     cache = self.signedChainOf[chain]
@@ -389,7 +401,7 @@ function Connection:sendrequest(request)
     sendBusRequest(self, request)
     request.login = login
   else
-    setNoPermSysEx(request, loginconst.NoLoginCode)
+    setNoPermSysEx(request, NoLoginCode)
     log:exception(msg.AttemptToCallWhileNotLoggedIn:tag{
       operation = request.operation_name,
     })
@@ -402,7 +414,7 @@ function Connection:receivereply(request)
     local except = request.results[1]
     if except._repid == sysex.NO_PERMISSION
     and except.completed == "COMPLETED_NO"
-    and except.minor == loginconst.InvalidLoginCode then
+    and except.minor == InvalidLoginCode then
       local invlogin = request.login
       if self.login == invlogin then
         localLogout(self)
@@ -422,7 +434,7 @@ function Connection:receivereply(request)
           entity = login.entity,
         })
       else
-        except.minor = loginconst.NoLoginCode
+        except.minor = NoLoginCode
       end
     end
   end
@@ -436,24 +448,24 @@ function Connection:receiverequest(request)
         log:exception(msg.DeniedOrdinaryCall:tag{
           operation = request.operation.name,
         })
-        setNoPermSysEx(request, loginconst.NoCredentialCode)
+        setNoPermSysEx(request, NoCredentialCode)
       end
     else
       if ex._repid == sysex.NO_PERMISSION
       and ex.completed == "COMPLETED_NO"
-      and ex.minor == loginconst.NoLoginCode
+      and ex.minor == NoLoginCode
       then
         log:exception(msg.LostLoginDuringCallDispatch:tag{
           operation = request.operation.name,
         })
-        setNoPermSysEx(request, loginconst.UnknownBusCode)
+        setNoPermSysEx(request, UnknownBusCode)
       elseif ex._repid == sysex.TRANSIENT 
           or ex._repid == sysex.COMM_FAILURE
       then
         log:exception(msg.UnableToVerifyLoginDueToCoreServicesUnaccessible:tag{
           operation = request.operation.name,
         })
-        setNoPermSysEx(request, loginconst.UnverifiedLoginCode)
+        setNoPermSysEx(request, UnverifiedLoginCode)
       else
         error(ex)
       end
@@ -462,13 +474,13 @@ function Connection:receiverequest(request)
     log:exception(msg.GotCallWhileNotLoggedIn:tag{
       operation = request.operation_name,
     })
-    setNoPermSysEx(request, loginconst.UnknownBusCode)
+    setNoPermSysEx(request, UnknownBusCode)
   end
 end
 
 
 function Connection:loginByPassword(entity, password)
-  if self.login ~= nil then throw.AlreadyLoggedIn() end
+  if self.login ~= nil then AlreadyLoggedIn() end
   local AccessControl, buskey = intiateLogin(self)
   local pubkey = self.prvkey:encode("public")
   local encrypted, errmsg = encryptLogin(self, buskey, pubkey, password)
@@ -484,7 +496,7 @@ function Connection:loginByPassword(entity, password)
 end
 
 function Connection:loginByCertificate(entity, privatekey)
-  if self.login ~= nil then throw.AlreadyLoggedIn() end
+  if self.login ~= nil then AlreadyLoggedIn() end
   local AccessControl, buskey = intiateLogin(self)
   local attempt, challenge = AccessControl:startLoginByCertificate(entity)
   local secret, errmsg = privatekey:decrypt(challenge)
@@ -517,7 +529,7 @@ function Connection:startSharedAuth()
   if AccessControl == nil then
     sysexthrow.NO_PERMISSION{
       completed = "COMPLETED_NO",
-      minor = loginconst.NoLoginCode,
+      minor = NoLoginCode,
     }
   end
   local attempt, challenge = callWithin(self, AccessControl,
@@ -535,7 +547,7 @@ function Connection:cancelSharedAuth(attempt)
 end
 
 function Connection:loginBySharedAuth(attempt, secret)
-  if self.login ~= nil then throw.AlreadyLoggedIn() end
+  if self.login ~= nil then AlreadyLoggedIn() end
   local AccessControl, buskey = intiateLogin(self)
   local pubkey = self.prvkey:encode("public")
   local encrypted, errmsg = encryptLogin(self, buskey, pubkey, secret)
@@ -546,7 +558,7 @@ function Connection:loginBySharedAuth(attempt, secret)
   local ok, login, lease = pcall(attempt.login, attempt, pubkey, encrypted)
   if not ok then
     if login._repid == sysex.OBJECT_NOT_EXIST then
-      throw.InvalidLoginProcess()
+      InvalidLoginProcess()
     end
     error(login)
   end
@@ -588,7 +600,7 @@ function Context:__init()
   if self.prvkey == nil then self.prvkey = newkey(EncryptedBlockSize) end
   self.connectionOf = setmetatable({}, WeakKeys) -- [thread]=connection
   self.types.LoginAuthenticationInfo =
-    self.orb.types:lookup_id(logintypes.LoginAuthenticationInfo)
+    self.orb.types:lookup_id(LoginAuthenticationInfoRepId)
   self.context = self -- to execute 'BaseInterceptor.unmarshalCredential(self)'
   self.legacy = true -- to execute 'BaseInterceptor.unmarshalCredential(self)'
 end
@@ -603,7 +615,7 @@ function Context:sendrequest(request)
       log:exception(msg.AttemptToCallWithoutConnection:tag{
         operation = request.operation_name,
       })
-      setNoPermSysEx(request, loginconst.NoLoginCode)
+      setNoPermSysEx(request, NoLoginCode)
     end
   else
     log:access(self, msg.PerformIgnoredCall:tag{
@@ -634,7 +646,7 @@ function Context:receiverequest(request)
     log:exception(msg.GotCallWhileDisconnected:tag{
       operation = request.operation_name,
     })
-    setNoPermSysEx(request, loginconst.UnknownBusCode)
+    setNoPermSysEx(request, UnknownBusCode)
   end
 end
 
@@ -657,7 +669,7 @@ function Context:createConnection(host, port, props)
     if delegorig == "originator" then
       delegorig = true
     elseif delegorig ~= nil and delegorig ~= "caller" then
-      throw.InvalidPropertyValue{property="legacydelegate",value=delegorig}
+      InvalidPropertyValue{property="legacydelegate",value=delegorig}
     end
     legacy = busaddress2component(orb, host, port, "openbus_v1_05")
   end
@@ -666,21 +678,21 @@ function Context:createConnection(host, port, props)
   if prvkey ~= nil then
     local result, errmsg = decodepubkey(prvkey:encode("public"))
     if result == nil then
-      throw.InvalidPropertyValue{
+      InvalidPropertyValue{
         property = "accesskey",
         value = msg.UnableToObtainThePublicKey:tag{error=errmsg},
       }
     end
     result, errmsg = result:encrypt(MaxEncryptedData)
     if result == nil then
-      throw.InvalidPropertyValue{
+      InvalidPropertyValue{
         property = "accesskey",
         value = msg.UnableToEncodeDataUsingPublicKey:tag{error=errmsg},
       }
     end
     result, errmsg = prvkey:decrypt(result)
     if result == nil then
-      throw.InvalidPropertyValue{
+      InvalidPropertyValue{
         property = "accesskey",
         value = msg.UnableToDecodeDataUsingTheKey:tag{error=errmsg},
       }
@@ -724,7 +736,7 @@ function Context:getLoginRegistry()
   if conn == nil or conn.login == nil then
     sysexthrow.NO_PERMISSION{
       completed = "COMPLETED_NO",
-      minor = loginconst.NoLoginCode,
+      minor = NoLoginCode,
     }
   end
   return conn.LoginRegistry
@@ -735,7 +747,7 @@ function Context:getOfferRegistry()
   if conn == nil or conn.login == nil then
     sysexthrow.NO_PERMISSION{
       completed = "COMPLETED_NO",
-      minor = loginconst.NoLoginCode,
+      minor = NoLoginCode,
     }
   end
   return getCoreFacet(conn, "OfferRegistry", "offer_registry")
