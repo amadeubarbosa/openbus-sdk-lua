@@ -46,40 +46,50 @@ local threadtrap = cothread.trap
 local unschedule = cothread.unschedule
 
 local giop = require "oil.corba.giop"
-local sysex = giop.SystemExceptionIDs
+local sysexrepid = giop.SystemExceptionIDs
+local NO_PERMISSION_RepId = sysexrepid.NO_PERMISSION
+local TRANSIENT_RepId = sysexrepid.TRANSIENT
+local COMM_FAILURE_RepId = sysexrepid.COMM_FAILURE
+local OBJECT_NOT_EXIST_RepId = sysexrepid.OBJECT_NOT_EXIST
 
 local log = require "openbus.util.logger"
 local msg = require "openbus.util.messages"
 local oo = require "openbus.util.oo"
 local class = oo.class
 local sysexthrow = require "openbus.util.sysex"
+local NO_PERMISSION = sysexthrow.NO_PERMISSION
 
 local libidl = require "openbus.idl"
-local throw = libidl.throw
-local AlreadyLoggedIn = throw.AlreadyLoggedIn
-local InvalidBusAddress = throw.InvalidBusAddress
-local InvalidLoginProcess = throw.InvalidLoginProcess
-local InvalidPropertyValue = throw.InvalidPropertyValue
+local libthrow = libidl.throw
+local AlreadyLoggedIn = libthrow.AlreadyLoggedIn
+local InvalidBusAddress = libthrow.InvalidBusAddress
+local InvalidLoginProcess = libthrow.InvalidLoginProcess
+local InvalidPropertyValue = libthrow.InvalidPropertyValue
 local coreidl = require "openbus.core.idl"
-local BusLogin = coreidl.const.BusLogin
-local EncryptedBlockSize = coreidl.const.EncryptedBlockSize
-local CredentialContextId = coreidl.const.credential.CredentialContextId
-local coresrvtypes = coreidl.types.services
-local loginconst = coreidl.const.services.access_control
+local coreconst = coreidl.const
+local BusLogin = coreconst.BusLogin
+local BusObjectKey = coreconst.BusObjectKey
+local EncryptedBlockSize = coreconst.EncryptedBlockSize
+local CredentialContextId = coreconst.credential.CredentialContextId
+local loginconst = coreconst.services.access_control
 local InvalidPublicKeyCode = loginconst.InvalidPublicKeyCode
 local NoLoginCode = loginconst.NoLoginCode
 local InvalidLoginCode = loginconst.InvalidLoginCode
 local NoCredentialCode = loginconst.NoCredentialCode
 local UnknownBusCode = loginconst.UnknownBusCode
 local UnverifiedLoginCode = loginconst.UnverifiedLoginCode
-local logintypes = coreidl.types.services.access_control
+local coresrvtypes = coreidl.types.services
+local logintypes = coresrvtypes.access_control
+local AccessControlRepId = logintypes.AccessControl
+local LoginRegistryRepId = logintypes.LoginRegistry
 local InvalidLoginsRepId = logintypes.InvalidLogins
 local LoginAuthenticationInfoRepId = logintypes.LoginAuthenticationInfo
-local loginthrow = coreidl.throw.services.access_control
+local OfferRegistryRepId = coresrvtypes.offer_registry.OfferRegistry
+local coresrvthrow = coreidl.throw.services
+local loginthrow = coresrvthrow.access_control
 local AccessDenied = loginthrow.AccessDenied
 local InvalidLogins = loginthrow.InvalidLogins
-local BusObjectKey = coreidl.const.BusObjectKey
-local ServiceFailure = coreidl.throw.services.ServiceFailure
+local ServiceFailure = coresrvthrow.ServiceFailure
 local access = require "openbus.core.Access"
 local neworb = access.initORB
 local setNoPermSysEx = access.setNoPermSysEx
@@ -240,13 +250,12 @@ local function newRenewer(self, lease)
   resume(thread)
 end
 
-local function getCoreFacet(self, name, module)
-  return self.context.orb:narrow(self.bus:getFacetByName(name),
-                                 coresrvtypes[module][name])
+local function getCoreFacet(self, name, iface)
+  return self.context.orb:narrow(self.bus:getFacetByName(name), iface)
 end
 
 local function intiateLogin(self)
-  local AccessControl = getCoreFacet(self, "AccessControl", "access_control")
+  local AccessControl = getCoreFacet(self, "AccessControl", AccessControlRepId)
   local buskey, errmsg = decodepubkey(AccessControl:_get_buskey())
   if buskey == nil then
     ServiceFailure{message=msg.InvalidBusKey:tag{message=errmsg}}
@@ -264,7 +273,7 @@ end
 
 local function localLogin(self, AccessControl, buskey, login, lease)
   local busid = AccessControl:_get_busid()
-  local LoginRegistry = getCoreFacet(self, "LoginRegistry", "access_control")
+  local LoginRegistry = getCoreFacet(self, "LoginRegistry", LoginRegistryRepId)
   if self.login ~= nil then AlreadyLoggedIn() end
   self.invalidLogin = nil
   self.busid = busid
@@ -412,7 +421,7 @@ function Connection:receivereply(request)
   receiveBusReply(self, request)
   if request.success == false then
     local except = request.results[1]
-    if except._repid == sysex.NO_PERMISSION
+    if except._repid == NO_PERMISSION_RepID
     and except.completed == "COMPLETED_NO"
     and except.minor == InvalidLoginCode then
       local invlogin = request.login
@@ -451,7 +460,7 @@ function Connection:receiverequest(request)
         setNoPermSysEx(request, NoCredentialCode)
       end
     else
-      if ex._repid == sysex.NO_PERMISSION
+      if ex._repid == NO_PERMISSION_RepID
       and ex.completed == "COMPLETED_NO"
       and ex.minor == NoLoginCode
       then
@@ -459,8 +468,8 @@ function Connection:receiverequest(request)
           operation = request.operation.name,
         })
         setNoPermSysEx(request, UnknownBusCode)
-      elseif ex._repid == sysex.TRANSIENT 
-          or ex._repid == sysex.COMM_FAILURE
+      elseif ex._repid == TRANSIENT_RepID
+          or ex._repid == COMM_FAILURE_RepID
       then
         log:exception(msg.UnableToVerifyLoginDueToCoreServicesUnaccessible:tag{
           operation = request.operation.name,
@@ -512,7 +521,7 @@ function Connection:loginByCertificate(entity, privatekey)
   end
   local ok, login, lease = pcall(attempt.login, attempt, pubkey, encrypted)
   if not ok then
-    if login._repid == sysex.OBJECT_NOT_EXIST then
+    if login._repid == OBJECT_NOT_EXIST_RepID then
       ServiceFailure{message=msg.UnableToCompleteLoginByCertificateInTime}
     end
     error(login)
@@ -557,7 +566,7 @@ function Connection:loginBySharedAuth(attempt, secret)
   end
   local ok, login, lease = pcall(attempt.login, attempt, pubkey, encrypted)
   if not ok then
-    if login._repid == sysex.OBJECT_NOT_EXIST then
+    if login._repid == OBJECT_NOT_EXIST_RepID then
       InvalidLoginProcess()
     end
     error(login)
@@ -750,7 +759,7 @@ function Context:getOfferRegistry()
       minor = NoLoginCode,
     }
   end
-  return getCoreFacet(conn, "OfferRegistry", "offer_registry")
+  return getCoreFacet(conn, "OfferRegistry", OfferRegistryRepId)
 end
 
 
