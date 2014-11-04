@@ -71,10 +71,12 @@ local CredentialContextId = coreconst.credential.CredentialContextId
 local loginconst = coreconst.services.access_control
 local InvalidPublicKeyCode = loginconst.InvalidPublicKeyCode
 local NoLoginCode = loginconst.NoLoginCode
+local InvalidRemoteCode = loginconst.InvalidRemoteCode
 local InvalidLoginCode = loginconst.InvalidLoginCode
 local NoCredentialCode = loginconst.NoCredentialCode
 local UnknownBusCode = loginconst.UnknownBusCode
 local UnverifiedLoginCode = loginconst.UnverifiedLoginCode
+local UnavailableBusCode = loginconst.UnavailableBusCode
 local coresrvtypes = coreidl.types.services
 local logintypes = coresrvtypes.access_control
 local AccessControlRepId = logintypes.AccessControl
@@ -162,14 +164,6 @@ local function getLoginEntry(self, loginId)
   end
 end
 
-local function getLoginValidity(self, loginId)
-  local entry = getLoginEntry(self, loginId)
-  if entry ~= nil then
-    return max(.01, entry.deadline - time())
-  end
-  return 0
-end
-
 local function getLoginInfo(self, loginId)
   local entry = getLoginEntry(self, loginId)
   if entry ~= nil then
@@ -183,7 +177,6 @@ local function newLoginRegistryWrapper(LoginRegistry)
     __object = LoginRegistry,
     cache = LRUCache(),
     getLoginEntry = getLoginEntry,
-    getLoginValidity = getLoginValidity,
     getLoginInfo = getLoginInfo,
   }
   return self
@@ -420,31 +413,44 @@ function Connection:sendrequest(request)
   end
 end
 
+local InvalidLoginThreads = {}
+
 function Connection:receivereply(request)
   receiveBusReply(self, request)
-  if request.success == false then
+  local thread = running()
+  if request.success == false and InvalidLoginThreads[thread] == nil then
     local except = request.results[1]
     if is_NO_PERMISSION(except, InvalidLoginCode) then
       local invlogin = request.login
-      if self.login == invlogin then
-        localLogout(self)
-        self.invalidLogin = invlogin
-      end
       log:exception(msg.GotInvalidLoginException:tag{
         operation = request.operation_name,
         login = invlogin.id,
         entity = invlogin.entity,
       })
-      local login = getLogin(self)
-      if login ~= nil then
+      local logins = self.LoginRegistry
+      InvalidLoginThreads[thread] = true
+      local ok, result = pcall(logins.getLoginValidity, logins, invlogin.id)
+      InvalidLoginThreads[thread] = nil
+      if ok and result > 0 then
+        log:exception(msg.GotFalseInvalidLogin:tag{
+          invlogin = invlogin.id,
+        })
+        except.minor = InvalidRemoteCode
+      elseif ok or is_NO_PERMISSION(result, InvalidLoginCode) then
+        if self.login == invlogin then
+          localLogout(self)
+          self.invalidLogin = invlogin
+        end
         request.success = nil -- reissue request to the same reference
         log:action(msg.ReissueCallAfterInvalidLogin:tag{
           operation = request.operation_name,
-          login = login.id,
-          entity = login.entity,
         })
       else
-        except.minor = NoLoginCode
+        log:exception(msg.UnableToVerifyOwnLoginValidity:tag{
+          error = result,
+          invlogin = invlogin.id,
+        })
+        except.minor = UnavailableBusCode
       end
     end
   end
@@ -460,20 +466,18 @@ function Connection:receiverequest(request)
         })
         setNoPermSysEx(request, NoCredentialCode)
       end
+    elseif is_NO_PERMISSION(ex, NoLoginCode) then
+      log:exception(msg.LostLoginDuringCallDispatch:tag{
+        operation = request.operation.name,
+      })
+      setNoPermSysEx(request, UnknownBusCode)
+    elseif is_TRANSIENT(ex) or is_COMM_FAILURE(ex) then
+      log:exception(msg.UnableToVerifyLoginDueToCoreServicesUnaccessible:tag{
+        operation = request.operation.name,
+      })
+      setNoPermSysEx(request, UnverifiedLoginCode)
     else
-      if is_NO_PERMISSION(ex, NoLoginCode) then
-        log:exception(msg.LostLoginDuringCallDispatch:tag{
-          operation = request.operation.name,
-        })
-        setNoPermSysEx(request, UnknownBusCode)
-      elseif is_TRANSIENT(ex) or is_COMM_FAILURE(ex) then
-        log:exception(msg.UnableToVerifyLoginDueToCoreServicesUnaccessible:tag{
-          operation = request.operation.name,
-        })
-        setNoPermSysEx(request, UnverifiedLoginCode)
-      else
-        error(ex)
-      end
+      error(ex)
     end
   else
     log:exception(msg.GotCallWhileNotLoggedIn:tag{
