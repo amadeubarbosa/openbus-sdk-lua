@@ -31,8 +31,6 @@ local memoize = table.memoize
 
 local oil = require "oil"
 local neworb = oil.init
-local giop = require "oil.corba.giop"
-local sysex = giop.SystemExceptionIDs
 local CORBAException = require "oil.corba.giop.Exception"
 local idl = require "oil.corba.idl"
 local OctetSeq = idl.OctetSeq
@@ -47,6 +45,8 @@ local LRUCache = require "loop.collection.LRUCache"
 local log = require "openbus.util.logger"
 local oo = require "openbus.util.oo"
 local class = oo.class
+local sysex = require "openbus.util.sysex"
+local is_NO_PERMISSION = sysex.is_NO_PERMISSION
 local tickets = require "openbus.util.tickets"
 
 local msg = require "openbus.core.messages"
@@ -374,8 +374,7 @@ local ExclusivelyLocal = {
 function Interceptor:receivereply(request)
   if not request.success then
     local except = request.results[1]
-    if except._repid == sysex.NO_PERMISSION
-    and except.completed == "COMPLETED_NO" then
+    if is_NO_PERMISSION(except, nil, "COMPLETED_NO") then
       if except.minor == loginconst.InvalidCredentialCode then
         -- got invalid credential exception
         local data = request.reply_service_context[CredentialContextId]

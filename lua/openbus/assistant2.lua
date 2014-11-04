@@ -23,14 +23,13 @@ local packargs = vararg.pack
 
 local Wrapper = require "loop.object.Wrapper"
 
-local giop = require "oil.corba.giop"
-local sysexid = giop.SystemExceptionIDs
-
 local log = require "openbus.util.logger"
 local msg = require "openbus.util.messages"
 local oo = require "openbus.util.oo"
 local class = oo.class
 local sysex = require "openbus.util.sysex"
+local NO_PERMISSION = sysex.NO_PERMISSION
+local is_OBJECT_NOT_EXIST = sysex.is_OBJECT_NOT_EXIST
 
 local coreidl = require "openbus.core.idl"
 local const = coreidl.const.services.access_control
@@ -254,7 +253,7 @@ function SetPropTask:receive()
     local ref = offer.description.ref
     local properties = offer.properties
     local ok, result = pcall(ref.setProperties, ref, properties)
-    if ok or result._repid == sysexid.OBJECT_NOT_EXIST then
+    if ok or is_OBJECT_NOT_EXIST(result) then
       offer.description.properties = properties
       break
     end
@@ -311,7 +310,7 @@ end
 function RegisteredOffer:subscribeObserver(observer, properties)
   local assistant = self.assistant
   if assistant.loginargs == nil then
-    sysex.NO_PERMISSION{ minor = const.NoLogin }
+    NO_PERMISSION{ minor = const.NoLogin }
   end
   return OfferObserverSubscription{
     assistant = assistant,
@@ -406,7 +405,7 @@ end
 
 function Assistant:registerService(component, properties)
   if self.loginargs == nil then
-    sysex.NO_PERMISSION{ minor = const.NoLogin }
+    NO_PERMISSION{ minor = const.NoLogin }
   end
   return RegisteredOffer{
     assistant = self,
@@ -417,7 +416,7 @@ end
 
 function Assistant:subscribeObserver(observer, properties)
   if self.loginargs == nil then
-    sysex.NO_PERMISSION{ minor = const.NoLogin }
+    NO_PERMISSION{ minor = const.NoLogin }
   end
   return OfferRegistryObserverSubscription{
     assistant = self,

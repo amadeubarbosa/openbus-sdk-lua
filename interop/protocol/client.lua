@@ -56,7 +56,7 @@ local NoPermisisonCases = {
   {raised=except.minor.InvalidRemote,expected=except.minor.InvalidRemote},
   {raised=except.minor.UnavailableBus,expected=except.minor.InvalidRemote},
   {raised=except.minor.InvalidTarget,expected=except.minor.InvalidRemote},
-  {raised=except.minor.InvalidLogin,expected=except.minor.NoLogin},
+  {raised=except.minor.InvalidLogin,expected=except.minor.InvalidRemote},
 }
 
 -- find the offered service

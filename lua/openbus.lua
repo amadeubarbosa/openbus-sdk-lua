@@ -47,19 +47,16 @@ local resume = cothread.next
 local threadtrap = cothread.trap
 local unschedule = cothread.unschedule
 
-local giop = require "oil.corba.giop"
-local sysexrepid = giop.SystemExceptionIDs
-local NO_PERMISSION_RepId = sysexrepid.NO_PERMISSION
-local TRANSIENT_RepId = sysexrepid.TRANSIENT
-local COMM_FAILURE_RepId = sysexrepid.COMM_FAILURE
-local OBJECT_NOT_EXIST_RepId = sysexrepid.OBJECT_NOT_EXIST
-
 local log = require "openbus.util.logger"
 local msg = require "openbus.util.messages"
 local oo = require "openbus.util.oo"
 local class = oo.class
-local sysexthrow = require "openbus.util.sysex"
-local NO_PERMISSION = sysexthrow.NO_PERMISSION
+local sysex = require "openbus.util.sysex"
+local NO_PERMISSION = sysex.NO_PERMISSION
+local is_NO_PERMISSION = sysex.is_NO_PERMISSION
+local is_TRANSIENT = sysex.is_TRANSIENT
+local is_COMM_FAILURE = sysex.is_COMM_FAILURE
+local is_OBJECT_NOT_EXIST = sysex.is_OBJECT_NOT_EXIST
 
 local libidl = require "openbus.idl"
 local libthrow = libidl.throw
@@ -77,10 +74,12 @@ local CredentialContextId = coreconst.credential.CredentialContextId
 local loginconst = coreconst.services.access_control
 local InvalidPublicKeyCode = loginconst.InvalidPublicKeyCode
 local NoLoginCode = loginconst.NoLoginCode
+local InvalidRemoteCode = loginconst.InvalidRemoteCode
 local InvalidLoginCode = loginconst.InvalidLoginCode
 local NoCredentialCode = loginconst.NoCredentialCode
 local UnknownBusCode = loginconst.UnknownBusCode
 local UnverifiedLoginCode = loginconst.UnverifiedLoginCode
+local UnavailableBusCode = loginconst.UnavailableBusCode
 local coresrvtypes = coreidl.types.services
 local logintypes = coresrvtypes.access_control
 local AccessControlRepId = logintypes.AccessControl
@@ -118,6 +117,12 @@ cothread.plugin(require "cothread.plugin.sleep")
 local delay = cothread.delay
 local time = cothread.now
 
+do
+  local isNoPerm = is_NO_PERMISSION
+  function is_NO_PERMISSION(except, minor, completed)
+    return isNoPerm(except, minor, completed or "COMPLETED_NO")
+  end
+end
 
 local function getLoginEntry(self, loginId)
   local LoginRegistry = self.__object
@@ -138,7 +143,7 @@ local function getLoginEntry(self, loginId)
       if ok then
         local pubkey, exception = decodepubkey(enckey)
         if pubkey == nil then
-          sysexthrow.NO_PERMISSION{
+          NO_PERMISSION{
             completed = "COMPLETED_NO",
             minor = InvalidPublicKeyCode,
           }
@@ -171,14 +176,6 @@ local function getLoginEntry(self, loginId)
   end
 end
 
-local function getLoginValidity(self, loginId)
-  local entry = getLoginEntry(self, loginId)
-  if entry ~= nil then
-    return max(.01, entry.deadline - time())
-  end
-  return 0
-end
-
 local function getLoginInfo(self, loginId)
   local entry = getLoginEntry(self, loginId)
   if entry ~= nil then
@@ -192,7 +189,6 @@ local function newLoginRegistryWrapper(LoginRegistry)
     __object = LoginRegistry,
     cache = LRUCache(),
     getLoginEntry = getLoginEntry,
-    getLoginValidity = getLoginValidity,
     getLoginInfo = getLoginInfo,
   }
   return self
@@ -401,7 +397,7 @@ function Connection:signChainFor(target, chain)
     joined = access:signChainFor(target)
     local login = getLogin(self)
     if login == nil then
-      sysexthrow.NO_PERMISSION{
+      NO_PERMISSION{
         completed = "COMPLETED_NO",
         minor = NoLoginCode,
       }
@@ -430,33 +426,44 @@ function Connection:sendrequest(request)
   end
 end
 
+local InvalidLoginThreads = {}
+
 function Connection:receivereply(request)
   receiveBusReply(self, request)
-  if request.success == false then
+  local thread = running()
+  if request.success == false and InvalidLoginThreads[thread] == nil then
     local except = request.results[1]
-    if except._repid == NO_PERMISSION_RepID
-    and except.completed == "COMPLETED_NO"
-    and except.minor == InvalidLoginCode then
+    if is_NO_PERMISSION(except, InvalidLoginCode) then
       local invlogin = request.login
-      if self.login == invlogin then
-        localLogout(self)
-        self.invalidLogin = invlogin
-      end
       log:exception(msg.GotInvalidLoginException:tag{
         operation = request.operation_name,
         login = invlogin.id,
         entity = invlogin.entity,
       })
-      local login = getLogin(self)
-      if login ~= nil then
+      local logins = self.LoginRegistry
+      InvalidLoginThreads[thread] = true
+      local ok, result = pcall(logins.getLoginValidity, logins, invlogin.id)
+      InvalidLoginThreads[thread] = nil
+      if ok and result > 0 then
+        log:exception(msg.GotFalseInvalidLogin:tag{
+          invlogin = invlogin.id,
+        })
+        except.minor = InvalidRemoteCode
+      elseif ok or is_NO_PERMISSION(result, InvalidLoginCode) then
+        if self.login == invlogin then
+          localLogout(self)
+          self.invalidLogin = invlogin
+        end
         request.success = nil -- reissue request to the same reference
         log:action(msg.ReissueCallAfterInvalidLogin:tag{
           operation = request.operation_name,
-          login = login.id,
-          entity = login.entity,
         })
       else
-        except.minor = NoLoginCode
+        log:exception(msg.UnableToVerifyOwnLoginValidity:tag{
+          error = result,
+          invlogin = invlogin.id,
+        })
+        except.minor = UnavailableBusCode
       end
     end
   end
@@ -472,25 +479,18 @@ function Connection:receiverequest(request)
         })
         setNoPermSysEx(request, NoCredentialCode)
       end
+    elseif is_NO_PERMISSION(ex, NoLoginCode) then
+      log:exception(msg.LostLoginDuringCallDispatch:tag{
+        operation = request.operation.name,
+      })
+      setNoPermSysEx(request, UnknownBusCode)
+    elseif is_TRANSIENT(ex) or is_COMM_FAILURE(ex) then
+      log:exception(msg.UnableToVerifyLoginDueToCoreServicesUnaccessible:tag{
+        operation = request.operation.name,
+      })
+      setNoPermSysEx(request, UnverifiedLoginCode)
     else
-      if ex._repid == NO_PERMISSION_RepID
-      and ex.completed == "COMPLETED_NO"
-      and ex.minor == NoLoginCode
-      then
-        log:exception(msg.LostLoginDuringCallDispatch:tag{
-          operation = request.operation.name,
-        })
-        setNoPermSysEx(request, UnknownBusCode)
-      elseif ex._repid == TRANSIENT_RepID
-          or ex._repid == COMM_FAILURE_RepID
-      then
-        log:exception(msg.UnableToVerifyLoginDueToCoreServicesUnaccessible:tag{
-          operation = request.operation.name,
-        })
-        setNoPermSysEx(request, UnverifiedLoginCode)
-      else
-        error(ex)
-      end
+      error(ex)
     end
   else
     log:exception(msg.GotCallWhileNotLoggedIn:tag{
@@ -534,7 +534,7 @@ function Connection:loginByCertificate(entity, privatekey)
   end
   local ok, login, lease = pcall(attempt.login, attempt, pubkey, encrypted)
   if not ok then
-    if login._repid == OBJECT_NOT_EXIST_RepID then
+    if is_OBJECT_NOT_EXIST(login) then
       ServiceFailure{message=msg.UnableToCompleteLoginByCertificateInTime}
     end
     error(login)
@@ -549,7 +549,7 @@ end
 function Connection:startSharedAuth()
   local AccessControl = self.AccessControl
   if AccessControl == nil then
-    sysexthrow.NO_PERMISSION{
+    NO_PERMISSION{
       completed = "COMPLETED_NO",
       minor = NoLoginCode,
     }
@@ -579,7 +579,7 @@ function Connection:loginBySharedAuth(attempt, secret)
   end
   local ok, login, lease = pcall(attempt.login, attempt, pubkey, encrypted)
   if not ok then
-    if login._repid == OBJECT_NOT_EXIST_RepID then
+    if is_OBJECT_NOT_EXIST(login) then
       InvalidLoginProcess()
     end
     error(login)
@@ -592,18 +592,21 @@ function Connection:loginBySharedAuth(attempt, secret)
 end
 
 function Connection:logout()
+  local result, except = false
   local login = self.login
   if login ~= nil then
     log:request(msg.PerformLogout:tag{
       login = login.id,
       entity = login.entity,
     })
-    local result, except = pcallWithin(self, self.AccessControl, "logout")
+    local thread = running()
+    InvalidLoginThreads[thread] = true
+    result, except = pcallWithin(self, self.AccessControl, "logout")
+    InvalidLoginThreads[thread] = nil
     localLogout(self)
-    return result, except
   end
   self.invalidLogin = nil
-  return false
+  return result, except
 end
 
 function Connection:onInvalidLogin()
@@ -764,7 +767,7 @@ end
 function Context:getLoginRegistry()
   local conn = self:getCurrentConnection()
   if conn == nil or conn.login == nil then
-    sysexthrow.NO_PERMISSION{
+    NO_PERMISSION{
       completed = "COMPLETED_NO",
       minor = NoLoginCode,
     }
@@ -775,7 +778,7 @@ end
 function Context:getOfferRegistry()
   local conn = self:getCurrentConnection()
   if conn == nil or conn.login == nil then
-    sysexthrow.NO_PERMISSION{
+    NO_PERMISSION{
       completed = "COMPLETED_NO",
       minor = NoLoginCode,
     }
