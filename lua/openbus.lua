@@ -17,7 +17,9 @@ local running = coroutine.running
 local newthread = coroutine.create
 
 local string = require "string"
-local strrep = string.rep
+local findstr = string.find
+local repeatstr = string.rep
+local substr = string.sub
 
 local math = require "math"
 local inf = math.huge
@@ -45,29 +47,59 @@ local resume = cothread.next
 local threadtrap = cothread.trap
 local unschedule = cothread.unschedule
 
-local giop = require "oil.corba.giop"
-local sysex = giop.SystemExceptionIDs
-
 local log = require "openbus.util.logger"
 local msg = require "openbus.util.messages"
 local oo = require "openbus.util.oo"
 local class = oo.class
-local sysexthrow = require "openbus.util.sysex"
+local sysex = require "openbus.util.sysex"
+local NO_PERMISSION = sysex.NO_PERMISSION
+local is_NO_PERMISSION = sysex.is_NO_PERMISSION
+local is_TRANSIENT = sysex.is_TRANSIENT
+local is_COMM_FAILURE = sysex.is_COMM_FAILURE
+local is_OBJECT_NOT_EXIST = sysex.is_OBJECT_NOT_EXIST
 
 local libidl = require "openbus.idl"
-local throw = libidl.throw
+local libthrow = libidl.throw
+local AlreadyLoggedIn = libthrow.AlreadyLoggedIn
+local InvalidBusAddress = libthrow.InvalidBusAddress
+local InvalidLoginProcess = libthrow.InvalidLoginProcess
+local InvalidPropertyValue = libthrow.InvalidPropertyValue
+local InvalidChainStream = libthrow.InvalidChainStream
 local coreidl = require "openbus.core.idl"
-local BusLogin = coreidl.const.BusLogin
-local EncryptedBlockSize = coreidl.const.EncryptedBlockSize
-local CredentialContextId = coreidl.const.credential.CredentialContextId
+local coreconst = coreidl.const
+local BusLogin = coreconst.BusLogin
+local BusObjectKey = coreconst.BusObjectKey
+local EncryptedBlockSize = coreconst.EncryptedBlockSize
+local CredentialContextId = coreconst.credential.CredentialContextId
+local loginconst = coreconst.services.access_control
+local InvalidPublicKeyCode = loginconst.InvalidPublicKeyCode
+local NoLoginCode = loginconst.NoLoginCode
+local InvalidRemoteCode = loginconst.InvalidRemoteCode
+local InvalidLoginCode = loginconst.InvalidLoginCode
+local NoCredentialCode = loginconst.NoCredentialCode
+local UnknownBusCode = loginconst.UnknownBusCode
+local UnverifiedLoginCode = loginconst.UnverifiedLoginCode
+local UnavailableBusCode = loginconst.UnavailableBusCode
 local coresrvtypes = coreidl.types.services
-local loginconst = coreidl.const.services.access_control
-local logintypes = coreidl.types.services.access_control
-local loginthrow = coreidl.throw.services.access_control
+local logintypes = coresrvtypes.access_control
+local AccessControlRepId = logintypes.AccessControl
+local LoginRegistryRepId = logintypes.LoginRegistry
+local InvalidLoginsRepId = logintypes.InvalidLogins
+local LoginAuthenticationInfoRepId = logintypes.LoginAuthenticationInfo
+local OfferRegistryRepId = coresrvtypes.offer_registry.OfferRegistry
+local coresrvthrow = coreidl.throw.services
+local loginthrow = coresrvthrow.access_control
 local AccessDenied = loginthrow.AccessDenied
 local InvalidLogins = loginthrow.InvalidLogins
-local BusObjectKey = coreidl.const.BusObjectKey
-local ServiceFailure = coreidl.throw.services.ServiceFailure
+local ServiceFailure = coresrvthrow.ServiceFailure
+local exportconst = coreidl.const.data_export
+local ExportVersion = exportconst.CurrentVersion
+local MagicTag_CallChain = exportconst.MagicTag_CallChain
+local MagicTag_SharedAuth = exportconst.MagicTag_SharedAuth
+local exporttypes = coreidl.types.data_export
+local ExportedVersionSeqRepId = exporttypes.ExportedVersionSeq
+local ExportedCallChainRepId = exporttypes.ExportedCallChain
+local ExportedSharedAuthRepId = exporttypes.ExportedSharedAuth
 local access = require "openbus.core.Access"
 local neworb = access.initORB
 local setNoPermSysEx = access.setNoPermSysEx
@@ -77,6 +109,7 @@ local sendBusRequest = BaseInterceptor.sendrequest
 local receiveBusReply = BaseInterceptor.receivereply
 local receiveBusRequest = BaseInterceptor.receiverequest
 local unmarshalCredential = BaseInterceptor.unmarshalCredential
+local unmarshalSignedChain = BaseInterceptor.unmarshalSignedChain
 
 -- must be loaded after OiL is loaded because OiL is the one that installs
 -- the cothread plug-in that supports the 'now' operation.
@@ -84,6 +117,12 @@ cothread.plugin(require "cothread.plugin.sleep")
 local delay = cothread.delay
 local time = cothread.now
 
+do
+  local isNoPerm = is_NO_PERMISSION
+  function is_NO_PERMISSION(except, minor, completed)
+    return isNoPerm(except, minor, completed or "COMPLETED_NO")
+  end
+end
 
 local function getLoginEntry(self, loginId)
   local LoginRegistry = self.__object
@@ -104,23 +143,23 @@ local function getLoginEntry(self, loginId)
       if ok then
         local enckey = signedkey.encoded
         if not self.buskey:verify(sha256(enckey), signedkey.signature) then
-          sysexthrow.NO_PERMISSION{
+          NO_PERMISSION{
             completed = "COMPLETED_NO",
             minor = loginconst.InvalidPublicKeyCode,
           }
         end
         local pubkey, exception = decodepubkey(enckey)
         if pubkey == nil then
-          sysexthrow.NO_PERMISSION{
+          NO_PERMISSION{
             completed = "COMPLETED_NO",
-            minor = loginconst.InvalidPublicKeyCode,
+            minor = InvalidPublicKeyCode,
           }
         end
         entry = result
         entry.encodedkey = enckey
         entry.pubkey = pubkey
         entry.deadline = time() -- valid until this moment
-      elseif result._repid == logintypes.InvalidLogins then
+      elseif result._repid == InvalidLoginsRepId then
         entry = false
       else
         error(result)
@@ -144,14 +183,6 @@ local function getLoginEntry(self, loginId)
   end
 end
 
-local function getLoginValidity(self, loginId)
-  local entry = getLoginEntry(self, loginId)
-  if entry ~= nil then
-    return max(.01, entry.deadline - time())
-  end
-  return 0
-end
-
 local function getLoginInfo(self, loginId)
   local entry = getLoginEntry(self, loginId)
   if entry ~= nil then
@@ -166,7 +197,6 @@ local function newLoginRegistryWrapper(LoginRegistry, buskey)
     cache = LRUCache(),
     buskey = buskey,
     getLoginEntry = getLoginEntry,
-    getLoginValidity = getLoginValidity,
     getLoginInfo = getLoginInfo,
   }
   return self
@@ -236,13 +266,12 @@ local function newRenewer(self, lease)
   resume(thread)
 end
 
-local function getCoreFacet(self, name, module)
-  return self.context.orb:narrow(self.bus:getFacetByName(name),
-                                 coresrvtypes[module][name])
+local function getCoreFacet(self, name, iface)
+  return self.context.orb:narrow(self.bus:getFacetByName(name), iface)
 end
 
 local function intiateLogin(self)
-  local AccessControl = getCoreFacet(self, "AccessControl", "access_control")
+  local AccessControl = getCoreFacet(self, "AccessControl", AccessControlRepId)
   local buskey, errmsg = decodepubkey(AccessControl:_get_buskey())
   if buskey == nil then
     ServiceFailure{message=msg.InvalidBusKey:tag{message=errmsg}}
@@ -260,8 +289,8 @@ end
 
 local function localLogin(self, AccessControl, buskey, login, lease)
   local busid = AccessControl:_get_busid()
-  local LoginRegistry = getCoreFacet(self, "LoginRegistry", "access_control")
-  if self.login ~= nil then throw.AlreadyLoggedIn() end
+  local LoginRegistry = getCoreFacet(self, "LoginRegistry", LoginRegistryRepId)
+  if self.login ~= nil then AlreadyLoggedIn() end
   self.invalidLogin = nil
   self.busid = busid
   self.buskey = buskey
@@ -308,13 +337,13 @@ local function getLogin(self)
   return login
 end
 
-local MaxEncryptedData = strrep("\255", EncryptedBlockSize-11)
+local MaxEncryptedData = repeatstr("\255", EncryptedBlockSize-11)
 
 local function busaddress2component(orb, host, port, key)
   local ref = "corbaloc::"..host..":"..port.."/"..key
   local ok, result = pcall(orb.newproxy, orb, ref, nil, "scs::core::IComponent")
   if not ok then
-    throw.InvalidBusAddress{host=host,port=port,message=tostring(result)}
+    InvalidBusAddress{host=host,port=port,message=tostring(result)}
   end
   return result
 end
@@ -328,21 +357,22 @@ function Connection:resetCaches()
   self.signedChainOf = memoize(function(chain) return LRUCache() end, "k")
 end
 
+local NullChain = {}
 function Connection:signChainFor(target, chain)
   if target == BusLogin then return chain end
   local access = self.AccessControl
-  local cache = self.signedChainOf[chain]
+  local cache = self.signedChainOf[chain or NullChain]
   local joined = cache:get(target)
   while joined == nil do
     joined = access:signChainFor(target)
     local login = getLogin(self)
     if login == nil then
-      sysexthrow.NO_PERMISSION{
+      NO_PERMISSION{
         completed = "COMPLETED_NO",
-        minor = loginconst.NoLoginCode,
+        minor = NoLoginCode,
       }
     end
-    cache = self.signedChainOf[chain]
+    cache = self.signedChainOf[chain or NullChain]
     if unmarshalChain(self, joined).caller.id == login.id then
       cache:put(target, joined)
       break
@@ -359,40 +389,51 @@ function Connection:sendrequest(request)
     sendBusRequest(self, request)
     request.login = login
   else
-    setNoPermSysEx(request, loginconst.NoLoginCode)
+    setNoPermSysEx(request, NoLoginCode)
     log:exception(msg.AttemptToCallWhileNotLoggedIn:tag{
       operation = request.operation_name,
     })
   end
 end
 
+local InvalidLoginThreads = {}
+
 function Connection:receivereply(request)
   receiveBusReply(self, request)
-  if request.success == false then
+  local thread = running()
+  if request.success == false and InvalidLoginThreads[thread] == nil then
     local except = request.results[1]
-    if except._repid == sysex.NO_PERMISSION
-    and except.completed == "COMPLETED_NO"
-    and except.minor == loginconst.InvalidLoginCode then
+    if is_NO_PERMISSION(except, InvalidLoginCode) then
       local invlogin = request.login
-      if self.login == invlogin then
-        localLogout(self)
-        self.invalidLogin = invlogin
-      end
       log:exception(msg.GotInvalidLoginException:tag{
         operation = request.operation_name,
         login = invlogin.id,
         entity = invlogin.entity,
       })
-      local login = getLogin(self)
-      if login ~= nil then
+      local logins = self.LoginRegistry
+      InvalidLoginThreads[thread] = true
+      local ok, result = pcall(logins.getLoginValidity, logins, invlogin.id)
+      InvalidLoginThreads[thread] = nil
+      if ok and result > 0 then
+        log:exception(msg.GotFalseInvalidLogin:tag{
+          invlogin = invlogin.id,
+        })
+        except.minor = InvalidRemoteCode
+      elseif ok or is_NO_PERMISSION(result, InvalidLoginCode) then
+        if self.login == invlogin then
+          localLogout(self)
+          self.invalidLogin = invlogin
+        end
         request.success = nil -- reissue request to the same reference
         log:action(msg.ReissueCallAfterInvalidLogin:tag{
           operation = request.operation_name,
-          login = login.id,
-          entity = login.entity,
         })
       else
-        except.minor = loginconst.NoLoginCode
+        log:exception(msg.UnableToVerifyOwnLoginValidity:tag{
+          error = result,
+          invlogin = invlogin.id,
+        })
+        except.minor = UnavailableBusCode
       end
     end
   end
@@ -406,39 +447,32 @@ function Connection:receiverequest(request)
         log:exception(msg.DeniedOrdinaryCall:tag{
           operation = request.operation.name,
         })
-        setNoPermSysEx(request, loginconst.NoCredentialCode)
+        setNoPermSysEx(request, NoCredentialCode)
       end
+    elseif is_NO_PERMISSION(ex, NoLoginCode) then
+      log:exception(msg.LostLoginDuringCallDispatch:tag{
+        operation = request.operation.name,
+      })
+      setNoPermSysEx(request, UnknownBusCode)
+    elseif is_TRANSIENT(ex) or is_COMM_FAILURE(ex) then
+      log:exception(msg.UnableToVerifyLoginDueToCoreServicesUnaccessible:tag{
+        operation = request.operation.name,
+      })
+      setNoPermSysEx(request, UnverifiedLoginCode)
     else
-      if ex._repid == sysex.NO_PERMISSION
-      and ex.completed == "COMPLETED_NO"
-      and ex.minor == loginconst.NoLoginCode
-      then
-        log:exception(msg.LostLoginDuringCallDispatch:tag{
-          operation = request.operation.name,
-        })
-        setNoPermSysEx(request, loginconst.UnknownBusCode)
-      elseif ex._repid == sysex.TRANSIENT 
-          or ex._repid == sysex.COMM_FAILURE
-      then
-        log:exception(msg.UnableToVerifyLoginDueToCoreServicesUnaccessible:tag{
-          operation = request.operation.name,
-        })
-        setNoPermSysEx(request, loginconst.UnverifiedLoginCode)
-      else
-        error(ex)
-      end
+      error(ex)
     end
   else
     log:exception(msg.GotCallWhileNotLoggedIn:tag{
       operation = request.operation_name,
     })
-    setNoPermSysEx(request, loginconst.UnknownBusCode)
+    setNoPermSysEx(request, UnknownBusCode)
   end
 end
 
 
 function Connection:loginByPassword(entity, password)
-  if self.login ~= nil then throw.AlreadyLoggedIn() end
+  if self.login ~= nil then AlreadyLoggedIn() end
   local AccessControl, buskey = intiateLogin(self)
   local pubkey = self.prvkey:encode("public")
   local encrypted, errmsg = encryptLogin(self, buskey, pubkey, password)
@@ -454,7 +488,7 @@ function Connection:loginByPassword(entity, password)
 end
 
 function Connection:loginByCertificate(entity, privatekey)
-  if self.login ~= nil then throw.AlreadyLoggedIn() end
+  if self.login ~= nil then AlreadyLoggedIn() end
   local AccessControl, buskey = intiateLogin(self)
   local attempt, challenge = AccessControl:startLoginByCertificate(entity)
   local secret, errmsg = privatekey:decrypt(challenge)
@@ -470,7 +504,7 @@ function Connection:loginByCertificate(entity, privatekey)
   end
   local ok, login, lease = pcall(attempt.login, attempt, pubkey, encrypted)
   if not ok then
-    if login._repid == sysex.OBJECT_NOT_EXIST then
+    if is_OBJECT_NOT_EXIST(login) then
       ServiceFailure{message=msg.UnableToCompleteLoginByCertificateInTime}
     end
     error(login)
@@ -485,9 +519,9 @@ end
 function Connection:startSharedAuth()
   local AccessControl = self.AccessControl
   if AccessControl == nil then
-    sysexthrow.NO_PERMISSION{
+    NO_PERMISSION{
       completed = "COMPLETED_NO",
-      minor = loginconst.NoLoginCode,
+      minor = NoLoginCode,
     }
   end
   local attempt, challenge = callWithin(self, AccessControl,
@@ -505,7 +539,7 @@ function Connection:cancelSharedAuth(attempt)
 end
 
 function Connection:loginBySharedAuth(attempt, secret)
-  if self.login ~= nil then throw.AlreadyLoggedIn() end
+  if self.login ~= nil then AlreadyLoggedIn() end
   local AccessControl, buskey = intiateLogin(self)
   local pubkey = self.prvkey:encode("public")
   local encrypted, errmsg = encryptLogin(self, buskey, pubkey, secret)
@@ -515,8 +549,8 @@ function Connection:loginBySharedAuth(attempt, secret)
   end
   local ok, login, lease = pcall(attempt.login, attempt, pubkey, encrypted)
   if not ok then
-    if login._repid == sysex.OBJECT_NOT_EXIST then
-      throw.InvalidLoginProcess()
+    if is_OBJECT_NOT_EXIST(login) then
+      InvalidLoginProcess()
     end
     error(login)
   end
@@ -528,18 +562,21 @@ function Connection:loginBySharedAuth(attempt, secret)
 end
 
 function Connection:logout()
+  local result, except = false
   local login = self.login
   if login ~= nil then
     log:request(msg.PerformLogout:tag{
       login = login.id,
       entity = login.entity,
     })
-    local result, except = pcallWithin(self, self.AccessControl, "logout")
+    local thread = running()
+    InvalidLoginThreads[thread] = true
+    result, except = pcallWithin(self, self.AccessControl, "logout")
+    InvalidLoginThreads[thread] = nil
     localLogout(self)
-    return result, except
   end
   self.invalidLogin = nil
-  return false
+  return result, except
 end
 
 function Connection:onInvalidLogin()
@@ -558,8 +595,17 @@ function Context:__init()
   if self.prvkey == nil then self.prvkey = newkey(EncryptedBlockSize) end
   self.connectionOf = setmetatable({}, WeakKeys) -- [thread]=connection
   self.types.LoginAuthenticationInfo =
-    self.orb.types:lookup_id(logintypes.LoginAuthenticationInfo)
-  self.context = self -- to execute 'BaseInterceptor.unmarshalCredential(self)'
+    self.orb.types:lookup_id(LoginAuthenticationInfoRepId)
+  self.types.ExportedVersionSeq =
+    self.orb.types:lookup_id(ExportedVersionSeqRepId)
+  self.types.ExportedCallChain =
+    self.orb.types:lookup_id(ExportedCallChainRepId)
+  self.types.ExportedSharedAuth =
+    self.orb.types:lookup_id(ExportedSharedAuthRepId)
+  -- following are necessary to execute 'BaseInterceptor.unmarshalCredential(self)'
+  self.legacy = true
+  -- following is necessary to execute 'BaseInterceptor.unmarshalSignedChain(self)'
+  self.context = self 
 end
 
 function Context:sendrequest(request)
@@ -572,7 +618,7 @@ function Context:sendrequest(request)
       log:exception(msg.AttemptToCallWithoutConnection:tag{
         operation = request.operation_name,
       })
-      setNoPermSysEx(request, loginconst.NoLoginCode)
+      setNoPermSysEx(request, NoLoginCode)
     end
   else
     log:access(self, msg.PerformIgnoredCall:tag{
@@ -603,7 +649,7 @@ function Context:receiverequest(request)
     log:exception(msg.GotCallWhileDisconnected:tag{
       operation = request.operation_name,
     })
-    setNoPermSysEx(request, loginconst.UnknownBusCode)
+    setNoPermSysEx(request, UnknownBusCode)
   end
 end
 
@@ -622,21 +668,21 @@ function Context:connectByReference(bus, props)
   if prvkey ~= nil then
     local result, errmsg = decodepubkey(prvkey:encode("public"))
     if result == nil then
-      throw.InvalidPropertyValue{
+      InvalidPropertyValue{
         property = "accesskey",
         value = msg.UnableToObtainThePublicKey:tag{error=errmsg},
       }
     end
     result, errmsg = result:encrypt(MaxEncryptedData)
     if result == nil then
-      throw.InvalidPropertyValue{
+      InvalidPropertyValue{
         property = "accesskey",
         value = msg.UnableToEncodeDataUsingPublicKey:tag{error=errmsg},
       }
     end
     result, errmsg = prvkey:decrypt(result)
     if result == nil then
-      throw.InvalidPropertyValue{
+      InvalidPropertyValue{
         property = "accesskey",
         value = msg.UnableToDecodeDataUsingTheKey:tag{error=errmsg},
       }
@@ -684,9 +730,9 @@ end
 function Context:getLoginRegistry()
   local conn = self:getCurrentConnection()
   if conn == nil or conn.login == nil then
-    sysexthrow.NO_PERMISSION{
+    NO_PERMISSION{
       completed = "COMPLETED_NO",
-      minor = loginconst.NoLoginCode,
+      minor = NoLoginCode,
     }
   end
   return conn.LoginRegistry
@@ -695,12 +741,71 @@ end
 function Context:getOfferRegistry()
   local conn = self:getCurrentConnection()
   if conn == nil or conn.login == nil then
-    sysexthrow.NO_PERMISSION{
+    NO_PERMISSION{
       completed = "COMPLETED_NO",
-      minor = loginconst.NoLoginCode,
+      minor = NoLoginCode,
     }
   end
-  return getCoreFacet(conn, "OfferRegistry", "offer_registry")
+  return getCoreFacet(conn, "OfferRegistry", OfferRegistryRepId)
+end
+
+function Context:makeChainFor(loginId)
+  local conn = self:getCurrentConnection()
+  if conn == nil or conn.login == nil then
+    NO_PERMISSION{
+      completed = "COMPLETED_NO",
+      minor = NoLoginCode,
+    }
+  end
+  local signed = conn:signChainFor(loginId, self:getJoinedChain())
+  return unmarshalSignedChain(self, signed, conn.busid)
+end
+
+function Context:encodeChain(chain)
+  local types = self.types
+  local orb = self.orb
+  local encoder = orb:newencoder()
+  local result, errmsg = pcall(encoder.put, encoder, {
+    bus = chain.busid,
+    signedChain = chain,
+  }, types.ExportedCallChain)
+  if result then
+    local encoded = encoder:getdata()
+    encoder = orb:newencoder()
+    result, errmsg = pcall(encoder.put, encoder, {{
+      version = ExportVersion,
+      encoded = encoded,
+    }}, types.ExportedVersionSeq)
+    if result then
+      return MagicTag_CallChain..encoder:getdata()
+    end
+  end
+  error(msg.UnableToEncodeChain:tag{ errmsg = errmsg })
+end
+
+function Context:decodeChain(stream)
+  if findstr(stream, MagicTag_CallChain, 1, "no regex") then
+    local types = self.types
+    local orb = self.orb
+    local decoder = orb:newdecoder(substr(stream, 1+#MagicTag_CallChain))
+    local ok, result = pcall(decoder.get, decoder, types.ExportedVersionSeq)
+    if ok then
+      local exports = result
+      result = msg.NoSupportedVersionFound
+      for _, exported in ipairs(exports) do
+        if exported.version == ExportVersion then
+          decoder = orb:newdecoder(exported.encoded)
+          ok, result = pcall(decoder.get, decoder, types.ExportedCallChain)
+          if ok then
+            return unmarshalSignedChain(self, result.signedChain, result.bus)
+          end
+          break
+        end
+      end
+    end
+    InvalidChainStream{ message = result }
+  end
+  InvalidChainStream{ message = msg.MagicTagNotFound }
 end
 
 
@@ -799,6 +904,9 @@ local ContextOperations = {
   getJoinedChain = {},
   getLoginRegistry = {},
   getOfferRegistry = {},
+  makeChainFor = { "string" },
+  encodeChain = { "table" },
+  decodeChain = { "string" },
 }
 argcheck.convertclass(Context, ContextOperations)
 argcheck.convertmodule(openbus, {

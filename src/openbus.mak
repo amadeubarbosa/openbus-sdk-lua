@@ -36,7 +36,8 @@ LIBDEPENDENTIDL= $(OPENBUSLIBIDL)/corba.idl
 
 NEWIDL= \
   $(OPENBUSNEWIDL)/access_control.idl \
-  $(OPENBUSNEWIDL)/offer_registry.idl
+  $(OPENBUSNEWIDL)/offer_registry.idl \
+  $(OPENBUSNEWIDL)/data_export.idl
 
 NEWDEPENDENTIDL= \
   $(OPENBUSNEWIDL)/core.idl \

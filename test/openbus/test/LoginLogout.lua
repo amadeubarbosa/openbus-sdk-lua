@@ -347,6 +347,13 @@ for _, connOp in ipairs({"DefaultConnection", "CurrentConnection"}) do
           assert(called); called = nil
           assertlogoff(conn)
           relogin()
+          -- during logout
+          assert(called == nil)
+          invalidate(conn.login.id)
+          assert(conn:logout() == false)
+          assert(called == nil)
+          assertlogoff(conn)
+          relogin()
         end
         
         do log:TEST "reconnect"
@@ -368,6 +375,13 @@ for _, connOp in ipairs({"DefaultConnection", "CurrentConnection"}) do
           invalidate(conn.login.id)
           callwithin(conn, OfferRegistry.findServices, OfferRegistry, {})
           assert(called); called = nil
+          -- during logout
+          assert(called == nil)
+          invalidate(conn.login.id)
+          assert(conn:logout() == false)
+          assert(called == nil)
+          assertlogoff(conn)
+          relogin()
         end
         
         do log:TEST "raise error"
@@ -391,6 +405,14 @@ for _, connOp in ipairs({"DefaultConnection", "CurrentConnection"}) do
           assert(ex.completed == "COMPLETED_NO")
           assert(ex.minor == idl.const.services.access_control.NoLoginCode)
           assert(called); called = nil
+          assertlogoff(conn)
+          relogin()
+          -- during logout
+          assert(called == nil)
+          invalidate(conn.login.id)
+          assert(conn:logout() == false)
+          assert(called == nil)
+          assertlogoff(conn)
         end
         
         log:TEST(false)
