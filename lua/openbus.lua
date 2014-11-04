@@ -579,18 +579,21 @@ function Connection:loginBySharedAuth(attempt, secret)
 end
 
 function Connection:logout()
+  local result, except = false
   local login = self.login
   if login ~= nil then
     log:request(msg.PerformLogout:tag{
       login = login.id,
       entity = login.entity,
     })
-    local result, except = pcallWithin(self, self.AccessControl, "logout")
+    local thread = running()
+    InvalidLoginThreads[thread] = true
+    result, except = pcallWithin(self, self.AccessControl, "logout")
+    InvalidLoginThreads[thread] = nil
     localLogout(self)
-    return result, except
   end
   self.invalidLogin = nil
-  return false
+  return result, except
 end
 
 function Connection:onInvalidLogin()
