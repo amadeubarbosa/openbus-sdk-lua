@@ -3,7 +3,9 @@ local ipairs = _G.ipairs
 local pairs = _G.pairs
 local pcall = _G.pcall
 local rawget = _G.rawget
+local select = _G.select
 local setmetatable = _G.setmetatable
+local type = _G.type
 
 local array = require "table"
 local unpack = array.unpack or _G.unpack
