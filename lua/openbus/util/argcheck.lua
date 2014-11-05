@@ -3,6 +3,7 @@ local assert = _G.assert
 local error = _G.error
 local getmetatable = _G.getmetatable
 local ipairs = _G.ipairs
+local next = _G.next
 local pairs = _G.pairs
 local select = _G.select
 local tonumber = _G.tonumber
@@ -45,7 +46,7 @@ local function convertconstructor(constructor, typedef)
     for name, typename in pairs(typedef) do
       local checker = (type(typename)=="string") and checktype or checkmeta
       checker(name, "field '"..name.."'", typename, fields[name])
-      return constructor(fiedls, ...)
+      return constructor(fields, ...)
     end
   end
 end

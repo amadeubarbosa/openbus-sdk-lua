@@ -374,7 +374,7 @@ do
     for _, desc in ipairs(offers) do
       desc.ref = Wrapper{
         __object = desc.ref,
-        assistant = self,
+        assistant = assistant,
         description = desc,
         describe = RegisteredOffer.describe,
         subscribeObserver = RegisteredOffer.subscribeObserver,

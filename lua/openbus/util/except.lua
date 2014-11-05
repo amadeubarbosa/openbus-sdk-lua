@@ -1,3 +1,8 @@
+local _G = require "_G"
+local assert = _G.assert
+local pairs = _G.pairs
+local select = _G.select
+
 local table = require "loop.table"
 local copy = table.copy
 

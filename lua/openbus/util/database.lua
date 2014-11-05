@@ -6,6 +6,7 @@ local ipairs = _G.ipairs
 local loadfile = _G.loadfile
 local pairs = _G.pairs
 local pcall = _G.pcall
+local select = _G.select
 local setmetatable = _G.setmetatable
 
 local os = require "os"
@@ -97,6 +98,7 @@ local function saveto(path, ...)
     if result == nil then
       errmsg = "unable to write temporary file '"..temp.."' ("..errmsg..")"
     else
+      local code
       result, errmsg, code = renamefile(temp, path)
       if result == nil then
         if errmsg == "File exists" and code == 17 then
