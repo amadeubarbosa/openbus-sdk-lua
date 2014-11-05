@@ -49,16 +49,9 @@ OfferRegistry:registerService(component.IComponent, properties)
 
 log:TEST("hello service ready!")
 
--- generate shared authentication data
-local attempt, secret = conn:startSharedAuth()
-
--- load interface definition
-orb:loadidlfile("idl/sharedauth/encoding.idl")
-local idltype = orb.types:lookup("tecgraf::openbus::interop::sharedauth::EncodedSharedAuth")
-
 -- serialize shared authentication data
-local encoder = orb:newencoder()
-encoder:put({attempt=attempt,secret=secret}, idltype)
-assert(oil.writeto("sharedauth.dat", encoder:getdata(), "wb"))
+local secret = conn:startSharedAuth()
+local encoded = OpenBusContext:encodeSharedAuth(secret)
+assert(oil.writeto("sharedauth.dat", encoded, "wb"))
 
 log:TEST("shared authentication data written to file!")

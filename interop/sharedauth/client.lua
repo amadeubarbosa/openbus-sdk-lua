@@ -1,3 +1,4 @@
+local except = require "openbus.util.except"
 local log = require "openbus.util.logger"
 local openbus = require "openbus"
 
@@ -20,17 +21,12 @@ local OpenBusContext = orb.OpenBusContext
 local conn = OpenBusContext:createConnection(bushost, busport)
 OpenBusContext:setDefaultConnection(conn)
 
--- load interface definition
-orb:loadidlfile("idl/sharedauth/encoding.idl")
-local idltype = orb.types:lookup("tecgraf::openbus::interop::sharedauth::EncodedSharedAuth")
-
 -- read shared authentication data
 log:TEST("retrieve shared authentication data")
-local sharedauth = orb:newdecoder(waitfile("sharedauth.dat")):get(idltype)
-attempt, secret = orb:narrow(sharedauth.attempt), sharedauth.secret
+local secret = OpenBusContext:decodeSharedAuth(waitfile("sharedauth.dat"))
 
 -- login to the bus
-conn:loginBySharedAuth(attempt, secret)
+conn:loginBySharedAuth(secret)
 
 -- define service properties
 local props = {{name="openbus.component.interface",value=iface.repID}}

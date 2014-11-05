@@ -17,9 +17,9 @@ local running = coroutine.running
 local newthread = coroutine.create
 
 local string = require "string"
-local findstr = string.find
+local findstring = string.find
 local repeatstr = string.rep
-local substr = string.sub
+local substring = string.sub
 
 local math = require "math"
 local inf = math.huge
@@ -64,7 +64,8 @@ local AlreadyLoggedIn = libthrow.AlreadyLoggedIn
 local InvalidBusAddress = libthrow.InvalidBusAddress
 local InvalidLoginProcess = libthrow.InvalidLoginProcess
 local InvalidPropertyValue = libthrow.InvalidPropertyValue
-local InvalidChainStream = throw.InvalidChainStream
+local InvalidEncodedStream = libthrow.InvalidEncodedStream
+local WrongBus = libthrow.WrongBus
 local coreidl = require "openbus.core.idl"
 local coreconst = coreidl.const
 local BusLogin = coreconst.BusLogin
@@ -94,8 +95,6 @@ local InvalidLogins = loginthrow.InvalidLogins
 local ServiceFailure = coresrvthrow.ServiceFailure
 local exportconst = coreidl.const.data_export
 local ExportVersion = exportconst.CurrentVersion
-local MagicTag_CallChain = exportconst.MagicTag_CallChain
-local MagicTag_SharedAuth = exportconst.MagicTag_SharedAuth
 local exporttypes = coreidl.types.data_export
 local ExportedVersionSeqRepId = exporttypes.ExportedVersionSeq
 local ExportedCallChainRepId = exporttypes.ExportedCallChain
@@ -279,8 +278,7 @@ local function encryptLogin(self, buskey, pubkey, data)
   return buskey:encrypt(encoder:getdata())
 end
 
-local function localLogin(self, AccessControl, buskey, login, lease)
-  local busid = AccessControl:_get_busid()
+local function localLogin(self, AccessControl, busid, buskey, login, lease)
   local LoginRegistry = getCoreFacet(self, "LoginRegistry", LoginRegistryRepId)
   if self.login ~= nil then AlreadyLoggedIn() end
   self.invalidLogin = nil
@@ -365,6 +363,19 @@ function LegacyACSWrapper:isValid(...)
   local ok, result = pcall(facet.isValid, facet, ...)
   if ok then return result end
   log:exception(msg.UnableToAccessBusLegacySupport:tag{error=result})
+end
+
+
+
+local SharedAuthSecret = class()
+
+function SharedAuthSecret:__init()
+  self.busid = self.bus
+end
+
+function SharedAuthSecret:cancel()
+  local attempt = self.attempt
+  return pcall(attempt.cancel, attempt)
 end
 
 
@@ -510,7 +521,8 @@ function Connection:loginByPassword(entity, password)
     AccessDenied{message=msg.UnableToEncryptPassword:tag{message=errmsg}}
   end
   local login, lease = AccessControl:loginByPassword(entity, pubkey, encrypted)
-  localLogin(self, AccessControl, buskey, login, lease)
+  local busid = AccessControl:_get_busid()
+  localLogin(self, AccessControl, busid, buskey, login, lease)
   log:request(msg.LoginByPassword:tag{
     login = login.id,
     entity = login.entity,
@@ -539,7 +551,8 @@ function Connection:loginByCertificate(entity, privatekey)
     end
     error(login)
   end
-  localLogin(self, AccessControl, buskey, login, lease)
+  local busid = AccessControl:_get_busid()
+  localLogin(self, AccessControl, busid, buskey, login, lease)
   log:request(msg.LoginByCertificate:tag{
     login = login.id,
     entity = login.entity,
@@ -561,16 +574,20 @@ function Connection:startSharedAuth()
     pcall(attempt.cancel, attempt)
     ServiceFailure{message=msg.UnableToDecryptChallenge:tag{message=errmsg}}
   end
-  return attempt, secret
+  return SharedAuthSecret{
+    bus = self.busid,
+    attempt = attempt,
+    secret = secret,
+  }
 end
 
-function Connection:cancelSharedAuth(attempt)
-  return pcall(attempt.cancel, attempt)
-end
-
-function Connection:loginBySharedAuth(attempt, secret)
+function Connection:loginBySharedAuth(sharedauth)
   if self.login ~= nil then AlreadyLoggedIn() end
   local AccessControl, buskey = intiateLogin(self)
+  local busid = AccessControl:_get_busid()
+  if busid ~= sharedauth.bus then WrongBus() end
+  local attempt = sharedauth.attempt
+  local secret = sharedauth.secret
   local pubkey = self.prvkey:encode("public")
   local encrypted, errmsg = encryptLogin(self, buskey, pubkey, secret)
   if encrypted == nil then
@@ -584,7 +601,7 @@ function Connection:loginBySharedAuth(attempt, secret)
     end
     error(login)
   end
-  localLogin(self, AccessControl, buskey, login, lease)
+  localLogin(self, AccessControl, busid, buskey, login, lease)
   log:request(msg.LoginBySharedAuth:tag{
     login = login.id,
     entity = login.entity,
@@ -789,7 +806,7 @@ end
 function Context:makeChainFor(loginId)
   local conn = self:getCurrentConnection()
   if conn == nil or conn.login == nil then
-    sysexthrow.NO_PERMISSION{
+    NO_PERMISSION{
       completed = "COMPLETED_NO",
       minor = NoLoginCode,
     }
@@ -798,63 +815,95 @@ function Context:makeChainFor(loginId)
   return unmarshalSignedChain(self, signed, conn.busid)
 end
 
-function Context:encodeChain(chain)
-  local types = self.types
-  local orb = self.orb
-  local encoder = orb:newencoder()
-  local result, errmsg = pcall(encoder.put, encoder, {
-    bus = chain.busid,
-    signedChain = chain,
-  }, types.ExportedCallChain)
-  if result then
-    local encoded = encoder:getdata()
-    encoder = orb:newencoder()
-    result, errmsg = pcall(encoder.put, encoder, {{
-      version = ExportVersion,
-      encoded = encoded,
-    }}, types.ExportedVersionSeq)
-    if result then
-      return MagicTag_CallChain..encoder:getdata()
-    end
-  end
-  error(msg.UnableToEncodeChain:tag{ errmsg = errmsg })
-end
+local EncodingValues = {
+  Chain = {
+    magictag = exportconst.MagicTag_CallChain,
+    typename = "ExportedCallChain",
+    pack = function (self, chain)
+      return {
+        bus = chain.busid,
+        signedChain = chain,
+      }
+    end,
+    unpack = function (self, decoded)
+      return unmarshalSignedChain(self, decoded.signedChain, decoded.bus)
+    end,
+  },  
+  SharedAuth = {
+    magictag = exportconst.MagicTag_SharedAuth,
+    typename = "ExportedSharedAuth",
+    unpack = function (self, decoded)
+      return SharedAuthSecret(decoded)
+    end,
+  },  
+}
 
-function Context:decodeChain(stream)
-  if findstr(stream, MagicTag_CallChain, 1, "no regex") then
+for name, info in pairs(EncodingValues) do
+  Context["encode"..name] = function (self, value)
     local types = self.types
     local orb = self.orb
-    local decoder = orb:newdecoder(substr(stream, 1+#MagicTag_CallChain))
-    local ok, result = pcall(decoder.get, decoder, types.ExportedVersionSeq)
-    if ok then
-      local exports = result
-      result = msg.NoSupportedVersionFound
-      for _, exported in ipairs(exports) do
-        if exported.version == ExportVersion then
-          decoder = orb:newdecoder(exported.encoded)
-          ok, result = pcall(decoder.get, decoder, types.ExportedCallChain)
-          if ok then
-            return unmarshalSignedChain(self, result.signedChain, result.bus)
-          end
-          break
-        end
+    local encoder = orb:newencoder()
+    local packvalue = info.pack
+    if packvalue ~= nil then
+      value = packvalue(self, value)
+    end
+    local result, errmsg = pcall(encoder.put, encoder, value, types[info.typename])
+    if result then
+      local encoded = encoder:getdata()
+      encoder = orb:newencoder()
+      result, errmsg = pcall(encoder.put, encoder, {{
+        version = ExportVersion,
+        encoded = encoded,
+      }}, types.ExportedVersionSeq)
+      if result then
+        return info.magictag..encoder:getdata()
       end
     end
-    InvalidChainStream{ message = result }
+    error(msg.UnableToEncodeChain:tag{ errmsg = errmsg })
   end
-  InvalidChainStream{ message = msg.MagicTagNotFound }
-end
 
+  Context["decode"..name] = function (self, stream)
+    local magictag = info.magictag
+    if findstring(stream, magictag, 1, "no regex") == 1 then
+      local types = self.types
+      local orb = self.orb
+      local decoder = orb:newdecoder(substring(stream, 1+#magictag))
+      local ok, result = pcall(decoder.get, decoder, types.ExportedVersionSeq)
+      if ok then
+        local exports = result
+        result = msg.NoSupportedVersionFound
+        for _, exported in ipairs(exports) do
+          if exported.version == ExportVersion then
+            decoder = orb:newdecoder(exported.encoded)
+            ok, result = pcall(decoder.get, decoder, types[info.typename])
+            if ok then
+              local unpackvalue = info.unpack
+              if unpackvalue ~= nil then
+                result = unpackvalue(self, result)
+              end
+              return result
+            end
+            break
+          end
+        end
+      end
+      InvalidEncodedStream{ message = result }
+    end
+    InvalidEncodedStream{ message = msg.MagicTagNotFound }
+  end
+end
 
 
 -- allow login operations to be performed without credentials
 do
   local IgnoredMethods = {
+    [SharedAuthSecret] = {
+      "cancel",
+    },
     [Connection] = {
       "loginByPassword",
       "loginByCertificate",
       "loginBySharedAuth",
-      "cancelSharedAuth",
     },
     [Context] = {
       "createConnection",
@@ -921,12 +970,14 @@ end
 
 -- insert function argument typing
 local argcheck = require "openbus.util.argcheck"
+argcheck.convertclass(SharedAuthSecret, {
+  cancel = {},
+})
 argcheck.convertclass(Connection, {
   loginByPassword = { "string", "string" },
   loginByCertificate = { "string", "userdata" },
   startSharedAuth = {},
-  cancelSharedAuth = { "table" },
-  loginBySharedAuth = { "table", "string" },
+  loginBySharedAuth = { "table" },
   logout = {},
 })
 local ContextOperations = {
@@ -944,6 +995,8 @@ local ContextOperations = {
   makeChainFor = { "string" },
   encodeChain = { "table" },
   decodeChain = { "string" },
+  encodeSharedAuth = { "table" },
+  decodeSharedAuth = { "string" },
 }
 argcheck.convertclass(Context, ContextOperations)
 argcheck.convertmodule(openbus, {

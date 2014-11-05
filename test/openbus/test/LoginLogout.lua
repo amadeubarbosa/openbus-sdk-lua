@@ -32,6 +32,8 @@ local orb = openbus.initORB()
 local OpenBusContext = orb.OpenBusContext
 assert(OpenBusContext.orb == orb)
 local conns = {}
+local busid
+local otherBusConn
 
 local function catcherr(...)
   local ok, err = pcall(...)
@@ -54,16 +56,20 @@ local loginways = {
   loginByPassword = function() return user, password end,
   loginByCertificate = function() return system, syskey end,
   loginBySharedAuth = function()
-    return { -- dummy login process object
-      login = function()
-        return {
-          id = "60D57646-33A4-4108-88DD-AE9B7A9E3C7A",
-          entity = system,
-        }, 1
-      end,
+    return {
+      busid = busid,
+      attempt = { -- dummy login process object
+        login = function()
+          return {
+            id = "60D57646-33A4-4108-88DD-AE9B7A9E3C7A",
+            entity = system,
+          }, 1
+        end,
+        cancel = function () end,
+      },
+      secret = "fake secret",
       cancel = function () end,
-    },
-    "fake secret"
+    }
   end,
 }
 local function assertlogged(conn)
@@ -85,7 +91,7 @@ local function assertlogged(conn)
     assert(conn.busid == busid)
   end
   -- check the failure of 'startSharedAuth'
-  conn:cancelSharedAuth(conn:startSharedAuth())
+  assert(conn:startSharedAuth():cancel() == true)
   -- check the login is valid to perform calls
   local OfferRegistry = callwithin(conn, OpenBusContext.getOfferRegistry, OpenBusContext)
   assert(OfferRegistry ~= nil)
@@ -164,6 +170,7 @@ do log:TEST "connect to bus"
   for i = 1, 2 do
     conns[i] = assertlogoff(OpenBusContext:createConnection(bushost, busport))
   end
+  otherBusConn = OpenBusContext:createConnection(bus2host, bus2port)
 end
 
 -- create a valid key to be used as a wrong key in the tests below.
@@ -177,6 +184,7 @@ local invalidate, shutdown, leasetime do
   local conn = OpenBusContext:createConnection(bushost, busport)
   conn:loginByPassword(admin, admpsw)
   OpenBusContext:setDefaultConnection(conn)
+  busid = conn.busid
   leasetime = conn.AccessControl:renew()
   function invalidate(loginId)
     OpenBusContext:getLoginRegistry():invalidateLogin(loginId)
@@ -282,24 +290,34 @@ for _, connOp in ipairs({"DefaultConnection", "CurrentConnection"}) do
             
             do log:TEST "login with wrong secret"
               local attempt = conn:startSharedAuth()
-              local ex = catcherr(other.loginBySharedAuth, other, attempt, "WrongSecret")
+              attempt.secret = "WrongSecret" -- this is not allowed by the API
+              local ex = catcherr(other.loginBySharedAuth, other, attempt)
               assert(ex._repid == idl.types.services.access_control.AccessDenied)
               assertlogoff(other)
               assertlogged(conn)
             end
             do log:TEST "login with canceled attempt"
-              local attempt, secret = conn:startSharedAuth()
-              conn:cancelSharedAuth(attempt)
-              local ex = catcherr(other.loginBySharedAuth, other, attempt, secret)
+              local attempt = conn:startSharedAuth()
+              attempt:cancel()
+              local ex = catcherr(other.loginBySharedAuth, other, attempt)
               assert(ex._repid == libidl.types.InvalidLoginProcess)
               assertlogoff(other)
               assertlogged(conn)
             end
             do log:TEST "login with expired attempt"
-              local attempt, secret = conn:startSharedAuth()
+              local attempt = conn:startSharedAuth()
               sleep(2*leasetime)
-              local ex = catcherr(other.loginBySharedAuth, other, attempt, secret)
+              local ex = catcherr(other.loginBySharedAuth, other, attempt)
               assert(ex._repid == libidl.types.InvalidLoginProcess)
+              assertlogoff(other)
+              assertlogged(conn)
+            end
+            do log:TEST "login with wrong bus"
+              otherBusConn:loginByPassword(user, password)
+              local attempt = otherBusConn:startSharedAuth()
+              assert(otherBusConn:logout() == true)
+              local ex = catcherr(other.loginBySharedAuth, other, attempt)
+              assert(ex._repid == libidl.types.WrongBus)
               assertlogoff(other)
               assertlogged(conn)
             end
