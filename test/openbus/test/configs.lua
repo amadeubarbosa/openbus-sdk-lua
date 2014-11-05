@@ -28,7 +28,7 @@ setuplog(log,    get("openbus.log.level"   , 0),
                  get("openbus.log.file"    , ""))
 log:flag("TEST", get("openbus.test.verbose", "no"):lower() == "yes")
 leasetime =      get("login.lease.time"    , 1)
-expirationgap =  get("login.expiration.gap", 2)
+expirationgap =  get("login.expiration.gap", leasetime)
 bushost =        get("bus.host.name"       , "localhost")
 busport =        get("bus.host.port"       , 2089)
 bus2host =       get("bus2.host.name"      , bushost)
