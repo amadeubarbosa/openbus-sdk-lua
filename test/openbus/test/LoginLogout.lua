@@ -107,7 +107,7 @@ local function assertlogoff(conn, invalid)
   assert(conn.busid == nil)
   if not invalid then
     -- check the attempt to logoff again
-    assert(conn:logout() == false)
+    assert(conn:logout() == true)
     -- check the failure of 'startSharedAuth'
     local ex = catcherr(conn.startSharedAuth, conn)
     assert(ex._repid == sysex.NO_PERMISSION)
@@ -266,7 +266,7 @@ for _, connOp in ipairs({"DefaultConnection", "CurrentConnection"}) do
         local loginid = conn.login.id
         local busid = conn.busid
         -- first logout
-        conn:logout()
+        assert(conn:logout() == true)
         assertlogoff(conn)
         -- second login
         local function relogin()
@@ -368,7 +368,7 @@ for _, connOp in ipairs({"DefaultConnection", "CurrentConnection"}) do
           -- during logout
           assert(called == nil)
           invalidate(conn.login.id)
-          assert(conn:logout() == false)
+          assert(conn:logout() == true)
           assert(called == nil)
           assertlogoff(conn)
           relogin()
@@ -396,7 +396,7 @@ for _, connOp in ipairs({"DefaultConnection", "CurrentConnection"}) do
           -- during logout
           assert(called == nil)
           invalidate(conn.login.id)
-          assert(conn:logout() == false)
+          assert(conn:logout() == true)
           assert(called == nil)
           assertlogoff(conn)
           relogin()
@@ -428,7 +428,7 @@ for _, connOp in ipairs({"DefaultConnection", "CurrentConnection"}) do
           -- during logout
           assert(called == nil)
           invalidate(conn.login.id)
-          assert(conn:logout() == false)
+          assert(conn:logout() == true)
           assert(called == nil)
           assertlogoff(conn)
         end

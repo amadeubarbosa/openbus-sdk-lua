@@ -117,7 +117,7 @@ do log:TEST("Relog while performing a call")
   
   prx:entityLogout{id="???",entity="???"}
   
-  assert(conn:logout())
+  conn:logout()
   OpenBusContext:setDefaultConnection(nil)
 end
 
@@ -141,7 +141,7 @@ do log:TEST("Relog while dispathing a call")
   
   pxy:entityLogout{id="???",entity="???"}
   
-  assert(conn:logout())
+  conn:logout()
   OpenBusContext:setDefaultConnection(nil)
 end
 
