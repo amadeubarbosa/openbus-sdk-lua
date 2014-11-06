@@ -437,12 +437,12 @@ function Connection:sendrequest(request)
   end
 end
 
-local InvalidLoginThreads = {}
+local NoInvalidLoginHandling = {}
 
 function Connection:receivereply(request)
   receiveBusReply(self, request)
   local thread = running()
-  if request.success == false and InvalidLoginThreads[thread] == nil then
+  if request.success == false and NoInvalidLoginHandling[thread] == nil then
     local except = request.results[1]
     if is_NO_PERMISSION(except, InvalidLoginCode) then
       local invlogin = request.login
@@ -452,9 +452,9 @@ function Connection:receivereply(request)
         entity = invlogin.entity,
       })
       local logins = self.LoginRegistry
-      InvalidLoginThreads[thread] = true
+      NoInvalidLoginHandling[thread] = true
       local ok, result = pcall(logins.getLoginValidity, logins, invlogin.id)
-      InvalidLoginThreads[thread] = nil
+      NoInvalidLoginHandling[thread] = nil
       if ok and result > 0 then
         log:exception(msg.GotFalseInvalidLogin:tag{
           invlogin = invlogin.id,
@@ -617,9 +617,9 @@ function Connection:logout()
       entity = login.entity,
     })
     local thread = running()
-    InvalidLoginThreads[thread] = true
+    NoInvalidLoginHandling[thread] = true
     result, except = pcallWithin(self, self.AccessControl, "logout")
-    InvalidLoginThreads[thread] = nil
+    NoInvalidLoginHandling[thread] = nil
     localLogout(self)
     if not result and is_NO_PERMISSION(except, InvalidLoginCode) then
       result, except = true, nil
@@ -635,7 +635,7 @@ end
 
 
 
-local IgnoredThreads = {}
+local NoBusInterception = {}
 
 local WeakKeys = { __mode="k" }
 
@@ -659,7 +659,7 @@ function Context:__init()
 end
 
 function Context:sendrequest(request)
-  if IgnoredThreads[running()] == nil then
+  if NoBusInterception[running()] == nil then
     local conn = self:getCurrentConnection()
     if conn ~= nil then
       request[self] = conn
@@ -899,7 +899,7 @@ end
 
 -- allow login operations to be performed without credentials
 do
-  local IgnoredMethods = {
+  local OutsideBusMethods = {
     [SharedAuthSecret] = {
       "cancel",
     },
@@ -913,16 +913,16 @@ do
     },
   }
   local function continuation(thread, ok, ...)
-    IgnoredThreads[thread] = nil
+    NoBusInterception[thread] = nil
     if not ok then error((...)) end
     return ...
   end
-  for class, methods in pairs(IgnoredMethods) do
+  for class, methods in pairs(OutsideBusMethods) do
     for _, name in ipairs(methods) do
       local op = class[name]
       class[name] = function(self, ...)
         local thread = running()
-        IgnoredThreads[thread] = true 
+        NoBusInterception[thread] = true 
         return continuation(thread, pcall(op, self, ...))
       end
     end
