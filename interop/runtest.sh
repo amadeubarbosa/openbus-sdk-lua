@@ -27,4 +27,8 @@ done
 echo -n "Executing test '$2' ... "
 $CONSOLE client.lua $2
 echo "OK"
-cd ..
+cd ../../test
+echo -n "Test protocol with server of test '$2' ... "
+$CONSOLE openbus/test/Protocol.lua
+echo "OK"
+cd ../interop

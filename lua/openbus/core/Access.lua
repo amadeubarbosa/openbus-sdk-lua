@@ -462,6 +462,7 @@ function Interceptor:receiverequest(request, credential)
             entity = caller.entity,
             delegate = credential.delegate,
           })
+          setNoPermSysEx(request, loginconst.InvalidCredentialCode)
         else
           -- invalid credential, try to reset credetial session
           local sessions = self.incomingSessions
@@ -495,19 +496,15 @@ function Interceptor:receiverequest(request, credential)
             setNoPermSysEx(request, loginconst.InvalidPublicKeyCode)
           end
         end
-      elseif busid ~= nil then
+      else
         -- credential with invalid login
-        log:exception(msg.GotCallWithInvalidLogin:tag{
+        local logmessage = (busid == nil) and msg.GotLegacyCallWithInvalidLogin
+                                           or msg.GotCallWithInvalidLogin
+        log:exception(logmessage:tag{
           operation = request.operation_name,
           remote = credential.login,
         })
         setNoPermSysEx(request, loginconst.InvalidLoginCode)
-      else
-        -- legacy credential with invalid login (OpenBus 1.5)
-        log:exception(msg.GotLegacyCallWithInvalidLogin:tag{
-          operation = request.operation_name,
-          remote = credential.login,
-        })
       end
     else
       -- credential for another bus
