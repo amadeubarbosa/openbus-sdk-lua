@@ -306,7 +306,7 @@ function testBusCall(bus, login, otherkey, assertresults, proxy, opname, ...)
     else
       assert(reset.target ~= BusLogin)
       login.busSession:newCred("signChainFor")
-      chain = bus.AccessControl:signChainFor(reset.target)
+      chain = bus.AccessControl:signChainFor(reset.entity)
     end
   end
 
@@ -416,7 +416,7 @@ function testBusCall(bus, login, otherkey, assertresults, proxy, opname, ...)
     local newchain = NullChain
     if not bus.objects[proxy] then
       newlogin.busSession:newCred("signChainFor")
-      newchain = bus.AccessControl:signChainFor(reset.target)
+      newchain = bus.AccessControl:signChainFor(reset.entity)
     end
 
     local credential = {
