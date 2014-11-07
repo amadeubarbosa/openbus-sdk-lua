@@ -3,7 +3,9 @@ local ipairs = _G.ipairs
 local pairs = _G.pairs
 local pcall = _G.pcall
 local rawget = _G.rawget
+local select = _G.select
 local setmetatable = _G.setmetatable
+local type = _G.type
 
 local array = require "table"
 local unpack = array.unpack or _G.unpack
@@ -205,7 +207,7 @@ function Interceptor:resetCaches()
   }
 end
 
-function Interceptor:unmarshalSignedChain(chain, busid)
+function Interceptor:unmarshalSignedChain(chain)
   local encoded = chain.encoded
   if encoded ~= "" then
     local context = self.context
@@ -218,7 +220,6 @@ function Interceptor:unmarshalSignedChain(chain, busid)
     chain.originators = originators
     chain.caller = decoded.caller
     chain.target = decoded.target
-    chain.busid = busid
     return chain
   end
 end
@@ -231,7 +232,7 @@ function Interceptor:unmarshalCredential(contexts)
   local data = contexts[CredentialContextId]
   if data ~= nil then
     local credential = orb:newdecoder(data):get(types.CredentialData)
-    credential.chain = unmarshalSignedChain(self, credential.chain, credential.bus)
+    credential.chain = unmarshalSignedChain(self, credential.chain)
     return credential
   end
 end

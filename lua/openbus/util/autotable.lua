@@ -1,4 +1,5 @@
 local _G = require "_G"
+local next = _G.next
 local rawget = _G.rawget
 local select = _G.select
 

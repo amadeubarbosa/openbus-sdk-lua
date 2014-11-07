@@ -1,5 +1,6 @@
 local _G = require "_G"
 local assert = _G.assert
+local error = _G.error
 local ipairs = _G.ipairs
 local pcall = _G.pcall
 
@@ -189,11 +190,6 @@ do
   function Assistant:startSharedAuth(retries, interval)
     local conn = self.connection
     return retrycall(self, retries, interval, "StartSharedAuth", conn.startSharedAuth, conn)
-  end
-
-  function Assistant:cancelSharedAuth(attempt, retries, interval)
-    local conn = self.connection
-    return retrycall(self, retries, interval, "StartSharedAuth", conn.cancelSharedAuth, conn, attempt)
   end
 end
 

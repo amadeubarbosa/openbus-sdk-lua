@@ -95,7 +95,7 @@ do log:TEST("Decode malformed chain")
   for _, malformed in ipairs(malformedstreams) do
     local ok, ex = pcall(OpenBusContext.decodeChain, OpenBusContext, malformed)
     assert(not ok)
-    assert(ex._repid == libidl.types.InvalidChainStream)
+    assert(ex._repid == libidl.types.InvalidEncodedStream)
     assert(ex.message ~= nil)
   end
 end

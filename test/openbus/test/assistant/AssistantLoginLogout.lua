@@ -65,23 +65,27 @@ local loginways = {
   loginByPassword = function() return user, password end,
   loginByCertificate = function() return system, syskey end,
   loginBySharedAuth = function()
-    return { -- dummy login process object
-      login = function()
-        return {
-          id = "60D57646-33A4-4108-88DD-AE9B7A9E3C7A",
-          entity = system,
-        }, 1
-      end,
+    return {
+      busid = busid,
+      attempt = { -- dummy login process object
+        login = function()
+          return {
+            id = "60D57646-33A4-4108-88DD-AE9B7A9E3C7A",
+            entity = system,
+          }, 1
+        end,
+        cancel = function () end,
+      },
+      secret = "fake secret",
       cancel = function () end,
-    },
-    "fake secret"
+    }
   end,
 }
 local function assertlogged(a)
   -- check constant attributes
   assert(a.orb == orb)
   -- check the failure of 'startSharedAuth'
-  a:cancelSharedAuth(a:startSharedAuth())
+  a:startSharedAuth():cancel()
   -- check the login is valid to perform calls
   local OfferRegistry = OpenBusContext:getOfferRegistry()
   assert(OfferRegistry ~= nil)

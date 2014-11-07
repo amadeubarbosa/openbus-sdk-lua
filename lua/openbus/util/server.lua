@@ -9,6 +9,7 @@ local pairs = _G.pairs
 local setmetatable = _G.setmetatable
 local tostring = _G.tostring
 local type = _G.type
+local xpcall = _G.xpcall
 
 local array = require "table"
 local concat = array.concat
@@ -16,6 +17,9 @@ local concat = array.concat
 local io = require "io"
 local openfile = io.open
 local stderr = io.stderr
+
+local debug = require "debug"
+local traceback = debug.traceback
 
 local pubkey = require "lce.pubkey"
 local decodeprivatekey = pubkey.decodeprivate

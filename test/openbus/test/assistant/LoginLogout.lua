@@ -46,16 +46,20 @@ local loginways = {
   loginByCertificate = function() return system, syskey end,
   loginByCallback = function()
     return function ()
-      return "SharedAuth", { -- dummy login process object
-        login = function()
-          return {
-            id = "60D57646-33A4-4108-88DD-AE9B7A9E3C7A",
-            entity = system,
-          }, 1
-        end,
+      return "SharedAuth", {
+        busid = busid,
+        attempt = { -- dummy login process object
+          login = function()
+            return {
+              id = "60D57646-33A4-4108-88DD-AE9B7A9E3C7A",
+              entity = system,
+            }, 1
+          end,
+          cancel = function () end,
+        },
+        secret = "fake secret",
         cancel = function () end,
-      },
-      "fake secret"
+      }
     end
   end,
 }
@@ -78,7 +82,7 @@ local function assertlogged(conn)
     assert(conn.busid == busid)
   end
   -- check the success of 'startSharedAuth'
-  conn:cancelSharedAuth(conn:startSharedAuth())
+  conn:startSharedAuth():cancel()
   -- check the login is valid to perform calls
   assert(type(conn:getAllServices()) == "table")
   return conn
@@ -264,28 +268,29 @@ for _, connOp in ipairs({"DefaultConnection", "CurrentConnection"}) do
             
             do log:TEST "login with wrong secret"
               local attempt = conn:startSharedAuth()
+              attempt.secret = "WrongSecret" -- this is not allowed by the API
               local ex = catcherr(other.loginByCallback, other, function ()
-                return "SharedAuth", attempt, "WrongSecret"
+                return "SharedAuth", attempt
               end)
               assert(ex._repid == idl.types.services.access_control.AccessDenied)
               assertlogoff(other)
               assertlogged(conn)
             end
             do log:TEST "login with canceled attempt"
-              local attempt, secret = conn:startSharedAuth()
-              conn:cancelSharedAuth(attempt)
+              local attempt = conn:startSharedAuth()
+              attempt:cancel()
               local ex = catcherr(other.loginByCallback, other, function ()
-                return "SharedAuth", attempt, secret
+                return "SharedAuth", attempt
               end)
               assert(ex._repid == libidl.types.InvalidLoginProcess)
               assertlogoff(other)
               assertlogged(conn)
             end
             do log:TEST "login with expired attempt"
-              local attempt, secret = conn:startSharedAuth()
+              local attempt = conn:startSharedAuth()
               sleep(2*leasetime)
               local ex = catcherr(other.loginByCallback, other, function ()
-                return "SharedAuth", attempt, secret
+                return "SharedAuth", attempt
               end)
               assert(ex._repid == libidl.types.InvalidLoginProcess)
               assertlogoff(other)

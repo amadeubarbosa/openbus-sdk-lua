@@ -363,12 +363,9 @@ do
     self.loginargs = callback
     localLogin(self)
   end
-end
 
-for _, name in ipairs{"startSharedAuth", "cancelSharedAuth"} do
-  Assistant[name] = function (self, ...)
-    local conn = self.connection
-    return conn[name](conn, ...)
+  function Assistant:startSharedAuth(...)
+    return self.connection:startSharedAuth(...)
   end
 end
 
@@ -377,7 +374,7 @@ do
     for _, desc in ipairs(offers) do
       desc.ref = Wrapper{
         __object = desc.ref,
-        assistant = self,
+        assistant = assistant,
         description = desc,
         describe = RegisteredOffer.describe,
         subscribeObserver = RegisteredOffer.subscribeObserver,
@@ -497,7 +494,6 @@ argcheck.convertclass(Assistant, {
   loginByCertificate = { "string", "userdata" },
   loginByCallback = { "function" },
   startSharedAuth = {},
-  cancelSharedAuth = { "table" },
   logout = {},
   getAllServices = {},
   findServices = { "table" },
