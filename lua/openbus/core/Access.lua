@@ -128,7 +128,8 @@ end
 
 local function validateChain(self, chain, caller)
   if chain ~= nil then
-    return chain.caller.id == caller.id
+    return chain.busid == self.busid
+       and chain.caller.id == caller.id
        and( chain.signature == nil or -- hack for 'openbus.core.services.Access'
             self.buskey:verify(sha256(chain.encoded), chain.signature) )
   end
@@ -220,6 +221,7 @@ function Interceptor:unmarshalSignedChain(chain)
     chain.originators = originators
     chain.caller = decoded.caller
     chain.target = decoded.target
+    chain.busid = decoded.bus
     return chain
   end
 end
@@ -368,7 +370,7 @@ function Interceptor:receiverequest(request, credential)
                   or self:unmarshalCredential(request.service_context)
   if credential ~= nil then
     local busid = credential.bus
-    if busid == nil or busid == self.busid then
+    if busid == self.busid then
       local caller = self.LoginRegistry:getLoginEntry(credential.login)
       if caller ~= nil then
         local context = self.context
@@ -380,7 +382,6 @@ function Interceptor:receiverequest(request, credential)
               remote = caller.id,
               entity = caller.entity,
             })
-            chain.busid = busid
             context.callerChainOf[running()] = chain
           else
             -- invalid call chain
