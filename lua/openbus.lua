@@ -456,28 +456,23 @@ function Connection:receivereply(request)
   end
 end
 
-function Connection:receiverequest(request)
+function Connection:receiverequest(request, ...)
   if self.login ~= nil then
-    local ok, ex = pcall(receiveBusRequest, self, request)
-    if ok then
-      if request.success == nil and self.context:getCallerChain() == nil then
-        log:exception(msg.DeniedOrdinaryCall:tag{
+    local ok, ex = pcall(receiveBusRequest, self, request, ...)
+    if not ok then
+      if is_NO_PERMISSION(ex, NoLoginCode) then
+        log:exception(msg.LostLoginDuringCallDispatch:tag{
           operation = request.operation.name,
         })
-        setNoPermSysEx(request, NoCredentialCode)
+        setNoPermSysEx(request, UnknownBusCode)
+      elseif is_TRANSIENT(ex) or is_COMM_FAILURE(ex) then
+        log:exception(msg.UnableToVerifyLoginDueToCoreServicesUnaccessible:tag{
+          operation = request.operation.name,
+        })
+        setNoPermSysEx(request, UnverifiedLoginCode)
+      else
+        error(ex)
       end
-    elseif is_NO_PERMISSION(ex, NoLoginCode) then
-      log:exception(msg.LostLoginDuringCallDispatch:tag{
-        operation = request.operation.name,
-      })
-      setNoPermSysEx(request, UnknownBusCode)
-    elseif is_TRANSIENT(ex) or is_COMM_FAILURE(ex) then
-      log:exception(msg.UnableToVerifyLoginDueToCoreServicesUnaccessible:tag{
-        operation = request.operation.name,
-      })
-      setNoPermSysEx(request, UnverifiedLoginCode)
-    else
-      error(ex)
     end
   else
     log:exception(msg.GotCallWhileNotLoggedIn:tag{
@@ -648,17 +643,24 @@ end
 
 function Context:receiverequest(request)
   local credential = unmarshalCredential(self, request.service_context)
-  local conn = getDispatcherFor(self, request, credential)
-            or self.defaultConnection
-  if conn ~= nil then
-    request[self] = conn
-    self:setCurrentConnection(conn)
-    conn:receiverequest(request, credential)
+  if credential ~= nil then
+    local conn = getDispatcherFor(self, request, credential)
+              or self.defaultConnection
+    if conn ~= nil then
+      request[self] = conn
+      self:setCurrentConnection(conn)
+      conn:receiverequest(request, credential)
+    else
+      log:exception(msg.GotCallWhileDisconnected:tag{
+        operation = request.operation_name,
+      })
+      setNoPermSysEx(request, UnknownBusCode)
+    end
   else
-    log:exception(msg.GotCallWhileDisconnected:tag{
-      operation = request.operation_name,
+    log:exception(msg.DeniedOrdinaryCall:tag{
+      operation = request.operation.name,
     })
-    setNoPermSysEx(request, UnknownBusCode)
+    setNoPermSysEx(request, NoCredentialCode)
   end
 end
 
