@@ -33,12 +33,6 @@ properties[#properties+1] =
 -- define test cases
 local CredentialResetCases = {
   {
-    target = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
-    session = 2^32-1,
-    secret = string.rep("\171", 16),
-    expected = except.minor.InvalidTarget,
-  },
-  {
     session = 2^32-1,
     challenge = string.rep("\171", idl.const.EncryptedBlockSize),
     expected = except.minor.InvalidRemote,
@@ -68,14 +62,8 @@ for _, offer in ipairs(findoffers(OfferRegistry, properties)) do
   local server = offer.service_ref:getFacetByName(iface.name):__narrow(iface)
   server:NonBusCall()
   for _, case in ipairs(CredentialResetCases) do
-    local ok, ex
-    if case.challenge == nil then
-      ok, ex = pcall(server.ResetCredential, server,
-                     case.target, case.session, case.secret)
-    else
-      ok, ex = pcall(server.ResetCredentialWithChallenge, server,
-                     case.session, case.challenge)
-    end
+    local ok, ex = pcall(server.ResetCredentialWithChallenge, server,
+                         case.session, case.challenge)
     assert(ok == false)
     assert(ex._repid == except.repid.NO_PERMISSION)
     assert(ex.minor == case.expected)

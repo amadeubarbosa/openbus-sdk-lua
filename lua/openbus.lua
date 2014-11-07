@@ -68,7 +68,7 @@ local InvalidEncodedStream = libthrow.InvalidEncodedStream
 local WrongBus = libthrow.WrongBus
 local coreidl = require "openbus.core.idl"
 local coreconst = coreidl.const
-local BusLogin = coreconst.BusLogin
+local BusEntity = coreconst.BusEntity
 local BusObjectKey = coreconst.BusObjectKey
 local EncryptedBlockSize = coreconst.EncryptedBlockSize
 local CredentialContextId = coreconst.credential.CredentialContextId
@@ -370,7 +370,7 @@ end
 
 local NullChain = {}
 function Connection:signChainFor(target, chain)
-  if target == BusLogin then return chain end
+  if target == BusEntity then return chain end
   local access = self.AccessControl
   local cache = self.signedChainOf[chain or NullChain]
   local joined = cache:get(target)

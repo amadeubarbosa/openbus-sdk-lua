@@ -20,23 +20,10 @@ local impl, servant, iface do
   function impl:RaiseNoPermission(minor)
     sysex.NO_PERMISSION{ completed = "COMPLETED_NO", minor = minor }
   end
-  function impl:ResetCredential(target, session, secret)
-    local data = assert(getreqcxt(idl.const.credential.CredentialContextId))
-    local cred = assert(decodeCredential(data))
-    local client = self.context:getLoginRegistry():getLoginInfo(cred.login)
-    putrepcxt(idl.const.credential.CredentialContextId, encodeReset{
-      target = target,
-      session = session,
-      challenge = assert(client.pubkey:encrypt(secret)),
-    })
-    sysex.NO_PERMISSION{
-      completed = "COMPLETED_NO",
-      minor = idl.const.services.access_control.InvalidCredentialCode,
-    }
-  end
   function impl:ResetCredentialWithChallenge(session, challenge)
     putrepcxt(idl.const.credential.CredentialContextId, encodeReset{
       target = self.login,
+      entity = self.entity,
       session = session,
       challenge = challenge,
     })
@@ -83,6 +70,7 @@ OpenBusContext:setDefaultConnection(conn)
 -- login to the bus
 conn:loginByCertificate(system, assert(openbus.readKeyFile(syskey)))
 impl.login = conn.login.id
+impl.entity = conn.login.entity
 
 -- offer service
 local OfferRegistry = OpenBusContext:getOfferRegistry()

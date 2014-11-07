@@ -113,7 +113,7 @@ do log:TEST("Encode and decode chains")
   local entity2 = conn2.login.entity
 
   OpenBusContext:setDefaultConnection(conn1)
-  local chain1to2 = OpenBusContext:makeChainFor(conn2.login.id)
+  local chain1to2 = OpenBusContext:makeChainFor(entity2)
   local stream = assert(OpenBusContext:encodeChain(chain1to2))
   assert(type(stream) == "string")
   chain1to2 = assert(OpenBusContext:decodeChain(stream))
@@ -125,7 +125,7 @@ do log:TEST("Encode and decode chains")
 
   OpenBusContext:setDefaultConnection(conn2)
   OpenBusContext:joinChain(chain1to2)
-  local chain1to2to1 = OpenBusContext:makeChainFor(conn1.login.id)
+  local chain1to2to1 = OpenBusContext:makeChainFor(entity1)
 
   OpenBusContext:exitChain()
   OpenBusContext:setDefaultConnection(nil)

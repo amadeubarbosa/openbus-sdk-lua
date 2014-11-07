@@ -250,28 +250,22 @@ function Interceptor:sendrequest(request)
   local profile2login = self.profile2login
   local target = profile2login:get(request.profile_data)
   if target ~= nil then -- known IOR profile, so it supports OpenBus 2.0
-    local ok, result = pcall(self.signChainFor, self, target, chain or NullChain)
-    if not ok then
-      log:exception(msg.UnableToSignChainForTarget:tag{
-        error = result,
-        target = target,
-        chain = chain,
-      })
-      local minor = loginconst.UnavailableBusCode
-      if result._repid == InvalidLoginsException then
-        for profile_data, profile_target in pairs(profile2login.map) do
-          if target == profile_target then
-            profile2login:remove(profile_data)
-          end
-        end
-        minor = loginconst.InvalidTargetCode
-      end
-      setNoPermSysEx(request, minor)
-      return
-    end
-    chain = result
     local session = self.outgoingSessions:get(target)
     if session ~= nil then -- credential session is established
+      local entity = session.entity
+      local ok, result = pcall(self.signChainFor, self, entity, chain or
+                                                                NullChain)
+      if not ok then
+        log:exception(msg.UnableToSignChainForTarget:tag{
+          error = result,
+          target = target,
+          entity = entity,
+          chain = chain,
+        })
+        setNoPermSysEx(request, loginconst.UnavailableBusCode)
+        return
+      end
+      chain = result
       sessionid = session.id
       ticket = session.ticket+1
       session.ticket = ticket
@@ -326,8 +320,10 @@ function Interceptor:receivereply(request)
           local secret, errmsg = self.prvkey:decrypt(reset.challenge)
           if secret ~= nil then
             local target = reset.target
+            local entity = reset.entity
             log:access(self, msg.GotCredentialReset:tag{
               operation = request.operation_name,
+              entity = entity,
               remote = target,
             })
             reset.secret = secret
@@ -337,6 +333,7 @@ function Interceptor:receivereply(request)
               id = reset.session,
               secret = reset.secret,
               remote = target,
+              entity = entity,
               ticket = -1,
             })
             request.success = nil -- reissue request to the same reference
@@ -405,9 +402,11 @@ function Interceptor:receiverequest(request, credential)
               remote = caller.id,
               entity = caller.entity,
             })
+            local login = self.login
             local encoder = context.orb:newencoder()
             encoder:put({
-              target = self.login.id,
+              target = login.id,
+              entity = login.entity,
               session = newsession.id,
               challenge = challenge,
             }, context.types.CredentialReset)
