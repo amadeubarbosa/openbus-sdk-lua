@@ -109,12 +109,16 @@ local receiveBusReply = BaseInterceptor.receivereply
 local receiveBusRequest = BaseInterceptor.receiverequest
 local unmarshalCredential = BaseInterceptor.unmarshalCredential
 local unmarshalSignedChain = BaseInterceptor.unmarshalSignedChain
+local oldidl = require "openbus.core.legacy.idl"
+local LegacyAccessControlRepId = oldidl.types.services.access_control.AccessControl
 
 -- must be loaded after OiL is loaded because OiL is the one that installs
 -- the cothread plug-in that supports the 'now' operation.
 cothread.plugin(require "cothread.plugin.sleep")
 local delay = cothread.delay
 local time = cothread.now
+
+local IComponentRepId = "IDL:scs/core/IComponent:1.0"
 
 do
   local isNoPerm = is_NO_PERMISSION
@@ -296,6 +300,20 @@ local function localLogin(self, AccessControl, busid, buskey, login, lease)
   self.LoginRegistry = newLoginRegistryWrapper(LoginRegistry, buskey)
   self.login = login
   newRenewer(self, lease)
+  if self.legacy then
+    local legacy = getCoreFacet(self, "LegacySupport", IComponentRepId)
+    if legacy ~= nil then
+      legacy = legacy:getFacetByName("AccessControl")
+      if legacy ~= nil then
+        legacy = self.context.orb:narrow(legacy, LegacyAccessControlRepId)
+      else
+        log:exception(msg.LegacySupportMissing)
+      end
+    else
+      log:exception(msg.LegacySupportNotAvailable)
+    end
+    self.legacy = legacy
+  end
 end
 
 local function localLogout(self)
@@ -370,7 +388,7 @@ end
 
 local NullChain = {}
 function Connection:signChainFor(target, chain)
-  if target == BusEntity then return chain end
+  if target == BusEntity then return chain, chain.islegacy end
   local access = self.AccessControl
   local cache = self.signedChainOf[chain or NullChain]
   local joined = cache:get(target)
@@ -715,6 +733,7 @@ function Context:connectByReference(bus, props)
     orb = self.orb,
     bus = bus,
     prvkey = prvkey or self.prvkey,
+    legacy = not props.nolegacy,
   }
 end
 
@@ -771,7 +790,7 @@ function Context:getOfferRegistry()
   return getCoreFacet(conn, "OfferRegistry", OfferRegistryRepId)
 end
 
-function Context:makeChainFor(loginId)
+function Context:makeChainFor(target)
   local conn = self:getCurrentConnection()
   if conn == nil or conn.login == nil then
     NO_PERMISSION{
@@ -779,7 +798,7 @@ function Context:makeChainFor(loginId)
       minor = NoLoginCode,
     }
   end
-  local signed = conn:signChainFor(loginId, self:getJoinedChain())
+  local signed = conn:signChainFor(target, self:getJoinedChain())
   local chain = unmarshalSignedChain(self, signed)
   chain.busid = conn.busid
   return chain

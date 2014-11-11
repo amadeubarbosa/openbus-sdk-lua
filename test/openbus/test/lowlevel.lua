@@ -109,7 +109,7 @@ end
 
 do -- protocol data encoding functions
   function calculateHash(secret, ticket, opname)
-    return sha256("\002\000"..encode(
+    return sha256("\002\001"..encode(
       "<c0I4c0", -- '<' flag to set to little endian
       secret,    -- 'c0' sequence of all chars of a string
       ticket,    -- 'I4' unsigned integer with 4 bytes

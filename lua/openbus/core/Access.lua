@@ -58,13 +58,25 @@ local InvalidLoginsException = idl.types.services.access_control.InvalidLogins
 local EncryptedBlockSize = idl.const.EncryptedBlockSize
 local CredentialContextId = idl.const.credential.CredentialContextId
 local loginconst = idl.const.services.access_control
+local oldidl = require "openbus.core.legacy.idl"
+local loadoldidl = oldidl.loadto
+local LegacyCredentialContextId = oldidl.const.credential.CredentialContextId
+
+assert(EncryptedBlockSize == oldidl.const.EncryptedBlockSize)
+assert(idl.const.HashValueSize == oldidl.const.HashValueSize)
 
 local repids = {
   CallChain = idl.types.services.access_control.CallChain,
   CredentialData = idl.types.credential.CredentialData,
   CredentialReset = idl.types.credential.CredentialReset,
+  LegacyCallChain = oldidl.types.services.access_control.CallChain,
+  LegacyCredentialData = oldidl.types.credential.CredentialData,
+  LegacyCredentialReset = oldidl.types.credential.CredentialReset,
 }
-local VersionHeader = char(2, 0)
+local VersionHeader = char(idl.const.MajorVersion,
+                           idl.const.MinorVersion)
+local LegacyVersionHeader = char(oldidl.const.MajorVersion,
+                                 oldidl.const.MinorVersion)
 local SecretSize = 16
 
 local NullChar = "\0"
@@ -82,10 +94,10 @@ local WeakKeys = {__mode = "k"}
 
 
 
-local function calculateHash(secret, ticket, request)
+local function calculateHash(version, secret, ticket, request)
   return sha256(encode(
     "<c2c0I4c0",             -- '<' flag to set to little endian
-    VersionHeader,           -- 'c2' sequence of exactly 2 chars of a string
+    version,                 -- 'c2' sequence of exactly 2 chars of a string
     secret,                  -- 'c0' sequence of all chars of a string
     ticket,                  -- 'I4' unsigned integer with 4 bytes
     request.operation_name)) -- 'c0' sequence of all chars of a string
@@ -113,10 +125,12 @@ local function validateCredential(self, credential, login, request)
     -- get current credential session
     local session = self.incomingSessions:rawget(credential.session)
     if session ~= nil then
+      local version = credential.islegacy and LegacyVersionHeader
+                                           or VersionHeader
       local ticket = credential.ticket
       -- validate credential data with session data
       if login.id == session.login
-      and credential.hash == calculateHash(session.secret, ticket, request)
+      and credential.hash == calculateHash(version, session.secret, ticket, request)
       and session.tickets:check(ticket) then
         return true
       end
@@ -164,11 +178,18 @@ end
 
 function Context:joinChain(chain)
   local thread = running()
-  self.joinedChainOf[thread] = chain or self.callerChainOf[thread] -- or error?
+  local joinedChainOf = self.joinedChainOf
+  local old = joinedChainOf[thread]
+  joinedChainOf[thread] = chain or self.callerChainOf[thread] -- or error?
+  return old
 end
 
 function Context:exitChain()
-  self.joinedChainOf[running()] = nil
+  local thread = running()
+  local joinedChainOf = self.joinedChainOf
+  local old = joinedChainOf[thread]
+  joinedChainOf[thread] = nil
+  return old
 end
 
 function Context:getJoinedChain()
@@ -208,14 +229,14 @@ function Interceptor:resetCaches()
   }
 end
 
-function Interceptor:unmarshalSignedChain(chain)
+function Interceptor:unmarshalSignedChain(chain, idltype)
   local encoded = chain.encoded
   if encoded ~= "" then
     local context = self.context
     local types = context.types
     local orb = context.orb
     local decoder = orb:newdecoder(chain.encoded)
-    local decoded = decoder:get(types.CallChain)
+    local decoded = decoder:get(idltype)
     local originators = decoded.originators
     originators.n = nil -- remove field 'n' created by OiL unmarshal
     chain.originators = originators
@@ -231,12 +252,26 @@ function Interceptor:unmarshalCredential(contexts)
   local context = self.context
   local types = context.types
   local orb = context.orb
+  local credential
   local data = contexts[CredentialContextId]
   if data ~= nil then
-    local credential = orb:newdecoder(data):get(types.CredentialData)
-    credential.chain = unmarshalSignedChain(self, credential.chain)
-    return credential
+    credential = orb:newdecoder(data):get(types.CredentialData)
+    credential.chain = unmarshalSignedChain(self, credential.chain,
+                                                  types.CallChain)
+  elseif self.legacy ~= nil then
+    data = contexts[LegacyCredentialContextId]
+    if data ~= nil then
+      credential = orb:newdecoder(data):get(types.LegacyCredentialData)
+      credential.islegacy = true
+      credential.chain = unmarshalSignedChain(self, credential.chain,
+                                                    types.LegacyCallChain)
+      if credential.chain ~= nil then
+        credential.chain.busid = credential.bus
+        credential.chain.islegacy = true
+      end
+    end
   end
+  return credential
 end
 
 
@@ -245,34 +280,62 @@ function Interceptor:sendrequest(request)
   local contexts = {}
   local context = self.context
   local orb = context.orb
-  local chain = context.joinedChainOf[running()]
-  local sessionid, ticket, hash = 0, 0, NullHash
+  local chain = context.joinedChainOf[running()] or NullChain
+  local sessionid, ticket, hash, signed = 0, 0, NullHash, NullChain
+  local idltype, contextid
   local profile2login = self.profile2login
   local target = profile2login:get(request.profile_data)
-  if target ~= nil then -- known IOR profile, so it supports OpenBus 2.0
+  if target ~= nil then
     local session = self.outgoingSessions:get(target)
     if session ~= nil then -- credential session is established
       local entity = session.entity
-      local ok, result = pcall(self.signChainFor, self, entity, chain or
-                                                                NullChain)
+      local ok, result, hashheader
+      local islegacy = session.islegacy
+      if islegacy then
+        local legacy = self.legacy
+        ok, result = pcall(legacy.signChainFor, legacy, target, chain)
+        if not ok then
+          if result._repid == InvalidLoginsException then
+            for profile_data, profile_target in pairs(profile2login.map) do
+              if target == profile_target then
+                profile2login:remove(profile_data)
+              end
+            end
+            setNoPermSysEx(request, loginconst.InvalidTargetCode)
+            return
+          end
+        end
+      else
+        ok, result, islegacy = pcall(self.signChainFor, self, entity, chain)
+      end
       if not ok then
         log:exception(msg.UnableToSignChainForTarget:tag{
           error = result,
           target = target,
           entity = entity,
-          chain = chain,
+          chain = (chain~=NullChain) and chain or nil,
         })
         setNoPermSysEx(request, loginconst.UnavailableBusCode)
         return
       end
-      chain = result
+      if islegacy then
+        idltype = context.types.LegacyCredentialData
+        contextid = LegacyCredentialContextId
+        hashheader = LegacyVersionHeader
+      else
+        idltype = context.types.CredentialData
+        contextid = CredentialContextId
+        hashheader = VersionHeader
+      end
+      signed = result
       sessionid = session.id
       ticket = session.ticket+1
       session.ticket = ticket
-      hash = calculateHash(session.secret, ticket, request)
+      hash = calculateHash(hashheader, session.secret, ticket, request)
       log:access(self, msg.PerformBusCall:tag{
         operation = request.operation_name,
         remote = target,
+        islegacy = session.islegacy,
       })
     else
       log:access(self, msg.ReinitiateCredentialSession:tag{
@@ -291,11 +354,14 @@ function Interceptor:sendrequest(request)
     session = sessionid,
     ticket = ticket,
     hash = hash,
-    chain = chain or NullChain,
+    chain = signed,
   }
   local encoder = orb:newencoder()
-  encoder:put(credential, context.types.CredentialData)
-  contexts[CredentialContextId] = encoder:getdata()
+  encoder:put(credential, idltype or context.types.CredentialData)
+  contexts[contextid or CredentialContextId] = encoder:getdata()
+  if contextid == nil and self.legacy ~= nil then
+    contexts[LegacyCredentialContextId] = contexts[CredentialContextId]
+  end
   request.service_context = contexts
 end
 
@@ -312,11 +378,35 @@ function Interceptor:receivereply(request)
     if is_NO_PERMISSION(except, nil, "COMPLETED_NO") then
       if except.minor == loginconst.InvalidCredentialCode then
         -- got invalid credential exception
-        local data = request.reply_service_context[CredentialContextId]
+        -- extract credential reset
+        local reset, islegacy
+        local context = self.context
+        local orb = context.orb
+        local types = context.types
+        local service_contexts = request.reply_service_context
+        local data = service_contexts[CredentialContextId]
         if data ~= nil then
-          local context = self.context
-          local decoder = context.orb:newdecoder(data)
-          local reset = decoder:get(context.types.CredentialReset)
+          reset = orb:newdecoder(data):get(types.CredentialReset)
+        elseif self.legacy ~= nil then
+          local data = service_contexts[LegacyCredentialContextId]
+          if data ~= nil then
+            reset = orb:newdecoder(data):get(types.LegacyCredentialReset)
+            local backup = context:exitChain()
+            local target = self.LoginRegistry:getLoginEntry(reset.target)
+            if backup ~= nil then context:joinChain(backup) end
+            if target == nil then
+              log:exception(msg.UnableToGetTargetEntity:tag{
+                target = reset.target,
+              })
+              except.minor = loginconst.InvalidTargetCode
+              return
+            end
+            reset.entity = target.entity
+            islegacy = true
+          end
+        end
+        -- validate credential reset
+        if reset ~= nil then
           local secret, errmsg = self.prvkey:decrypt(reset.challenge)
           if secret ~= nil then
             local target = reset.target
@@ -325,6 +415,7 @@ function Interceptor:receivereply(request)
               operation = request.operation_name,
               entity = entity,
               remote = target,
+              islegacy = islegacy,
             })
             reset.secret = secret
             -- initialize session and set credential session information
@@ -335,6 +426,7 @@ function Interceptor:receivereply(request)
               remote = target,
               entity = entity,
               ticket = -1,
+              islegacy = islegacy,
             })
             request.success = nil -- reissue request to the same reference
           else
@@ -378,6 +470,7 @@ function Interceptor:receiverequest(request, credential)
               operation = request.operation_name,
               remote = caller.id,
               entity = caller.entity,
+              islegacy = credential.islegacy,
             })
             context.callerChainOf[running()] = chain
           else
@@ -386,6 +479,7 @@ function Interceptor:receiverequest(request, credential)
               operation = request.operation_name,
               remote = caller.id,
               entity = caller.entity,
+              islegacy = credential.islegacy,
             })
             setNoPermSysEx(request, loginconst.InvalidChainCode)
           end
@@ -401,18 +495,23 @@ function Interceptor:receiverequest(request, credential)
               operation = request.operation_name,
               remote = caller.id,
               entity = caller.entity,
+              islegacy = credential.islegacy,
             })
             local login = self.login
             local encoder = context.orb:newencoder()
+            local idltype = context.types.CredentialReset
+            local contextid = CredentialContextId
+            if credential.islegacy then
+              idltype = context.types.LegacyCredentialReset
+              contextid = LegacyCredentialContextId
+            end
             encoder:put({
               target = login.id,
               entity = login.entity,
               session = newsession.id,
               challenge = challenge,
-            }, context.types.CredentialReset)
-            request.reply_service_context = {
-              [CredentialContextId] = encoder:getdata(),
-            }
+            }, idltype)
+            request.reply_service_context = { [contextid] = encoder:getdata() }
             setNoPermSysEx(request, loginconst.InvalidCredentialCode)
           else
             log:exception(msg.UnableToEncryptSecretWithCallerKey:tag{
@@ -492,6 +591,7 @@ function module.initORB(configs)
   configs.flavor = configs.flavor or "cooperative;corba.intercepted"
   local orb = neworb(configs)
   loadidl(orb)
+  loadoldidl(orb)
   return orb
 end
 
