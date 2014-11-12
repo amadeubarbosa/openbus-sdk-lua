@@ -41,14 +41,8 @@ end
 
 do log:TEST("Encode malformed chain")
   local malformedchains = {
-    { --[[empty]] },
-    {
-      busid = "some fake busid",
-      target = "FakeEntity",
-      caller = { id = "fake login id", entity = "FakeEntity" },
-      originators = {},
-    },
-    {
+    ["attempt to index .- %(a nil value%)"] = { --[[empty]] },
+    ["unable to encode chain"] = {
       busid = "some fake busid",
       target = "FakeEntity",
       caller = { id = "fake login id", entity = "FakeEntity" },
@@ -57,11 +51,11 @@ do log:TEST("Encode malformed chain")
       signature = "some fake encoded chain signature",
     },
   }
-  for _, malformed in ipairs(malformedchains) do
+  for expected, malformed in pairs(malformedchains) do
     local ok, ex = pcall(OpenBusContext.encodeChain, OpenBusContext, malformed)
     assert(not ok)
     assert(type(ex) == "string")
-    assert(ex:find("unable to encode chain", 1, "no regex"))
+    assert(ex:find(expected) ~= nil)
   end
 end
 
@@ -141,6 +135,63 @@ do log:TEST("Encode and decode chains")
   assert(chain1to2to1.caller.entity == entity2)
   assert(chain1to2to1.originators[1].id == login1)
   assert(chain1to2to1.originators[1].entity == entity1)
+end
+
+do log:TEST("Encode and decode legacy chains")
+  local conn1 = OpenBusContext:createConnection(bushost, busport, connprops)
+  conn1:loginByPassword(user, password)
+  local conn2 = OpenBusContext:createConnection(bushost, busport, connprops)
+  conn2:loginByCertificate(system, syskey)
+  assert(conn1.busid == conn2.busid)
+  local busid = conn1.busid
+  local login1 = conn1.login.id
+  local entity1 = conn1.login.entity
+  local login2 = conn2.login.id
+  local entity2 = conn2.login.entity
+
+  local legacy = {
+    busid = "some fake busid",
+    target = "FakeEntity",
+    caller = { id = "fake login id", entity = "FakeEntity" },
+    originators = {},
+  }
+
+  local stream = assert(OpenBusContext:encodeChain(legacy))
+  assert(type(stream) == "string")
+  local recovered = assert(OpenBusContext:decodeChain(stream))
+  assert(recovered.busid == legacy.busid)
+  assert(recovered.target == nil)
+  assert(recovered.caller.id == legacy.caller.id)
+  assert(recovered.caller.entity == legacy.caller.entity)
+  assert(#recovered.originators == 0)
+
+  OpenBusContext:setDefaultConnection(conn2)
+  OpenBusContext:joinChain(legacy)
+  local legacyto2to1 = OpenBusContext:makeChainFor(conn1.login.id)
+
+  assert(legacyto2to1.busid == busid)
+  assert(legacyto2to1.target == nil)
+  assert(legacyto2to1.caller.id == login2)
+  assert(legacyto2to1.caller.entity == entity2)
+  assert(legacyto2to1.originators[1].id == "<unknown>")
+  assert(legacyto2to1.originators[1].entity == legacy.caller.entity)
+  assert(#legacyto2to1.originators == 1)
+
+  OpenBusContext:exitChain()
+  OpenBusContext:setDefaultConnection(nil)
+  conn1:logout()
+  conn2:logout()
+
+  local stream = assert(OpenBusContext:encodeChain(legacyto2to1))
+  assert(type(stream) == "string")
+  recovered = assert(OpenBusContext:decodeChain(stream))
+  assert(recovered.busid == busid)
+  assert(recovered.target == nil)
+  assert(recovered.caller.id == login2)
+  assert(recovered.caller.entity == entity2)
+  assert(recovered.originators[1].id == "<unknown>")
+  assert(recovered.originators[1].entity == legacy.caller.entity)
+  assert(#recovered.originators == 1)
 end
 
 orb:shutdown()

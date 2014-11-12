@@ -95,10 +95,12 @@ local InvalidLogins = loginthrow.InvalidLogins
 local ServiceFailure = coresrvthrow.ServiceFailure
 local exportconst = coreidl.const.data_export
 local ExportVersion = exportconst.CurrentVersion
+local LegacyExportVersion = exportconst.LegacyVersion
 local exporttypes = coreidl.types.data_export
 local ExportedVersionSeqRepId = exporttypes.ExportedVersionSeq
 local ExportedCallChainRepId = exporttypes.ExportedCallChain
 local ExportedSharedAuthRepId = exporttypes.ExportedSharedAuth
+local LegacyExportedCallChainRepId = exporttypes.LegacyExportedCallChain
 local access = require "openbus.core.Access"
 local neworb = access.initORB
 local setNoPermSysEx = access.setNoPermSysEx
@@ -647,6 +649,8 @@ function Context:__init()
     self.orb.types:lookup_id(ExportedCallChainRepId)
   self.types.ExportedSharedAuth =
     self.orb.types:lookup_id(ExportedSharedAuthRepId)
+  self.types.LegacyExportedCallChain =
+    self.orb.types:lookup_id(LegacyExportedCallChainRepId)
   -- following are necessary to execute 'BaseInterceptor.unmarshalCredential(self)'
   self.legacy = true
   -- following is necessary to execute 'BaseInterceptor.unmarshalSignedChain(self)'
@@ -816,30 +820,81 @@ function Context:makeChainFor(loginId)
       minor = NoLoginCode,
     }
   end
-  local signed = conn:signChainFor(loginId, self:getJoinedChain())
-  return unmarshalSignedChain(self, signed, conn.busid)
+  local busid = conn.busid
+  local joined = self:getJoinedChain()
+  if joined ~= nil and joined.signature == nil then
+    local originator
+    if #joined.originators > 0 and conn.legacyDelegOrig then
+      originator = joined.originators[1].entity
+    else
+      originator = joined.caller.entity
+    end
+    return {
+      busid = busid,
+      caller = conn.login,
+      originators = {{id="<unknown>", entity=originator}}
+    }
+  end
+  local signed = conn:signChainFor(loginId, joined)
+  return unmarshalSignedChain(self, signed, busid)
 end
 
 local EncodingValues = {
   Chain = {
     magictag = exportconst.MagicTag_CallChain,
-    typename = "ExportedCallChain",
     pack = function (self, chain)
-      return {
+      local signature = chain.signature
+      if signature then -- no legacy chain (OpenBus 1.5)
+        return ExportVersion, {
+          bus = chain.busid,
+          signedChain = chain,
+        }
+      end
+      local originator = chain.originators[1]
+      return LegacyExportVersion, {
         bus = chain.busid,
-        signedChain = chain,
+        caller = chain.caller,
+        delegate = originator and originator.entity or "",
       }
     end,
-    unpack = function (self, decoded)
-      return unmarshalSignedChain(self, decoded.signedChain, decoded.bus)
-    end,
+    versions = {
+      [ExportVersion] = {
+        typename = "ExportedCallChain",
+        unpack = function (self, decoded)
+          return unmarshalSignedChain(self, decoded.signedChain, decoded.bus)
+        end,
+      },
+      [LegacyExportVersion] = {
+        typename = "LegacyExportedCallChain",
+        unpack = function (self, decoded)
+          local originator = decoded.delegate
+          if originator == "" then
+            originator = nil
+          else
+            originator = {id="<unknown>",entity=originator}
+          end
+          return {
+            busid = decoded.bus,
+            caller = decoded.caller,
+            originators = {originator},
+          }
+        end,
+      },
+    },
   },  
   SharedAuth = {
     magictag = exportconst.MagicTag_SharedAuth,
-    typename = "ExportedSharedAuth",
-    unpack = function (self, decoded)
-      return SharedAuthSecret(decoded)
+    pack = function (self, secret)
+      return ExportVersion, secret
     end,
+    versions = {
+      [ExportVersion] = {
+        typename = "ExportedSharedAuth",
+        unpack = function (self, decoded)
+          return SharedAuthSecret(decoded)
+        end,
+      },
+    },
   },  
 }
 
@@ -848,20 +903,21 @@ for name, info in pairs(EncodingValues) do
     local types = self.types
     local orb = self.orb
     local encoder = orb:newencoder()
-    local packvalue = info.pack
-    if packvalue ~= nil then
-      value = packvalue(self, value)
-    end
-    local result, errmsg = pcall(encoder.put, encoder, value, types[info.typename])
-    if result then
-      local encoded = encoder:getdata()
-      encoder = orb:newencoder()
-      result, errmsg = pcall(encoder.put, encoder, {{
-        version = ExportVersion,
-        encoded = encoded,
-      }}, types.ExportedVersionSeq)
+    local result, errmsg = info.pack(self, value)
+    if result ~= nil then
+      local version = result
+      result, errmsg = pcall(encoder.put, encoder, errmsg,
+                             types[info.versions[version].typename])
       if result then
-        return info.magictag..encoder:getdata()
+        local encoded = encoder:getdata()
+        encoder = orb:newencoder()
+        result, errmsg = pcall(encoder.put, encoder, {{
+          version = version,
+          encoded = encoded,
+        }}, types.ExportedVersionSeq)
+        if result then
+          return info.magictag..encoder:getdata()
+        end
       end
     end
     error(msg.UnableToEncodeChain:tag{ errmsg = errmsg })
@@ -878,11 +934,12 @@ for name, info in pairs(EncodingValues) do
         local exports = result
         result = msg.NoSupportedVersionFound
         for _, exported in ipairs(exports) do
-          if exported.version == ExportVersion then
+          local version = info.versions[exported.version]
+          if version ~= nil then
             decoder = orb:newdecoder(exported.encoded)
-            ok, result = pcall(decoder.get, decoder, types[info.typename])
+            ok, result = pcall(decoder.get, decoder, types[version.typename])
             if ok then
-              local unpackvalue = info.unpack
+              local unpackvalue = version.unpack
               if unpackvalue ~= nil then
                 result = unpackvalue(self, result)
               end
