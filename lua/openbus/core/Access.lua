@@ -58,6 +58,15 @@ local InvalidLoginsException = idl.types.services.access_control.InvalidLogins
 local EncryptedBlockSize = idl.const.EncryptedBlockSize
 local CredentialContextId = idl.const.credential.CredentialContextId
 local loginconst = idl.const.services.access_control
+local InvalidChainCode = loginconst.InvalidChainCode
+local InvalidCredentialCode = loginconst.InvalidCredentialCode
+local InvalidLoginCode = loginconst.InvalidLoginCode
+local InvalidPublicKeyCode = loginconst.InvalidPublicKeyCode
+local InvalidRemoteCode = loginconst.InvalidRemoteCode
+local InvalidTargetCode = loginconst.InvalidTargetCode
+local UnknownBusCode = loginconst.UnknownBusCode
+local NoLoginCode = loginconst.NoLoginCode
+local UnavailableBusCode = loginconst.UnavailableBusCode
 local oldidl = require "openbus.core.legacy.idl"
 local loadoldidl = oldidl.loadto
 local LegacyCredentialContextId = oldidl.const.credential.CredentialContextId
@@ -280,7 +289,6 @@ function Interceptor:sendrequest(request)
   local contexts = {}
   local context = self.context
   local orb = context.orb
-  local chain = context.joinedChainOf[running()] or NullChain
   local sessionid, ticket, hash, signed = 0, 0, NullHash, NullChain
   local idltype, contextid
   local profile2login = self.profile2login
@@ -288,6 +296,7 @@ function Interceptor:sendrequest(request)
   if target ~= nil then
     local session = self.outgoingSessions:get(target)
     if session ~= nil then -- credential session is established
+      local chain = context.joinedChainOf[running()] or NullChain
       local entity = session.entity
       local ok, result, hashheader
       local islegacy = session.islegacy
@@ -301,10 +310,18 @@ function Interceptor:sendrequest(request)
                 profile2login:remove(profile_data)
               end
             end
-            setNoPermSysEx(request, loginconst.InvalidTargetCode)
+            setNoPermSysEx(request, InvalidTargetCode)
             return
           end
         end
+      elseif chain.islegacy and self.legacy == nil then
+        log:exception(msg.LegacyChainNotAllowed:tag{
+          target = target,
+          entity = entity,
+          chain = chain,
+        })
+        setNoPermSysEx(request, InvalidChainCode)
+        return
       else
         ok, result, islegacy = pcall(self.signChainFor, self, entity, chain)
       end
@@ -315,7 +332,7 @@ function Interceptor:sendrequest(request)
           entity = entity,
           chain = (chain~=NullChain) and chain or nil,
         })
-        setNoPermSysEx(request, loginconst.UnavailableBusCode)
+        setNoPermSysEx(request, UnavailableBusCode)
         return
       end
       if islegacy then
@@ -366,17 +383,17 @@ function Interceptor:sendrequest(request)
 end
 
 local ExclusivelyLocal = {
-  [loginconst.NoLoginCode] = true,
-  [loginconst.InvalidRemoteCode] = true,
-  [loginconst.UnavailableBusCode] = true,
-  [loginconst.InvalidTargetCode] = true,
+  [NoLoginCode] = true,
+  [InvalidRemoteCode] = true,
+  [UnavailableBusCode] = true,
+  [InvalidTargetCode] = true,
 }
 
 function Interceptor:receivereply(request)
   if not request.success then
     local except = request.results[1]
     if is_NO_PERMISSION(except, nil, "COMPLETED_NO") then
-      if except.minor == loginconst.InvalidCredentialCode then
+      if except.minor == InvalidCredentialCode then
         -- got invalid credential exception
         -- extract credential reset
         local reset, islegacy
@@ -398,7 +415,7 @@ function Interceptor:receivereply(request)
               log:exception(msg.UnableToGetTargetEntity:tag{
                 target = reset.target,
               })
-              except.minor = loginconst.InvalidTargetCode
+              except.minor = InvalidTargetCode
               return
             end
             reset.entity = target.entity
@@ -435,20 +452,20 @@ function Interceptor:receivereply(request)
               remote = reset.target,
               error = errmsg,
             })
-            except.minor = loginconst.InvalidRemoteCode
+            except.minor = InvalidRemoteCode
           end
         else
           log:exception(msg.CredentialResetMissing:tag{
             operation = request.operation_name,
           })
-          except.minor = loginconst.InvalidRemoteCode
+          except.minor = InvalidRemoteCode
         end
       elseif not request.islocal and ExclusivelyLocal[except.minor] ~= nil then
         log:exception(msg.IllegalUseOfLocalMinorCodeByRemoteSite:tag{
           operation = request.operation_name,
           codeused = except.minor,
         })
-        except.minor = loginconst.InvalidRemoteCode
+        except.minor = InvalidRemoteCode
       end
     end
   end
@@ -481,7 +498,7 @@ function Interceptor:receiverequest(request, credential)
               entity = caller.entity,
               islegacy = credential.islegacy,
             })
-            setNoPermSysEx(request, loginconst.InvalidChainCode)
+            setNoPermSysEx(request, InvalidChainCode)
           end
         else
           -- invalid credential, try to reset credetial session
@@ -512,7 +529,7 @@ function Interceptor:receiverequest(request, credential)
               challenge = challenge,
             }, idltype)
             request.reply_service_context = { [contextid] = encoder:getdata() }
-            setNoPermSysEx(request, loginconst.InvalidCredentialCode)
+            setNoPermSysEx(request, InvalidCredentialCode)
           else
             log:exception(msg.UnableToEncryptSecretWithCallerKey:tag{
               operation = request.operation_name,
@@ -520,7 +537,7 @@ function Interceptor:receiverequest(request, credential)
               entity = caller.entity,
               error = errmsg,
             })
-            setNoPermSysEx(request, loginconst.InvalidPublicKeyCode)
+            setNoPermSysEx(request, InvalidPublicKeyCode)
           end
         end
       else
@@ -529,7 +546,7 @@ function Interceptor:receiverequest(request, credential)
           operation = request.operation_name,
           remote = credential.login,
         })
-        setNoPermSysEx(request, loginconst.InvalidLoginCode)
+        setNoPermSysEx(request, InvalidLoginCode)
       end
     else
       -- credential for another bus
@@ -538,7 +555,7 @@ function Interceptor:receiverequest(request, credential)
         remote = credential.login,
         bus = busid,
       })
-      setNoPermSysEx(request, loginconst.UnknownBusCode)
+      setNoPermSysEx(request, UnknownBusCode)
     end
   else
     log:access(self, msg.GotOrdinaryCall:tag{
