@@ -57,11 +57,11 @@ do log:TEST("Encode malformed chain")
       signature = "some fake encoded chain signature",
     },
   }
-  for _, malformed in ipairs(malformedchains) do
+  for expected, malformed in pairs(malformedchains) do
     local ok, ex = pcall(OpenBusContext.encodeChain, OpenBusContext, malformed)
     assert(not ok)
     assert(type(ex) == "string")
-    assert(ex:find("unable to encode chain", 1, "no regex"))
+    assert(ex:find("unable to encode chain") ~= nil)
   end
 end
 
