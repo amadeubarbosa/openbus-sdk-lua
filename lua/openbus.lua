@@ -724,11 +724,11 @@ function Context:createConnection(host, port, props)
   local legacy = not props.nolegacy
   local delegorig
   if legacy then
-    local delegorig = props.legacydelegate
-    if delegorig == "originator" then
+    local value = props.legacydelegate
+    if value == "originator" then
       delegorig = true
-    elseif delegorig ~= nil and delegorig ~= "caller" then
-      InvalidPropertyValue{property="legacydelegate",value=delegorig}
+    elseif value ~= nil and value ~= "caller" then
+      InvalidPropertyValue{property="legacydelegate",value=value}
     end
     legacy = busaddress2component(orb, host, port, "openbus_v1_05")
   end
