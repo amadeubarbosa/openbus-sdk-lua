@@ -823,6 +823,7 @@ function Context:makeChainFor(loginId)
   local busid = conn.busid
   local joined = self:getJoinedChain()
   if joined ~= nil and joined.signature == nil then
+    local target = conn.LoginRegistry:getLoginInfo(loginId)
     local originator
     if #joined.originators > 0 and conn.legacyDelegOrig then
       originator = joined.originators[1].entity
@@ -831,6 +832,7 @@ function Context:makeChainFor(loginId)
     end
     return {
       busid = busid,
+      target = target.entity,
       caller = conn.login,
       originators = {{id="<unknown>", entity=originator}}
     }
@@ -853,6 +855,7 @@ local EncodingValues = {
       local originator = chain.originators[1]
       return LegacyExportVersion, {
         bus = chain.busid,
+        target = chain.target,
         caller = chain.caller,
         delegate = originator and originator.entity or "",
       }
@@ -875,6 +878,7 @@ local EncodingValues = {
           end
           return {
             busid = decoded.bus,
+            target = decoded.target,
             caller = decoded.caller,
             originators = {originator},
           }
