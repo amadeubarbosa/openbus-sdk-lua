@@ -20,19 +20,19 @@ for _, parsed in ipairs(parsed) do
 end
 
 local idl = {
-  types = types.tecgraf.openbus.core.v2_0,
-  const = const.tecgraf.openbus.core.v2_0,
-  throw = throw.tecgraf.openbus.core.v2_0,
+  types = types.tecgraf.openbus.core,
+  const = const.tecgraf.openbus.core,
+  throw = throw.tecgraf.openbus.core,
 }
 
 local ServiceFailure
 do
-  local failure = idl.throw.services.ServiceFailure
+  local failure = idl.throw.v2_0.services.ServiceFailure
   function ServiceFailure(fields)
     fields.stacktrace = traceback()
     return failure(fields)
   end
-  idl.throw.services.ServiceFailure = ServiceFailure
+  idl.throw.v2_0.services.ServiceFailure = ServiceFailure
 end
 
 function idl.serviceAssertion(ok, errmsg, ...)

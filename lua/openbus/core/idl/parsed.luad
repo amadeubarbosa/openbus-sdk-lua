@@ -7,9 +7,9 @@ local luaidl = require "luaidl"
 local parse = luaidl.parse
 
 local idlspec = [[
-#include "access_control.idl"
-#include "offer_registry.idl"
-#include "data_export.idl"
+#include "tecgraf/openbus/core/v2_1/services/access_control.idl"
+#include "tecgraf/openbus/core/v2_1/services/offer_registry.idl"
+#include "tecgraf/openbus/core/v2_1/data_export.idl"
 ]]
 
 local idlpath = os.getenv("OPENBUS_IDLPATH")

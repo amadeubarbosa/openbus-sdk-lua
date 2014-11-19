@@ -110,9 +110,9 @@ local receiveBusRequest = BaseInterceptor.receiverequest
 local unmarshalCredential = BaseInterceptor.unmarshalCredential
 local unmarshalSignedChain = BaseInterceptor.unmarshalSignedChain
 local oldidl = require "openbus.core.legacy.idl"
-local LegacyAccessControlRepId = oldidl.types.services.access_control.AccessControl
-local LegacyExportVersion = oldidl.const.data_export.CurrentVersion
-local oldexporttypes = oldidl.types.data_export
+local LegacyAccessControlRepId = oldidl.types.v2_0.services.access_control.AccessControl
+local LegacyExportVersion = oldidl.const.v2_0.data_export.CurrentVersion
+local oldexporttypes = oldidl.types.v2_0.data_export
 local LegacyExportedCallChainRepId = oldexporttypes.ExportedCallChain
 
 -- must be loaded after OiL is loaded because OiL is the one that installs

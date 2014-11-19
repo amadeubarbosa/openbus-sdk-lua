@@ -38,21 +38,25 @@ LIBIDL= $(OPENBUSLIBIDL)/openbus.idl
 LIBDEPENDENTIDL= $(OPENBUSLIBIDL)/corba.idl
 
 NEWIDL= \
-  $(OPENBUSNEWIDL)/access_control.idl \
-  $(OPENBUSNEWIDL)/offer_registry.idl \
-  $(OPENBUSNEWIDL)/data_export.idl
+  $(OPENBUSNEWIDL)/tecgraf/openbus/core/v2_1/services/access_control.idl \
+  $(OPENBUSNEWIDL)/tecgraf/openbus/core/v2_1/services/offer_registry.idl \
+  $(OPENBUSNEWIDL)/tecgraf/openbus/core/v2_1/data_export.idl
 
 NEWDEPENDENTIDL= \
-  $(OPENBUSNEWIDL)/core.idl \
-  $(OPENBUSNEWIDL)/credential.idl \
+  $(OPENBUSNEWIDL)/tecgraf/openbus/core/v2_1/core.idl \
+  $(OPENBUSNEWIDL)/tecgraf/openbus/core/v2_1/credential.idl \
   $(OPENBUSSCSIDL)/scs.idl 
   
 OLDIDL= \
+  $(OPENBUSNEWIDL)/tecgraf/openbus/core/v2_1/services/legacy_support.idl \
   $(OPENBUSOLDIDL)/access_control.idl \
   $(OPENBUSOLDIDL)/offer_registry.idl \
   $(OPENBUSOLDIDL)/data_export.idl
 
 OLDDEPENDENTIDL= \
+  $(OPENBUSNEWIDL)/tecgraf/openbus/core/v2_1/services/access_control.idl \
+  $(OPENBUSNEWIDL)/tecgraf/openbus/core/v2_1/core.idl \
+  $(OPENBUSNEWIDL)/tecgraf/openbus/core/v2_1/credential.idl \
   $(OPENBUSOLDIDL)/core.idl \
   $(OPENBUSOLDIDL)/credential.idl \
   $(OPENBUSSCSIDL)/scs.idl

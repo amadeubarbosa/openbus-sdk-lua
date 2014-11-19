@@ -69,23 +69,25 @@ local NoLoginCode = loginconst.NoLoginCode
 local UnavailableBusCode = loginconst.UnavailableBusCode
 local oldidl = require "openbus.core.legacy.idl"
 local loadoldidl = oldidl.loadto
-local LegacyCredentialContextId = oldidl.const.credential.CredentialContextId
+local oldconst = oldidl.const.v2_0
+local oldtypes = oldidl.types.v2_0
+local LegacyCredentialContextId = oldconst.credential.CredentialContextId
 
-assert(EncryptedBlockSize == oldidl.const.EncryptedBlockSize)
-assert(idl.const.HashValueSize == oldidl.const.HashValueSize)
+assert(EncryptedBlockSize == oldconst.EncryptedBlockSize)
+assert(idl.const.HashValueSize == oldconst.HashValueSize)
 
 local repids = {
   CallChain = idl.types.services.access_control.CallChain,
   CredentialData = idl.types.credential.CredentialData,
   CredentialReset = idl.types.credential.CredentialReset,
-  LegacyCallChain = oldidl.types.services.access_control.CallChain,
-  LegacyCredentialData = oldidl.types.credential.CredentialData,
-  LegacyCredentialReset = oldidl.types.credential.CredentialReset,
+  LegacyCallChain = oldtypes.services.access_control.CallChain,
+  LegacyCredentialData = oldtypes.credential.CredentialData,
+  LegacyCredentialReset = oldtypes.credential.CredentialReset,
 }
 local VersionHeader = char(idl.const.MajorVersion,
                            idl.const.MinorVersion)
-local LegacyVersionHeader = char(oldidl.const.MajorVersion,
-                                 oldidl.const.MinorVersion)
+local LegacyVersionHeader = char(oldconst.MajorVersion,
+                                 oldconst.MinorVersion)
 local SecretSize = 16
 
 local NullChar = "\0"

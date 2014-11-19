@@ -7,6 +7,7 @@ local luaidl = require "luaidl"
 local parse = luaidl.parse
 
 local idlspec = [[
+#include "tecgraf/openbus/core/v2_1/services/legacy_support.idl"
 #include "access_control.idl"
 #include "offer_registry.idl"
 #include "data_export.idl"
@@ -21,6 +22,7 @@ end
 local Compiler = require "oil.corba.idl.Compiler"
 local options = Compiler().defaults
 options.incpath = {
+  idlpath.."/core",
   idlpath.."/old",
   idlpath.."/scs",
 }
