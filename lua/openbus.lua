@@ -487,7 +487,7 @@ function Connection:receiverequest(request, ...)
     local ok, ex = pcall(receiveBusRequest, self, request, ...)
     if not ok then
       if is_NO_PERMISSION(ex, NoLoginCode) then
-        log:exception(msg.LostLoginDuringCallDispatch:tag{
+        log:exception(msg.LostLoginWhilePrepatingDispatch:tag{
           operation = request.operation.name,
         })
         setNoPermSysEx(request, UnknownBusCode)
