@@ -111,9 +111,11 @@ local unmarshalCredential = BaseInterceptor.unmarshalCredential
 local unmarshalSignedChain = BaseInterceptor.unmarshalSignedChain
 local oldidl = require "openbus.core.legacy.idl"
 local LegacyAccessControlRepId = oldidl.types.v2_0.services.access_control.AccessControl
+local LegacyConverterRepId = oldidl.types.v2_1.services.legacy_support.LegacyConverter
 local LegacyExportVersion = oldidl.const.v2_0.data_export.CurrentVersion
 local oldexporttypes = oldidl.types.v2_0.data_export
 local LegacyExportedCallChainRepId = oldexporttypes.ExportedCallChain
+local LegacyExportedSharedAuthRepId = oldexporttypes.ExportedSharedAuth
 
 -- must be loaded after OiL is loaded because OiL is the one that installs
 -- the cothread plug-in that supports the 'now' operation.
@@ -306,11 +308,18 @@ local function localLogin(self, AccessControl, busid, buskey, login, lease)
   if self.legacy then
     local legacy = getCoreFacet(self, "LegacySupport", IComponentRepId)
     if legacy ~= nil then
-      legacy = legacy:getFacetByName("AccessControl")
-      if legacy ~= nil then
-        legacy = self.context.orb:narrow(legacy, LegacyAccessControlRepId)
+      local access = legacy:getFacetByName("AccessControl")
+      if access ~= nil then
+        local converter = legacy:getFacetByName("LegacyConverter")
+        legacy = self.context.orb:narrow(access, LegacyAccessControlRepId)
+        if converter ~= nil then
+          legacy.converter = self.context.orb:narrow(converter, LegacyConverterRepId)
+        else
+          log:exception(msg.LegacyDataExportDisableDueToMissingConverter)
+        end
       else
-        log:exception(msg.LegacySupportMissing)
+        log:exception(msg.LegacyDisableDueToMissingAccessControl)
+        legacy = nil
       end
     else
       log:exception(msg.LegacySupportNotAvailable)
@@ -488,6 +497,32 @@ function Connection:receiverequest(request, ...)
       else
         error(ex)
       end
+    elseif request.success == nil then
+      local legacy = self.legacy
+      if legacy ~= nil then
+        local converter = legacy.converter
+        if converter ~= nil then
+          local context = self.context
+          local chain = context:getCallerChain()
+          if not chain.islegacy then
+            context:joinChain(chain)
+            local ok, result = pcall(converter.convertSignedChain, converter)
+            context:exitChain()
+            if ok then
+              chain.legacy = result
+            else
+              -- TODO: is there a better minor code for this?
+              --       It seems the problem is the name of this minor code and
+              --       not lack of a special name. A proper name would be
+              --       UnavailableBusRemotelyCode
+              log:exception(msg.UnableToConvertSignedChain:tag{
+                errmsg = result,
+              })
+              setNoPermSysEx(request, UnverifiedLoginCode)
+            end
+          end
+        end
+      end
     end
   else
     log:exception(msg.GotCallWhileNotLoggedIn:tag{
@@ -560,9 +595,22 @@ function Connection:startSharedAuth()
     pcall(attempt.cancel, attempt)
     ServiceFailure{message=msg.UnableToDecryptChallenge:tag{message=errmsg}}
   end
+  local legacy = self.legacy
+  if legacy ~= nil then
+    legacy = legacy.converter
+    if legacy ~= nil then
+      local ok
+      ok, legacy = pcall(legacy.convertSharedAuth, legacy, attempt)
+      if not ok then
+        log:exception(msg.UnableToConvertSharedAuth:tag{ errmsg = legacy })
+        legacy = nil
+      end
+    end
+  end
   return SharedAuthSecret{
     bus = self.busid,
     attempt = attempt,
+    legacy = legacy,
     secret = secret,
   }
 end
@@ -640,6 +688,8 @@ function Context:__init()
     self.orb.types:lookup_id(ExportedSharedAuthRepId)
   self.types.LegacyExportedCallChain =
     self.orb.types:lookup_id(LegacyExportedCallChainRepId)
+  self.types.LegacyExportedSharedAuth =
+    self.orb.types:lookup_id(LegacyExportedSharedAuthRepId)
   -- following are necessary to execute 'BaseInterceptor.unmarshalCredential(self)'
   self.legacy = true
   -- following is necessary to execute 'BaseInterceptor.unmarshalSignedChain(self)'
@@ -803,25 +853,33 @@ function Context:makeChainFor(target)
       minor = NoLoginCode,
     }
   end
-  local signed = conn:signChainFor(target, self:getJoinedChain())
-  return unmarshalSignedChain(self, signed, self.types.CallChain)
+  local joined = self:getJoinedChain()
+  local signed = conn:signChainFor(target, joined)
+  local chain = unmarshalSignedChain(self, signed, self.types.CallChain)
+  local legacy = conn.legacy
+  if legacy ~= nil then
+    local converter = legacy.converter
+    if converter ~= nil then
+      chain.legacy = converter:signChainFor(target)
+    end
+  end
+  return chain
 end
 
 local EncodingValues = {
   Chain = {
     magictag = exportconst.MagicTag_CallChain,
-    pack = function (self, chain)
-      if chain.islegacy then -- legacy chain (OpenBus 2.0)
-        return LegacyExportVersion, {
-          bus = chain.busid,
-          signedChain = chain,
-        }
-      end
-      return ExportVersion, chain
-    end,
     versions = {
+      -- version encoding order
+      ExportVersion, LegacyExportVersion,
+      -- version encoding info
       [ExportVersion] = {
         typename = "ExportedCallChain",
+        pack = function (self, chain)
+          if not chain.islegacy then
+            return chain
+          end
+        end,
         unpack = function (self, decoded)
           return unmarshalSignedChain(self, decoded,
                                       self.types.CallChain)
@@ -829,24 +887,61 @@ local EncodingValues = {
       },
       [LegacyExportVersion] = {
         typename = "LegacyExportedCallChain",
+        pack = function (self, chain)
+          if chain.islegacy then
+            return {
+              bus = chain.busid,
+              signedChain = chain,
+            }
+          elseif chain.legacy ~= nil then
+            return {
+              bus = chain.busid,
+              signedChain = chain.legacy,
+            }
+          end
+        end,
         unpack = function (self, decoded)
           local chain = unmarshalSignedChain(self, decoded.signedChain,
                                              self.types.LegacyCallChain)
           chain.busid = decoded.bus
+          chain.islegacy = true
           return chain
         end,
       },
     },
-  },  
+  },
   SharedAuth = {
     magictag = exportconst.MagicTag_SharedAuth,
-    pack = function (self, secret)
-      return ExportVersion, secret
-    end,
     versions = {
+      -- version encoding order
+      ExportVersion, LegacyExportVersion,
+      -- version encoding info
       [ExportVersion] = {
         typename = "ExportedSharedAuth",
+        pack = function (self, secret)
+          if not secret.islegacy then
+            return secret
+          end
+        end,
         unpack = function (self, decoded)
+          return SharedAuthSecret(decoded)
+        end,
+      },
+      [LegacyExportVersion] = {
+        typename = "LegacyExportedSharedAuth",
+        pack = function (self, secret)
+          if secret.islegacy then
+            return secret
+          elseif secret.legacy ~= nil then
+            return {
+              bus = secret.bus,
+              attempt = secret.legacy,
+              secret = secret.secret,
+            }
+          end
+        end,
+        unpack = function (self, decoded)
+          decoded.islegacy = true
           return SharedAuthSecret(decoded)
         end,
       },
@@ -858,25 +953,23 @@ for name, info in pairs(EncodingValues) do
   Context["encode"..name] = function (self, value)
     local types = self.types
     local orb = self.orb
-    local encoder = orb:newencoder()
-    local result, errmsg = info.pack(self, value)
-    if result ~= nil then
-      local version = result
-      result, errmsg = pcall(encoder.put, encoder, errmsg,
-                             types[info.versions[version].typename])
-      if result then
-        local encoded = encoder:getdata()
-        encoder = orb:newencoder()
-        result, errmsg = pcall(encoder.put, encoder, {{
-          version = version,
-          encoded = encoded,
-        }}, types.ExportedVersionSeq)
-        if result then
-          return info.magictag..encoder:getdata()
-        end
+    local exported = {}
+    local versions = info.versions
+    for _, versiontag in ipairs(versions) do
+      local version = versions[versiontag]
+      local result = version.pack(self, value)
+      if result ~= nil then
+        local encoder = orb:newencoder()
+        encoder:put(result, types[version.typename])
+        exported[#exported+1] = {
+          version = versiontag,
+          encoded = encoder:getdata()
+        }
       end
     end
-    error(msg.UnableToEncodeChain:tag{ errmsg = errmsg })
+    local encoder = orb:newencoder()
+    encoder:put(exported, types.ExportedVersionSeq)
+    return info.magictag..encoder:getdata()
   end
 
   Context["decode"..name] = function (self, stream)
