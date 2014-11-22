@@ -23,7 +23,7 @@ OpenBusContext:setDefaultConnection(conn)
 
 -- read shared authentication data
 log:TEST("retrieve shared authentication data")
-local secret = OpenBusContext:decodeSharedAuth(waitfile("sharedauth.dat"))
+local secret = OpenBusContext:decodeSharedAuth(waitfile(sharedauthfile))
 
 -- login to the bus
 conn:loginBySharedAuth(secret)
