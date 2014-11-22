@@ -6,8 +6,8 @@ local select = _G.select
 local table = require "loop.table"
 local memoize = table.memoize
 
-local function create(weakmode)
-  return memoize(create, weakmode)
+local function create()
+  return memoize(create)
 end
 
 local function remove(table, key, ...)
