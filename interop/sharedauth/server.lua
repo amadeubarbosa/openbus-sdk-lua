@@ -52,6 +52,6 @@ log:TEST("hello service ready!")
 -- serialize shared authentication data
 local secret = conn:startSharedAuth()
 local encoded = OpenBusContext:encodeSharedAuth(secret)
-assert(oil.writeto("sharedauth.dat", encoded, "wb"))
+assert(oil.writeto(sharedauthfile, encoded, "wb"))
 
 log:TEST("shared authentication data written to file!")

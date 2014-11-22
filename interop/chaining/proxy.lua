@@ -23,16 +23,18 @@ local OpenBusContext = orb.OpenBusContext
 -- create service implementation
 local hello = {}
 function hello:fetchHello(encodedChain)
-  if not pcall(function ()
+  local ok, ex = pcall(function ()
     local chain = OpenBusContext:decodeChain(encodedChain)
     OpenBusContext:joinChain(chain)
-  end) then
+  end)
+  if not ok then
+    print(ex)
     sysex.BAD_PARAM()
   end
 
   local result
 
-  if not pcall(function ()
+  local ok, ex = pcall(function ()
     -- define service properties
     properties[#properties+1] =
       {name="openbus.component.interface",value=serviface.repID}
@@ -50,7 +52,9 @@ function hello:fetchHello(encodedChain)
       log:TEST("got result from service of ",entity)
       break
     end
-  end) then
+  end)
+  if not ok then
+    print(ex)
     sysex.NO_RESOURCES()
   end
 

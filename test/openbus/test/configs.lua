@@ -49,3 +49,4 @@ ldappat =        get("ldap.pattern"        , "cn=%U,ou=usuarios,dc=tecgraf,dc=pu
 ldaptimeout =    get("ldap.timeout"        , 5)
 admscript =      get("admin.script.test"   , "testscript.adm")
 admoutput =      get("admin.output.file"   , "busadmin.txt")
+sharedauthfile = get("system.sharedauth"   , testbase.."sharedauth.dat")
