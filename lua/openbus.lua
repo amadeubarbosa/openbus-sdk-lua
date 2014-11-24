@@ -600,7 +600,7 @@ function Connection:startSharedAuth()
     legacy = legacy.converter
     if legacy ~= nil then
       local ok
-      ok, legacy = pcall(legacy.convertSharedAuth, legacy, attempt)
+      ok, legacy = pcallWithin(self, legacy, "convertSharedAuth", attempt)
       if not ok then
         log:exception(msg.UnableToConvertSharedAuth:tag{ errmsg = legacy })
         legacy = nil

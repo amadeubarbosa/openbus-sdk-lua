@@ -60,8 +60,8 @@ do log:TEST("Encode malformed chain")
   for expected, malformed in pairs(malformedchains) do
     local ok, ex = pcall(OpenBusContext.encodeChain, OpenBusContext, malformed)
     assert(not ok)
-    assert(type(ex) == "string")
-    assert(ex:find("unable to encode chain") ~= nil)
+    assert(type(ex) == "table")
+    assert(ex._repid == sysex.MARSHAL)
   end
 end
 
