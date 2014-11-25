@@ -139,7 +139,7 @@ local function getLoginEntry(self, loginId)
   local cache = self.cache
   local entry = cache:get(loginId)
   if entry == nil then
-    local ok, result, signedkey = pcall(LoginRegistry.getLoginInfo,
+    local ok, result, enckey = pcall(LoginRegistry.getLoginInfo,
                                         LoginRegistry, loginId)
     entry = cache:get(loginId) -- Check again to see if anything changed
                                -- after the completion of the remote call.
@@ -149,13 +149,6 @@ local function getLoginEntry(self, loginId)
                                -- than the one would be generated now.
     if entry == nil then
       if ok then
-        local enckey = signedkey.encoded
-        if not self.buskey:verify(sha256(enckey), signedkey.signature) then
-          NO_PERMISSION{
-            completed = "COMPLETED_NO",
-            minor = loginconst.InvalidPublicKeyCode,
-          }
-        end
         local pubkey, exception = decodepubkey(enckey)
         if pubkey == nil then
           NO_PERMISSION{
