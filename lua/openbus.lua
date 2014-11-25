@@ -145,8 +145,8 @@ local function getLoginEntry(self, loginId)
                                -- after the completion of the remote call.
                                -- The information in the cache should be
                                -- more reliable because it must be older
-                               -- so the 'deadline' must be more accurate
-                               -- than the one would be generated now.
+                               -- so the 'deadline' must be tighter than
+                               -- the one generated now.
     if entry == nil then
       if ok then
         local pubkey, exception = decodepubkey(enckey)
