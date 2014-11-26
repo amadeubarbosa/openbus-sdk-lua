@@ -53,7 +53,7 @@ local callwithin do
 end
 
 local loginways = {
-  loginByPassword = function() return user, password end,
+  loginByPassword = function() return user, password, domain end,
   loginByCertificate = function() return system, syskey end,
   loginBySharedAuth = function()
     return {
@@ -182,7 +182,7 @@ local invalidate, shutdown, leasetime do
   local orb = openbus.initORB()
   local OpenBusContext = orb.OpenBusContext
   local conn = OpenBusContext:createConnection(bushost, busport)
-  conn:loginByPassword(admin, admpsw)
+  conn:loginByPassword(admin, admpsw, domain)
   OpenBusContext:setDefaultConnection(conn)
   busid = conn.busid
   leasetime = conn.AccessControl:renew()
@@ -217,8 +217,18 @@ for _, connOp in ipairs({"DefaultConnection", "CurrentConnection"}) do
       local conn = conns[1]
       for _, invalid in ipairs{nil,true,false,123,{},error,thread,userdata} do
         local badtype = type(invalid)
-        local ex = catcherr(conn.loginByPassword, conn, user, invalid)
+        local ex = catcherr(conn.loginByPassword, conn, user, invalid, domain)
         assert(ex:match("bad argument #2 to 'loginByPassword' %(expected string, got "..badtype.."%)$"))
+        assertlogoff(conn)
+      end
+    end
+    
+    do log:TEST "login with invalid domain"
+      local conn = conns[1]
+      for _, invalid in ipairs{nil,true,false,123,{},error,thread,userdata} do
+        local badtype = type(invalid)
+        local ex = catcherr(conn.loginByPassword, conn, user, password, invalid)
+        assert(ex:match("bad argument #3 to 'loginByPassword' %(expected string, got "..badtype.."%)$"))
         assertlogoff(conn)
       end
     end
@@ -235,8 +245,15 @@ for _, connOp in ipairs({"DefaultConnection", "CurrentConnection"}) do
     
     do log:TEST "login with wrong password"
       local conn = conns[1]
-      local ex = catcherr(conn.loginByPassword, conn, user, "WrongPassword")
+      local ex = catcherr(conn.loginByPassword, conn, user, "WrongPassword", domain)
       assert(ex._repid == idl.types.services.access_control.AccessDenied)
+      assertlogoff(conn)
+    end
+    
+    do log:TEST "login with unknown domain"
+      local conn = conns[1]
+      local ex = catcherr(conn.loginByPassword, conn, user, password, "UnknownDomain")
+      assert(ex._repid == idl.types.services.access_control.UnknownDomain)
       assertlogoff(conn)
     end
     
@@ -313,7 +330,7 @@ for _, connOp in ipairs({"DefaultConnection", "CurrentConnection"}) do
               assertlogged(conn)
             end
             do log:TEST "login with wrong bus"
-              otherBusConn:loginByPassword(user, password)
+              otherBusConn:loginByPassword(user, password, domain)
               local attempt = otherBusConn:startSharedAuth()
               assert(otherBusConn:logout() == true)
               local ex = catcherr(other.loginBySharedAuth, other, attempt)

@@ -31,7 +31,7 @@ local invalidate, shutdown do
   local orb = openbus.initORB()
   local OpenBusContext = orb.OpenBusContext
   local conn = OpenBusContext:createConnection(bushost, busport)
-  conn:loginByPassword(admin, admpsw)
+  conn:loginByPassword(admin, admpsw, domain)
   OpenBusContext:setDefaultConnection(conn)
   function invalidate(loginId)
     OpenBusContext:getLoginRegistry():invalidateLogin(loginId)
@@ -60,7 +60,7 @@ assert(OpenBusContext.orb == orb)
 
 do log:TEST("Get invalid login notification while performing a call")
   local conn = OpenBusContext:createConnection(bushost, busport, connprops)
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn)
   
   invalidate(conn.login.id)
@@ -79,7 +79,7 @@ end
 
 do log:TEST("Get invalid login notification while dispathing a call")
   local conn = OpenBusContext:createConnection(bushost, busport, connprops)
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn)
   
   local ior = tostring(orb:newservant({}, nil, "CORBA::InterfaceDef"))
@@ -101,11 +101,11 @@ end
 
 do log:TEST("Relog while performing a call")
   local conn = OpenBusContext:createConnection(bushost, busport, connprops)
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn)
   
   function conn:onInvalidLogin(login)
-    local ok, ex = pcall(conn.loginByPassword, conn, user, password)
+    local ok, ex = pcall(conn.loginByPassword, conn, user, password, domain)
     if not ok then
       assert(ex._repid == libidl.types.AlreadyLoggedIn)
     end
@@ -123,11 +123,11 @@ end
 
 do log:TEST("Relog while dispathing a call")
   local conn = OpenBusContext:createConnection(bushost, busport, connprops)
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn)
   
   function conn:onInvalidLogin(login)
-    local ok, ex = pcall(conn.loginByPassword, conn, user, password)
+    local ok, ex = pcall(conn.loginByPassword, conn, user, password, domain)
     if not ok then
       assert(ex._repid == libidl.types.AlreadyLoggedIn)
     end

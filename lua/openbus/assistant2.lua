@@ -346,9 +346,9 @@ do
     end
   end
 
-  function Assistant:loginByPassword(entity, password)
+  function Assistant:loginByPassword(entity, password, domain)
     if self.loginargs ~= nil then throw.AlreadyLoggedIn() end
-    function self.loginargs() return "Password", entity, password end
+    function self.loginargs() return "Password", entity, password, domain end
     localLogin(self)
   end
 
@@ -490,7 +490,7 @@ end
 -- insert function argument typing
 local argcheck = require "openbus.util.argcheck"
 argcheck.convertclass(Assistant, {
-  loginByPassword = { "string", "string" },
+  loginByPassword = { "string", "string", "string" },
   loginByCertificate = { "string", "userdata" },
   loginByCallback = { "function" },
   startSharedAuth = {},

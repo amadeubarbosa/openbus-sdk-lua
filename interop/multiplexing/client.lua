@@ -31,7 +31,7 @@ for _, businfo in ipairs{
   OpenBusContext:setDefaultConnection(conn)
   
   -- login to the bus
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   
   -- find the offered service
   log:TEST("retrieve hello services from bus ",conn.busid,"!")

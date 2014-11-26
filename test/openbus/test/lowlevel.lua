@@ -219,7 +219,7 @@ end
 function loginByPassword(bus, user, password, prvkey)
   local pubkey = prvkey:encode("public")
   local encrypted = encodeLogin(bus.key, password, pubkey)
-  local login, lease = bus.AccessControl:loginByPassword(user, pubkey, encrypted)
+  local login, lease = bus.AccessControl:loginByPassword(user, domain, pubkey, encrypted)
   assert(validid(login.id))
   assert(login.entity == user)
   assert(lease > 0)

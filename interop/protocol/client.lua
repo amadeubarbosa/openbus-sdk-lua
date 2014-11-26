@@ -24,7 +24,7 @@ local conn = OpenBusContext:createConnection(bushost, busport)
 OpenBusContext:setDefaultConnection(conn)
 
 -- login to the bus
-conn:loginByPassword(user, password)
+conn:loginByPassword(user, password, domain)
 
 -- define service properties
 properties[#properties+1] =

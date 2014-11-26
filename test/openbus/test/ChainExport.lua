@@ -102,7 +102,7 @@ end
 
 do log:TEST("Encode and decode chains")
   local conn1 = OpenBusContext:createConnection(bushost, busport, connprops)
-  conn1:loginByPassword(user, password)
+  conn1:loginByPassword(user, password, domain)
   local conn2 = OpenBusContext:createConnection(bushost, busport, connprops)
   conn2:loginByCertificate(system, syskey)
   assert(conn1.busid == conn2.busid)

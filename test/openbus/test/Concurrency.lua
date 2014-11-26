@@ -30,7 +30,7 @@ local invalidate, shutdown do
   local orb = openbus.initORB()
   local OpenBusContext = orb.OpenBusContext
   local conn = OpenBusContext:createConnection(bushost, busport)
-  conn:loginByPassword(admin, admpsw)
+  conn:loginByPassword(admin, admpsw, domain)
   OpenBusContext:setDefaultConnection(conn)
   function invalidate(loginId)
     OpenBusContext:getLoginRegistry():invalidateLogin(loginId)
@@ -51,7 +51,7 @@ do log:TEST("Two threads logging in")
   local failures = 0
   local threads = 2
   local function trylogin()
-    local ok, ex = pcall(conn.loginByPassword, conn, user, password)
+    local ok, ex = pcall(conn.loginByPassword, conn, user, password, domain)
     threads = threads-1
     if not ok then
       failures = failures+1
@@ -74,7 +74,7 @@ end
 
 do log:TEST("Two threads getting invalid login")
   local conn = OpenBusContext:createConnection(bushost, busport, connprops)
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn)
   local OfferRegistry = OpenBusContext:getOfferRegistry()
   
@@ -110,7 +110,7 @@ do log:TEST("Two threads getting invalid login")
   
   -- check connection behavion while logged wiht invalid login
   assert(conn.login == nil)
-  local ok, ex = pcall(conn.loginByPassword, conn, user, "ThisIsNot:"..password)
+  local ok, ex = pcall(conn.loginByPassword, conn, user, "ThisIsNot:"..password, domain)
   assert(not ok)
   assert(ex._repid == idl.types.services.access_control.AccessDenied)
   assert(conn.login == nil)
@@ -127,7 +127,7 @@ end
 
 do log:TEST("Two threads getting invalid login while other relogs")
   local conn = OpenBusContext:createConnection(bushost, busport, connprops)
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn)
   local OfferRegistry = OpenBusContext:getOfferRegistry()
   
@@ -157,7 +157,7 @@ do log:TEST("Two threads getting invalid login while other relogs")
   
   -- check connection behavion while logged wiht invalid login
   assert(conn.login == nil)
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   assert(conn.login ~= nil)
   assert(conn.login ~= mylogin)
   
@@ -175,7 +175,7 @@ end
 
 do log:TEST("Two threads getting invalid login and trying to relog")
   local conn = OpenBusContext:createConnection(bushost, busport, connprops)
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn)
   local OfferRegistry = OpenBusContext:getOfferRegistry()
   
@@ -188,7 +188,7 @@ do log:TEST("Two threads getting invalid login and trying to relog")
     assert(login == mylogin)
     suspended[#suspended+1] = cothread.running()
     cothread.suspend()
-    local ok, ex = pcall(conn.loginByPassword, conn, user, password)
+    local ok, ex = pcall(conn.loginByPassword, conn, user, password, domain)
     if not ok then
       alreadylogged = alreadylogged+1
       assert(ex._repid == libidl.types.AlreadyLoggedIn)

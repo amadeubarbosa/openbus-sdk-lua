@@ -34,7 +34,7 @@ local invalidate, shutdown do
   local orb = openbus.initORB()
   local OpenBusContext = orb.OpenBusContext
   local conn = OpenBusContext:createConnection(bushost, busport)
-  conn:loginByPassword(admin, admpsw)
+  conn:loginByPassword(admin, admpsw, domain)
   OpenBusContext:setDefaultConnection(conn)
   function invalidate(loginId)
     OpenBusContext:getLoginRegistry():invalidateLogin(loginId)
@@ -60,7 +60,7 @@ do log:TEST("Two threads logging in")
   local failures = 0
   local threads = 2
   local function trylogin()
-    local ok, ex = pcall(conn.loginByPassword, conn, user, password)
+    local ok, ex = pcall(conn.loginByPassword, conn, user, password, domain)
     threads = threads-1
     if not ok then
       failures = failures+1
@@ -88,7 +88,7 @@ do log:TEST("Two threads getting invalid login and trying to relog")
     busport = busport,
     accesskey = accesskey,
   }
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn.connection)
   
   local mylogin = conn.login

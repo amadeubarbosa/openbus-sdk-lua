@@ -23,7 +23,7 @@ assert(OpenBusContext.orb == orb)
 
 do log:TEST("Make chains for active logins")
   local conn1 = OpenBusContext:createConnection(bushost, busport, connprops)
-  conn1:loginByPassword(user, password)
+  conn1:loginByPassword(user, password, domain)
   local conn2 = OpenBusContext:createConnection(bushost, busport, connprops)
   conn2:loginByCertificate(system, syskey)
   assert(conn1.busid == conn2.busid)
@@ -65,7 +65,7 @@ end
 
 do log:TEST("Fail to make chain for invalid logins")
   local conn = OpenBusContext:createConnection(bushost, busport, connprops)
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn)
   
   local FakeEntity = "Fake Entity"
@@ -96,7 +96,7 @@ do log:TEST("Fail to make chain without login")
   assert(ex.completed == "COMPLETED_NO")
   assert(ex.minor == idl.const.services.access_control.NoLoginCode)
   
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   conn:logout()
   
   local ok, ex = pcall(OpenBusContext.makeChainFor, OpenBusContext, user)

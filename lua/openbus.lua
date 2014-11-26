@@ -132,6 +132,18 @@ do
   end
 end
 
+local function unmarshalJustSignedChain(self, conn, signed)
+  local chain = unmarshalSignedChain(self, signed, self.types.CallChain)
+  local legacy = conn.legacy
+  if legacy ~= nil then
+    local converter = legacy.converter
+    if converter ~= nil then
+      chain.legacy = converter:signChainFor(chain.target)
+    end
+  end
+  return chain
+end
+
 local function getLoginEntry(self, loginId)
   local LoginRegistry = self.__object
 
@@ -526,7 +538,7 @@ function Connection:receiverequest(request, ...)
 end
 
 
-function Connection:loginByPassword(entity, password)
+function Connection:loginByPassword(entity, password, domain)
   if self.login ~= nil then AlreadyLoggedIn() end
   local AccessControl, buskey = intiateLogin(self)
   local pubkey = self.prvkey:encode("public")
@@ -534,7 +546,8 @@ function Connection:loginByPassword(entity, password)
   if encrypted == nil then
     AccessDenied{message=msg.UnableToEncryptPassword:tag{message=errmsg}}
   end
-  local login, lease = AccessControl:loginByPassword(entity, pubkey, encrypted)
+  local login, lease = AccessControl:loginByPassword(entity, domain, pubkey,
+                                                     encrypted)
   local busid = AccessControl:_get_busid()
   localLogin(self, AccessControl, busid, buskey, login, lease)
   log:request(msg.LoginByPassword:tag{
@@ -846,17 +859,22 @@ function Context:makeChainFor(target)
       minor = NoLoginCode,
     }
   end
-  local joined = self:getJoinedChain()
-  local signed = conn:signChainFor(target, joined)
-  local chain = unmarshalSignedChain(self, signed, self.types.CallChain)
-  local legacy = conn.legacy
-  if legacy ~= nil then
-    local converter = legacy.converter
-    if converter ~= nil then
-      chain.legacy = converter:signChainFor(target)
-    end
+  local signed = conn:signChainFor(target, self:getJoinedChain())
+  return unmarshalJustSignedChain(self, conn, signed)
+end
+
+function Context:importChain(token, domain)
+  local conn = self:getCurrentConnection()
+  local buskey, AccessControl = conn.buskey, conn.AccessControl
+  if buskey == nil then
+    NO_PERMISSION{
+      completed = "COMPLETED_NO",
+      minor = NoLoginCode,
+    }
   end
-  return chain
+  local encrypted = buskey:encrypt(token)
+  local signed = AccessControl:signChainByToken(encrypted, domain)
+  return unmarshalJustSignedChain(self, conn, signed)
 end
 
 local EncodingValues = {
@@ -1078,7 +1096,7 @@ argcheck.convertclass(SharedAuthSecret, {
   cancel = {},
 })
 argcheck.convertclass(Connection, {
-  loginByPassword = { "string", "string" },
+  loginByPassword = { "string", "string", "string" },
   loginByCertificate = { "string", "userdata" },
   startSharedAuth = {},
   loginBySharedAuth = { "table" },
@@ -1097,6 +1115,7 @@ local ContextOperations = {
   getLoginRegistry = {},
   getOfferRegistry = {},
   makeChainFor = { "string" },
+  importChain = { "string" },
   encodeChain = { "table" },
   decodeChain = { "string" },
   encodeSharedAuth = { "table" },

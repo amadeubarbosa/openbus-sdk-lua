@@ -62,7 +62,7 @@ local callwithin do
 end
 
 local loginways = {
-  loginByPassword = function() return user, password end,
+  loginByPassword = function() return user, password, domain end,
   loginByCertificate = function() return system, syskey end,
   loginBySharedAuth = function()
     return {
@@ -147,6 +147,7 @@ do
     busport = busport,
     entity = user,
     password = password,
+    domain = domain,
   }
   for name, values in pairs(InvalidParams) do
     for invalid, expected in pairs(values) do
@@ -208,6 +209,7 @@ do
         busport = busport,
         entity = invalid,
         [field] = secret,
+        domain = field=="password" and domain or nil,
       }, "bad argument #2 to '"..Field2Op[field].."' (expected string, got "..type(invalid)..")")
     end
   end
@@ -220,6 +222,7 @@ do
       busport = busport,
       entity = user,
       password = invalid,
+      domain = domain,
     }, "bad argument #3 to 'loginByPassword' (expected string, got "..type(invalid)..")")
   end
 
@@ -241,6 +244,7 @@ do
     busport = busport,
     entity = user,
     password = "WrongPassword",
+    domain = domain,
   }, {_repid = assert(idl.types.services.access_control.AccessDenied)})
 
   log:TEST "login with entity without certificate"
@@ -269,7 +273,7 @@ local invalidate, sharedauth, shutdown, leasetime do
   local orb = openbus.initORB()
   local OpenBusContext = orb.OpenBusContext
   local conn = OpenBusContext:createConnection(bushost, busport)
-  conn:loginByPassword(admin, admpsw)
+  conn:loginByPassword(admin, admpsw, domain)
   OpenBusContext:setDefaultConnection(conn)
   leasetime = conn.AccessControl:renew()
   function invalidate(loginId)
@@ -319,6 +323,7 @@ do
     busport = busport,
     entity = user,
     password = password,
+    domain = domain,
   }
   log:TEST(false)
   log:TEST(true, "login by private key")
@@ -349,7 +354,7 @@ for interval = 1, 3 do
     orb = orb,
     bushost = bushost,
     busport = busport,
-    loginargs = function () return "Password", entity, secret end,
+    loginargs = function () return "Password", entity, secret, domain end,
     interval = interval,
     observer = {
       onLoginFailure = function (self, assist, except)

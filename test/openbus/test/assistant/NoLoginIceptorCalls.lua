@@ -31,7 +31,7 @@ local invalidate, shutdown do
   local orb = openbus.initORB()
   local OpenBusContext = orb.OpenBusContext
   local conn = OpenBusContext:createConnection(bushost, busport)
-  conn:loginByPassword(admin, admpsw)
+  conn:loginByPassword(admin, admpsw, domain)
   OpenBusContext:setDefaultConnection(conn)
   function invalidate(loginId)
     OpenBusContext:getLoginRegistry():invalidateLogin(loginId)
@@ -65,7 +65,7 @@ do log:TEST("Relog while performing a call")
     busport = busport,
     accesskey = accesskey,
   }
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn.connection)
   
   invalidate(conn.login.id)
@@ -84,7 +84,7 @@ do log:TEST("Relog while dispathing a call")
     busport = busport,
     accesskey = accesskey,
   }
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn.connection)
   
   local ior = tostring(orb:newservant({}, nil, "CORBA::InterfaceDef"))

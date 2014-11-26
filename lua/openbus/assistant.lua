@@ -112,7 +112,7 @@ function Assistant:__init()
   local password = self.password
   if self.password ~= nil then
     function self.loginargs()
-      return "Password", self.entity, password
+      return "Password", self.entity, password, self.domain
     end
     self.password = nil
   else

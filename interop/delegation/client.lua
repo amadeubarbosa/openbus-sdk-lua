@@ -23,7 +23,7 @@ local conn = OpenBusContext:createConnection(bushost, busport)
 OpenBusContext:setDefaultConnection(conn)
 
 -- login to the bus
-conn:loginByPassword(user, password)
+conn:loginByPassword(user, password, domain)
 
 -- retrieve services
 local OfferRegistry = OpenBusContext:getOfferRegistry()
@@ -51,20 +51,20 @@ end
 -- logout from the bus
 conn:logout()
 
-conn:loginByPassword("bill", "bill")
+conn:loginByPassword("bill", "bill", domain)
 services.Forwarder.ref:setForward("willian")
 services.Broadcaster.ref:subscribe()
 conn:logout()
 
-conn:loginByPassword("paul", "paul")
+conn:loginByPassword("paul", "paul", domain)
 services.Broadcaster.ref:subscribe()
 conn:logout()
 
-conn:loginByPassword("mary", "mary")
+conn:loginByPassword("mary", "mary", domain)
 services.Broadcaster.ref:subscribe()
 conn:logout()
 
-conn:loginByPassword("steve", "steve")
+conn:loginByPassword("steve", "steve", domain)
 services.Broadcaster.ref:subscribe()
 services.Broadcaster.ref:post("Testing the list!")
 conn:logout()
@@ -107,14 +107,14 @@ local expected = {
 }
 local actual = {}
 for _, user in ipairs{"willian", "bill", "paul", "mary", "steve"} do
-  conn:loginByPassword(user, user)
+  conn:loginByPassword(user, user, domain)
   actual[user] = services.Messenger.ref:receivePosts()
   log:TEST(user," got posts: ",actual[user])
   services.Broadcaster.ref:unsubscribe()
   conn:logout()
 end
 
-conn:loginByPassword("bill", "bill")
+conn:loginByPassword("bill", "bill", domain)
 services.Forwarder.ref:cancelForward("willian")
 conn:logout()
 orb:shutdown()
