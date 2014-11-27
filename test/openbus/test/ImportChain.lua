@@ -21,23 +21,34 @@ assert(OpenBusContext.orb == orb)
 
 local FakeEntity = "FakeEntity"
 
-do log:TEST("Import chain from token")
+for _, count in ipairs{0, 1, 10, 100} do
+  log:TEST("Import chain with "..count.." originators from token")
+
   local conn = OpenBusContext:createConnection(bushost, busport, connprops)
   conn:loginByPassword(user, password, domain)
   local busid = conn.busid
   local login = conn.login.id
   local entity = conn.login.entity
 
+  local originators = {}
+  for i = 1, count do
+    originators[i] = "ExternalOriginator"..i
+  end
+
   OpenBusContext:setDefaultConnection(conn)
-  local token = entity.."@"..login..": ExternalOriginator, ExternalCaller"
+  local prefix = #originators>0 and table.concat(originators, ", ")..", " or ""
+  local token = entity.."@"..login..": "..prefix.."ExternalCaller"
+
   local imported = OpenBusContext:importChain(token, domain)
   assert(imported.busid == busid)
   assert(imported.target == entity)
   assert(imported.caller.id == "<unknown>")
   assert(imported.caller.entity == "ExternalCaller")
-  assert(imported.originators[1].id == "<unknown>")
-  assert(imported.originators[1].entity == "ExternalOriginator")
-  assert(#imported.originators == 1)
+  assert(#imported.originators == #originators)
+  for index, entity in ipairs(originators) do
+    assert(imported.originators[index].id == "<unknown>")
+    assert(imported.originators[index].entity == "ExternalOriginator"..index)
+  end
 
   OpenBusContext:joinChain(imported)
   local joined = OpenBusContext:makeChainFor(FakeEntity)
@@ -47,11 +58,13 @@ do log:TEST("Import chain from token")
   assert(joined.target == FakeEntity)
   assert(joined.caller.id == login)
   assert(joined.caller.entity == entity)
-  assert(joined.originators[2].id == "<unknown>")
-  assert(joined.originators[2].entity == "ExternalCaller")
-  assert(joined.originators[1].id == "<unknown>")
-  assert(joined.originators[1].entity == "ExternalOriginator")
-  assert(#joined.originators == 2)
+  assert(#joined.originators == 1+#originators)
+  for index, entity in ipairs(originators) do
+    assert(joined.originators[index].id == "<unknown>")
+    assert(joined.originators[index].entity == "ExternalOriginator"..index)
+  end
+  assert(joined.originators[1+#originators].id == "<unknown>")
+  assert(joined.originators[1+#originators].entity == "ExternalCaller")
 
   OpenBusContext:setDefaultConnection(nil)
   conn:logout()

@@ -18,7 +18,7 @@ local newthread = coroutine.create
 
 local string = require "string"
 local findstring = string.find
-local repeatstr = string.rep
+local repeatstring = string.rep
 local substring = string.sub
 
 local math = require "math"
@@ -57,6 +57,8 @@ local is_NO_PERMISSION = sysex.is_NO_PERMISSION
 local is_TRANSIENT = sysex.is_TRANSIENT
 local is_COMM_FAILURE = sysex.is_COMM_FAILURE
 local is_OBJECT_NOT_EXIST = sysex.is_OBJECT_NOT_EXIST
+local server = require "openbus.util.server"
+local blockencrypt = server.blockencrypt
 
 local libidl = require "openbus.idl"
 local libthrow = libidl.throw
@@ -370,7 +372,8 @@ local function getLogin(self)
   return login
 end
 
-local MaxEncryptedData = repeatstr("\255", EncryptedBlockSize-11)
+local MaxEncryptionSize = EncryptedBlockSize-11
+local MaxEncryptionData = repeatstring("\255", MaxEncryptionSize)
 
 local function busaddress2component(orb, host, port, key)
   local ref = "corbaloc::"..host..":"..port.."/"..key
@@ -774,7 +777,7 @@ function Context:connectByReference(bus, props)
         value = msg.UnableToObtainThePublicKey:tag{error=errmsg},
       }
     end
-    result, errmsg = result:encrypt(MaxEncryptedData)
+    result, errmsg = result:encrypt(MaxEncryptionData)
     if result == nil then
       InvalidPropertyValue{
         property = "accesskey",
@@ -872,7 +875,8 @@ function Context:importChain(token, domain)
       minor = NoLoginCode,
     }
   end
-  local encrypted = buskey:encrypt(token)
+
+  local encrypted = assert(blockencrypt(buskey, "encrypt", MaxEncryptionSize, token))
   local signed = AccessControl:signChainByToken(encrypted, domain)
   return unmarshalJustSignedChain(self, conn, signed)
 end

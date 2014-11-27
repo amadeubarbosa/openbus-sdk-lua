@@ -14,6 +14,12 @@ local xpcall = _G.xpcall
 local array = require "table"
 local concat = array.concat
 
+local string = require "string"
+local substring = string.sub
+
+local math = require "math"
+local ceil = math.ceil
+
 local io = require "io"
 local openfile = io.open
 local stderr = io.stderr
@@ -103,6 +109,17 @@ function module.readprivatekey(path)
     end
   end
   return nil, msg.UnableToReadPrivateKey:tag{ path = path, errmsg = errmsg }
+end
+
+function module.blockencrypt(key, operation, blocksize, stream)
+  local result = {}
+  for i = 1, ceil(#stream/blocksize) do
+    local block = substring(stream, 1+(i-1)*blocksize, i*blocksize)
+    local piece, errmsg = key[operation](key, block)
+    if piece == nil then return nil, errmsg end
+    result[#result+1] = piece
+  end
+  return concat(result)
 end
 
 function module.newSCS(params)
