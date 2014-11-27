@@ -13,8 +13,8 @@ local validid = uuid.isvalid
 
 local hash = require "lce.hash"
 local sha256 = hash.sha256
-local pubkey = require "lce.pubkey"
-local decodepubkey = pubkey.decodepublic
+local x509 = require "lce.x509"
+local decodecertificate = x509.decode
 
 local idl = require "openbus.core.idl"
 local loadIDL = idl.loadto
@@ -170,7 +170,7 @@ function connectToBus(host, port, orb)
   
   return {
     id = assert(AccessControl:_get_busid()),
-    key = assert(decodepubkey(AccessControl:_get_buskey())),
+    key = assert(assert(decodecertificate(AccessControl:_get_certificate())):getpubkey()),
     component = bus,
     AccessControl = AccessControl,
     OfferRegistry = OfferRegistry,

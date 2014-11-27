@@ -79,36 +79,32 @@ function module.readfrom(path, mode)
   return nil, msg.UnableToReadFileContents:tag{ path = path, errmsg = errmsg }
 end
 
+local readfrom = module.readfrom
+
 function module.readpublickey(path)
-  local file, errmsg = io.open(path, "rb")
-  if file ~= nil then
+  local encoded, errmsg = readfrom(path)
+  if encoded ~= nil then
     local certificate
-    certificate, errmsg = file:read("*a")
-    file:close()
+    certificate, errmsg = decodecertificate(encoded)
     if certificate then
-      certificate, errmsg = decodecertificate(certificate)
-      if certificate then
-        local key
-        key, errmsg = certificate:getpubkey()
-        if key then return key end
-      end
+      local key
+      key, errmsg = certificate:getpubkey()
+      if key then return key, encoded end
+      errmsg = msg.UnableToObtainPublicKey:tag{ path = path, errmsg = errmsg }
     end
+    errmsg = msg.UnableToDecodeCertificate:tag{ path = path, errmsg = errmsg }
   end
-  return nil, msg.UnableToReadPublicKey:tag{ path = path, errmsg = errmsg }
+  return nil, errmsg
 end
 
 function module.readprivatekey(path)
-  local file, errmsg = io.open(path, "rb")
-  if file ~=  nil then
-    local key
-    key, errmsg = file:read("*a")
-    file:close()
-    if key then
-      key, errmsg = decodeprivatekey(key)
-      if key then return key end
-    end
+  local key, errmsg = readfrom(path)
+  if key ~= nil then
+    key, errmsg = decodeprivatekey(key)
+    if key then return key end
+    errmsg = msg.UnableToDecodePrivateKey:tag{ path = path, errmsg = errmsg }
   end
-  return nil, msg.UnableToReadPrivateKey:tag{ path = path, errmsg = errmsg }
+  return nil, errmsg
 end
 
 function module.blockencrypt(key, operation, blocksize, stream)

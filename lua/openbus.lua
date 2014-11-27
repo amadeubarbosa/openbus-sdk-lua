@@ -34,6 +34,8 @@ local pubkey = require "lce.pubkey"
 local newkey = pubkey.create
 local decodeprvkey = pubkey.decodeprivate
 local decodepubkey = pubkey.decodepublic
+local x509 = require "lce.x509"
+local decodecertificate = x509.decode
 
 local table = require "loop.table"
 local copy = table.copy
@@ -287,9 +289,13 @@ end
 
 local function intiateLogin(self)
   local AccessControl = getCoreFacet(self, "AccessControl", AccessControlRepId)
-  local buskey, errmsg = decodepubkey(AccessControl:_get_buskey())
+  local certificate, errmsg = decodecertificate(AccessControl:_get_certificate())
+  if certificate == nil then
+    ServiceFailure{message=msg.InvalidBusCertificate:tag{message=errmsg}}
+  end
+  local buskey, errmsg = certificate:getpubkey()
   if buskey == nil then
-    ServiceFailure{message=msg.InvalidBusKey:tag{message=errmsg}}
+    ServiceFailure{message=msg.UnableToObtainBusKey:tag{message=errmsg}}
   end
   return AccessControl, buskey
 end
