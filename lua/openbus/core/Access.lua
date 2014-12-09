@@ -66,7 +66,7 @@ local InvalidRemoteCode = loginconst.InvalidRemoteCode
 local InvalidTargetCode = loginconst.InvalidTargetCode
 local NoLoginCode = loginconst.NoLoginCode
 local UnavailableBusCode = loginconst.UnavailableBusCode
-local UnavailableBusCode = loginconst.UnavailableBusCode
+local UnknownBusCode = loginconst.UnknownBusCode
 local oldidl = require "openbus.core.legacy.idl"
 local loadoldidl = oldidl.loadto
 
@@ -466,7 +466,7 @@ function Interceptor:receiverequest(request, credential)
             entity = caller.entity,
             delegate = credential.delegate,
           })
-          setNoPermSysEx(request, InvalidCredentialCode)
+          setNoPermSysEx(request, 0)
         else
           -- invalid credential, try to reset credetial session
           local sessions = self.incomingSessions
