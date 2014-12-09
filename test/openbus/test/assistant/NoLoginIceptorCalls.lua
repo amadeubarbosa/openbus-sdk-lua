@@ -17,20 +17,25 @@ local libidl = require "openbus.idl"
 local idl = require "openbus.core.idl"
 local msg = require "openbus.util.messages"
 local log = require "openbus.util.logger"
+local util = require "openbus.util.server"
 
 local sysex = giop.SystemExceptionIDs
 local LoginObserverRepId = idl.types.services.access_control.LoginObserver
 
-bushost, busport, verbose = ...
-require "openbus.test.configs"
+require "openbus.test.util"
+
+setorbcfg(...)
+
+busref = assert(util.readfrom(busref, "r"))
 
 local accesskey = openbus.newKey()
 
 -- login as admin and provide additional functionality for the test
 local invalidate, shutdown do
-  local orb = openbus.initORB()
+  local orb = openbus.initORB(orbcfg)
   local OpenBusContext = orb.OpenBusContext
-  local conn = OpenBusContext:createConnection(bushost, busport)
+  local busref = orb:newproxy(busref, nil, "::scs::core::IComponent")
+  local conn = OpenBusContext:connectByReference(busref)
   conn:loginByPassword(admin, admpsw, domain)
   OpenBusContext:setDefaultConnection(conn)
   function invalidate(loginId)
@@ -52,17 +57,17 @@ local invalidate, shutdown do
   end
 end
 
-local orb = openbus.initORB()
+local orb = openbus.initORB(orbcfg)
 local OpenBusContext = orb.OpenBusContext
 assert(OpenBusContext.orb == orb)
+local busref = orb:newproxy(busref, nil, "::scs::core::IComponent")
 
 
 
 do log:TEST("Relog while performing a call")
   local conn = assistant.create{
     orb = orb,
-    bushost = bushost,
-    busport = busport,
+    busref = busref,
     accesskey = accesskey,
   }
   conn:loginByPassword(user, password, domain)
@@ -80,8 +85,7 @@ end
 do log:TEST("Relog while dispathing a call")
   local conn = assistant.create{
     orb = orb,
-    bushost = bushost,
-    busport = busport,
+    busref = busref,
     accesskey = accesskey,
   }
   conn:loginByPassword(user, password, domain)

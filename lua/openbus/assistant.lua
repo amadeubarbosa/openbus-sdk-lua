@@ -128,11 +128,11 @@ function Assistant:__init()
   local conn = createConnection{
     interval = interval,
     orb = self.orb,
+    busref = self.busref,
     bushost = self.bushost,
     busport = self.busport,
     accesskey = self.accesskey,
     nolegacy = self.nolegacy,
-    legacydelegate = self.legacydelegate,
     observer = self.observer ~= nil and Observer{observer=self.observer} or nil,
   }
   if self.orb == nil then self.orb = conn.orb end

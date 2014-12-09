@@ -1,13 +1,15 @@
 local openbus = require "openbus"
 local log = require "openbus.util.logger"
+local util = require "openbus.util.server"
 local ComponentContext = require "scs.core.ComponentContext"
 
 require "openbus.test.util"
 
+-- customize test configuration for this case
+settestcfg(...)
+
 -- setup and start the ORBs
-settestcfg(...)
 local orb1 = openbus.initORB(orbcfg)
-settestcfg(...)
 local orb2 = openbus.initORB(orbcfg)
 
 -- load interface definition
@@ -43,10 +45,16 @@ component1:addFacet(iface.name, iface.repID, hello)
 component2:addFacet(iface.name, iface.repID, hello)
 
 -- connect to the buses
-local conn1AtBus1WithOrb1 = OpenBusContext1:createConnection(bushost, busport)
-local conn2AtBus1WithOrb1 = OpenBusContext1:createConnection(bushost, busport)
-local connAtBus2WithOrb1 = OpenBusContext1:createConnection(bus2host, bus2port)
-local connAtBus1WithOrb2 = OpenBusContext2:createConnection(bushost, busport)
+busref = assert(util.readfrom(busref, "r"))
+bus2ref = assert(util.readfrom(bus2ref, "r"))
+
+local bus1 = orb1:newproxy(busref, nil, "::scs::core::IComponent")
+local conn1AtBus1WithOrb1 = OpenBusContext1:connectByReference(bus1)
+local conn2AtBus1WithOrb1 = OpenBusContext1:connectByReference(bus1)
+local connAtBus2WithOrb1 = OpenBusContext1:connectByReference(
+  orb1:newproxy(bus2ref, nil, "::scs::core::IComponent"))
+local connAtBus1WithOrb2 = OpenBusContext2:connectByReference(
+  orb2:newproxy(busref, nil, "::scs::core::IComponent"))
 
 -- set incoming connections
 function OpenBusContext1:onCallDispatch(busid, login, objkey, operation, ...)

@@ -5,26 +5,30 @@ local giop = require "oil.corba.giop"
 local openbus = require "openbus"
 local idl = require "openbus.core.idl"
 local log = require "openbus.util.logger"
+local util = require "openbus.util.server"
 
 local sysex = giop.SystemExceptionIDs
 
-bushost, busport, verbose = ...
-require "openbus.test.configs"
+require "openbus.test.util"
 
+setorbcfg(...)
+
+busref = assert(util.readfrom(busref, "r"))
 syskey = assert(openbus.readKeyFile(syskey))
 
 local connprops = { accesskey = openbus.newKey() }
 
-local orb = openbus.initORB()
+local orb = openbus.initORB(orbcfg)
 local OpenBusContext = orb.OpenBusContext
 assert(OpenBusContext.orb == orb)
+busref = orb:newproxy(busref, nil, "::scs::core::IComponent")
 
 
 
 do log:TEST("Make chains for active logins")
-  local conn1 = OpenBusContext:createConnection(bushost, busport, connprops)
+  local conn1 = OpenBusContext:connectByReference(busref, connprops)
   conn1:loginByPassword(user, password, domain)
-  local conn2 = OpenBusContext:createConnection(bushost, busport, connprops)
+  local conn2 = OpenBusContext:connectByReference(busref, connprops)
   conn2:loginByCertificate(system, syskey)
   assert(conn1.busid == conn2.busid)
   local busid = conn1.busid
@@ -64,7 +68,7 @@ do log:TEST("Make chains for active logins")
 end
 
 do log:TEST("Fail to make chain for invalid logins")
-  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
+  local conn = OpenBusContext:connectByReference(busref, connprops)
   conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn)
   
@@ -87,7 +91,7 @@ do log:TEST("Fail to make chain without login")
   assert(ex.completed == "COMPLETED_NO")
   assert(ex.minor == idl.const.services.access_control.NoLoginCode)
   
-  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
+  local conn = OpenBusContext:connectByReference(busref, connprops)
   OpenBusContext:setDefaultConnection(conn)
 
   local ok, ex = pcall(OpenBusContext.makeChainFor, OpenBusContext, user)

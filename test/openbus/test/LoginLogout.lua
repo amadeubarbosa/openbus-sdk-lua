@@ -16,9 +16,14 @@ local libidl = require "openbus.idl"
 local idl = require "openbus.core.idl"
 local msg = require "openbus.util.messages"
 local log = require "openbus.util.logger"
+local util = require "openbus.util.server"
 
-require "openbus.test.configs"
+require "openbus.test.util"
 
+setorbcfg(...)
+
+busref = assert(util.readfrom(busref, "r"))
+bus2ref = assert(util.readfrom(bus2ref, "r"))
 syskey = assert(openbus.readKeyFile(syskey))
 
 local thread = coroutine.running()
@@ -28,7 +33,7 @@ local sleep = cothread.delay
 local sysex = giop.SystemExceptionIDs
 
 local entity = nil -- defined later
-local orb = openbus.initORB()
+local orb = openbus.initORB(orbcfg)
 local OpenBusContext = orb.OpenBusContext
 assert(OpenBusContext.orb == orb)
 local conns = {}
@@ -122,55 +127,67 @@ local function assertlogoff(conn, invalid)
   return conn
 end
 
-log:TEST(true, "ConnectionManager::createConnection")
+log:TEST(true, "ConnectionManager::connectByAddress")
 
 do log:TEST "connect with invalid host"
   for _, invalid in ipairs{true,false,123,{},error,thread,userdata} do
     local badtype = type(invalid)
-    local ex = catcherr(OpenBusContext.createConnection, OpenBusContext, invalid, busport)
-    assert(ex:match("bad argument #2 to 'createConnection' %(expected string, got "..badtype.."%)$"))
+    local ex = catcherr(OpenBusContext.connectByAddress, OpenBusContext, invalid, busport)
+    assert(ex:match("bad argument #2 to 'connectByAddress' %(expected string, got "..badtype.."%)$"))
   end
 end
 
 do log:TEST "connect with invalid port"
   for _, invalid in ipairs{true,false,{},error,thread,userdata} do
     local badtype = type(invalid)
-    local ex = catcherr(OpenBusContext.createConnection, OpenBusContext, bushost, invalid)
-    assert(ex:match("bad argument #3 to 'createConnection' %(expected number|string, got "..badtype.."%)$"))
+    local ex = catcherr(OpenBusContext.connectByAddress, OpenBusContext, bushost, invalid)
+    assert(ex:match("bad argument #3 to 'connectByAddress' %(expected number|string, got "..badtype.."%)$"))
   end
 end
 
 do log:TEST "connect with invalid properties"
   for _, invalid in ipairs{true,false,123,"nolegacy",error,thread,userdata} do
     local badtype = type(invalid)
-    local ex = catcherr(OpenBusContext.createConnection, OpenBusContext, bushost, busport, invalid)
-    assert(ex:match("bad argument #4 to 'createConnection' %(expected nil|table, got "..badtype.."%)$"))
+    local ex = catcherr(OpenBusContext.connectByAddress, OpenBusContext, bushost, busport, invalid)
+    assert(ex:match("bad argument #4 to 'connectByAddress' %(expected nil|table, got "..badtype.."%)$"))
   end
 end
 
 do log:TEST "connect to unavailable host"
-  local conn = OpenBusContext:createConnection("unavailable", busport)
+  local conn = OpenBusContext:connectByAddress("unavailable", busport)
   for op, params in pairs(loginways) do
     local ex = catcherr(conn[op], conn, params())
-    assert(ex._repid == sysex.TRANSIENT)
-    assert(ex.completed == "COMPLETED_NO")
+    if orbcfg.options.security == "required" then
+      assert(ex._repid == sysex.NO_PERMISSION)
+      assert(ex.completed == "COMPLETED_NO")
+    else
+      assert(ex._repid == sysex.TRANSIENT)
+      assert(ex.completed == "COMPLETED_NO")
+    end
   end
 end
 
 do log:TEST "connect to unavailable port"
-  local conn = OpenBusContext:createConnection(bushost, 0)
+  local conn = OpenBusContext:connectByAddress(bushost, 0)
   for op, params in pairs(loginways) do
     local ex = catcherr(conn[op], conn, params())
-    assert(ex._repid == sysex.TRANSIENT)
-    assert(ex.completed == "COMPLETED_NO")
+    if orbcfg.options.security == "required" then
+      assert(ex._repid == sysex.NO_PERMISSION)
+      assert(ex.completed == "COMPLETED_NO")
+    else
+      assert(ex._repid == sysex.TRANSIENT)
+      assert(ex.completed == "COMPLETED_NO")
+    end
   end
 end
 
 do log:TEST "connect to bus"
+  local bus = orb:newproxy(busref, nil, "::scs::core::IComponent")
+  local bus2 = orb:newproxy(bus2ref, nil, "::scs::core::IComponent")
   for i = 1, 2 do
-    conns[i] = assertlogoff(OpenBusContext:createConnection(bushost, busport))
+    conns[i] = assertlogoff(OpenBusContext:connectByReference(bus))
   end
-  otherBusConn = OpenBusContext:createConnection(bus2host, bus2port)
+  otherBusConn = OpenBusContext:connectByReference(bus2)
 end
 
 -- create a valid key to be used as a wrong key in the tests below.
@@ -179,9 +196,10 @@ end
 local WrongKey = openbus.newKey()
 -- login as admin and provide additional functionality for the test
 local invalidate, shutdown, leasetime do
-  local orb = openbus.initORB()
+  local orb = openbus.initORB(orbcfg)
   local OpenBusContext = orb.OpenBusContext
-  local conn = OpenBusContext:createConnection(bushost, busport)
+  local busref = orb:newproxy(busref, nil, "::scs::core::IComponent")
+  local conn = OpenBusContext:connectByReference(busref)
   conn:loginByPassword(admin, admpsw, domain)
   OpenBusContext:setDefaultConnection(conn)
   busid = conn.busid

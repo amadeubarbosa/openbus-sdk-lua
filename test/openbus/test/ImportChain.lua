@@ -5,26 +5,30 @@ local giop = require "oil.corba.giop"
 local openbus = require "openbus"
 local idl = require "openbus.core.idl"
 local log = require "openbus.util.logger"
+local util = require "openbus.util.server"
 
 local sysex = giop.SystemExceptionIDs
 
-bushost, busport, verbose = ...
-require "openbus.test.configs"
+require "openbus.test.util"
 
+setorbcfg(...)
+
+busref = assert(util.readfrom(busref, "r"))
 syskey = assert(openbus.readKeyFile(syskey))
 
 local connprops = { accesskey = openbus.newKey() }
 
-local orb = openbus.initORB()
+local orb = openbus.initORB(orbcfg)
 local OpenBusContext = orb.OpenBusContext
 assert(OpenBusContext.orb == orb)
+busref = orb:newproxy(busref, nil, "::scs::core::IComponent")
 
 local FakeEntity = "FakeEntity"
 
 for _, count in ipairs{0, 1, 10, 100} do
   log:TEST("Import chain with "..count.." originators from token")
 
-  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
+  local conn = OpenBusContext:connectByReference(busref, connprops)
   conn:loginByPassword(user, password, domain)
   local busid = conn.busid
   local login = conn.login.id
@@ -71,7 +75,7 @@ for _, count in ipairs{0, 1, 10, 100} do
 end
 
 do log:TEST("Fail to import chain from token of unknown domain")
-  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
+  local conn = OpenBusContext:connectByReference(busref, connprops)
   conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn)
   
@@ -86,7 +90,7 @@ do log:TEST("Fail to import chain from token of unknown domain")
 end
 
 do log:TEST("Fail to import chain from invalid token")
-  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
+  local conn = OpenBusContext:connectByReference(busref, connprops)
   conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn)
   

@@ -1114,6 +1114,8 @@ argcheck.convertclass(Connection, {
 })
 local ContextOperations = {
   createConnection = { "string", "number|string", "nil|table" },
+  connectByAddress = { "string", "number|string", "nil|table" },
+  connectByReference = { "table", "nil|table" },
   setDefaultConnection = { "nil|table" },
   getDefaultConnection = {},
   setCurrentConnection = { "nil|table" },

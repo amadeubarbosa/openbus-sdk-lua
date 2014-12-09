@@ -1,5 +1,6 @@
 local openbus = require "openbus"
 local log = require "openbus.util.logger"
+local util = require "openbus.util.server"
 local table = require "loop.table"
 
 require "openbus.test.util"
@@ -21,12 +22,14 @@ local OpenBusContext = orb.OpenBusContext
 properties[#properties+1] = 
   {name="openbus.component.interface",value=iface.repID}
 
+busref = assert(util.readfrom(busref, "r"))
+bus2ref = assert(util.readfrom(bus2ref, "r"))
 for _, businfo in ipairs{
-  {host=bushost, port=busport, offers=3},
-  {host=bus2host, port=bus2port, offers=1},
+  {ref=orb:newproxy(busref, nil, "::scs::core::IComponent"), offers=3},
+  {ref=orb:newproxy(bus2ref, nil, "::scs::core::IComponent"), offers=1},
 } do
   -- connect to the bus
-  local conn = OpenBusContext:createConnection(businfo.host, businfo.port)
+  local conn = OpenBusContext:connectByReference(businfo.ref)
   OpenBusContext:setDefaultConnection(conn)
   
   -- login to the bus

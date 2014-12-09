@@ -18,7 +18,10 @@ if file ~= nil then
   require("scs.core.utils")():readProperties(props, propsfile)
 end
 -- TODO END --------------------------------------------------------------------
-local function get(...) return props:getTagOrDefault(...) end
+local function get(...)
+  local val = props:getTagOrDefault(...)
+  if val ~= "" then return val end
+end
 
 testbase = propsfile:match("^(.-)[^/\\]+$")
 
@@ -31,8 +34,12 @@ leasetime =      get("login.lease.time"    , 1)
 expirationgap =  get("login.expiration.gap", leasetime)
 bushost =        get("bus.host.name"       , "localhost")
 busport =        get("bus.host.port"       , 2089)
+busref =         get("bus.reference.path"  , testbase.."BUS01.ior")
+buscrt =         get("bus.certificate.path", testbase.."BUS01.crt")
 bus2host =       get("bus2.host.name"      , bushost)
 bus2port =       get("bus2.host.port"      , busport+1)
+bus2ref =        get("bus2.reference.path" , testbase.."BUS02.ior")
+bus2crt =        get("bus2.certificate.path",testbase.."BUS02.crt")
 admin =          get("admin.entity.name"   , "admin")
 admpsw =         get("admin.password"      , admin)
 domain =         get("user.password.domain", "testing")
@@ -51,3 +58,10 @@ ldappat =        get("ldap.pattern"        , "cn=%U,ou=usuarios,dc=tecgraf,dc=pu
 ldaptimeout =    get("ldap.timeout"        , 5)
 admscript =      get("admin.script.test"   , "testscript.adm")
 admoutput =      get("admin.output.file"   , "busadmin.txt")
+
+orbsecurity =    get("oil.security.mode")
+sslcacrt =       get("ssl.ca.certificate"     , testbase.."testcassl.crt")
+sslsyskey =      get("ssl.system.private.key" , testbase.."testsystssl.key")
+sslsyscrt =      get("ssl.system.certificate" , testbase.."testsystssl.crt")
+sslusrkey =      get("ssl.user.private.key"   , testbase.."testuserssl.key")
+sslusrcrt =      get("ssl.user.certificate"   , testbase.."testuserssl.crt")

@@ -6,19 +6,23 @@ local openbus = require "openbus"
 local libidl = require "openbus.idl"
 local idl = require "openbus.core.idl"
 local log = require "openbus.util.logger"
+local util = require "openbus.util.server"
 
 local sysex = giop.SystemExceptionIDs
 
-bushost, busport, verbose = ...
-require "openbus.test.configs"
+require "openbus.test.util"
 
+setorbcfg(...)
+
+busref = assert(util.readfrom(busref, "r"))
 syskey = assert(openbus.readKeyFile(syskey))
 
 local connprops = { accesskey = openbus.newKey() }
 
-local orb = openbus.initORB()
+local orb = openbus.initORB(orbcfg)
 local OpenBusContext = orb.OpenBusContext
 assert(OpenBusContext.orb == orb)
+busref = orb:newproxy(busref, nil, "::scs::core::IComponent")
 
 do log:TEST("Encode illegal argument")
   local illegalchains = {
@@ -101,9 +105,9 @@ do log:TEST("Decode malformed chain")
 end
 
 do log:TEST("Encode and decode chains")
-  local conn1 = OpenBusContext:createConnection(bushost, busport, connprops)
+  local conn1 = OpenBusContext:connectByReference(busref, connprops)
   conn1:loginByPassword(user, password, domain)
-  local conn2 = OpenBusContext:createConnection(bushost, busport, connprops)
+  local conn2 = OpenBusContext:connectByReference(busref, connprops)
   conn2:loginByCertificate(system, syskey)
   assert(conn1.busid == conn2.busid)
   local busid = conn1.busid

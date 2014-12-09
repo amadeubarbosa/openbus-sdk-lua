@@ -21,13 +21,13 @@ local libidl = require "openbus.idl"
 local idl = require "openbus.core.idl"
 local msg = require "openbus.util.messages"
 local log = require "openbus.util.logger"
+local util = require "openbus.util.server"
 
---cothread.verbose:flag("threads", true)
---cothread.verbose:flag("state", true)
+require "openbus.test.util"
 
-bushost, busport, verbose = ...
-require "openbus.test.configs"
+setorbcfg(...)
 
+busref = assert(util.readfrom(busref, "r"))
 syskey = assert(openbus.readKeyFile(syskey))
 
 local smalltime = .1
@@ -39,10 +39,11 @@ local sleep = cothread.delay
 local sysex = giop.SystemExceptionIDs
 
 local entity = nil -- defined later
-local orb = openbus.initORB()
+local orb = openbus.initORB(orbcfg)
 local OpenBusContext = orb.OpenBusContext
 assert(OpenBusContext.orb == orb)
 local conns = {}
+local bus = orb:newproxy(busref, nil, "::scs::core::IComponent")
 
 local function catcherr(...)
   local ok, err = pcall(...)
@@ -118,21 +119,21 @@ log:TEST(true, "Illegal Connection Params")
 do
   local InvalidParams = {
     bushost = {
-      [true] = "bad field 'bushost' to 'create' %(expected string, got boolean%)$",
-      [false] = "bad field 'bushost' to 'create' %(expected string, got boolean%)$",
-      [123] = "bad field 'bushost' to 'create' %(expected string, got number%)$",
-      [{}] = "bad field 'bushost' to 'create' %(expected string, got table%)$",
-      [error] = "bad field 'bushost' to 'create' %(expected string, got function%)$",
-      [thread] = "bad field 'bushost' to 'create' %(expected string, got thread%)$",
-      [userdata] = "bad field 'bushost' to 'create' %(expected string, got userdata%)$",
+      [true] = "bad field 'bushost' to 'create' %(expected nil|string, got boolean%)$",
+      [false] = "bad field 'bushost' to 'create' %(expected nil|string, got boolean%)$",
+      [123] = "bad field 'bushost' to 'create' %(expected nil|string, got number%)$",
+      [{}] = "bad field 'bushost' to 'create' %(expected nil|string, got table%)$",
+      [error] = "bad field 'bushost' to 'create' %(expected nil|string, got function%)$",
+      [thread] = "bad field 'bushost' to 'create' %(expected nil|string, got thread%)$",
+      [userdata] = "bad field 'bushost' to 'create' %(expected nil|string, got userdata%)$",
     },
     busport = {
-      [true] = "bad field 'busport' to 'create' %(expected number|string, got boolean%)$",
-      [false] = "bad field 'busport' to 'create' %(expected number|string, got boolean%)$",
-      [{}] = "bad field 'busport' to 'create' %(expected number|string, got table%)$",
-      [error] = "bad field 'busport' to 'create' %(expected number|string, got function%)$",
-      [thread] = "bad field 'busport' to 'create' %(expected number|string, got thread%)$",
-      [userdata] = "bad field 'busport' to 'create' %(expected number|string, got userdata%)$",
+      [true] = "bad field 'busport' to 'create' %(expected nil|number|string, got boolean%)$",
+      [false] = "bad field 'busport' to 'create' %(expected nil|number|string, got boolean%)$",
+      [{}] = "bad field 'busport' to 'create' %(expected nil|number|string, got table%)$",
+      [error] = "bad field 'busport' to 'create' %(expected nil|number|string, got function%)$",
+      [thread] = "bad field 'busport' to 'create' %(expected nil|number|string, got thread%)$",
+      [userdata] = "bad field 'busport' to 'create' %(expected nil|number|string, got userdata%)$",
     },
     interval = {
       [-1] = "interval too small, minimum is 1 second",
@@ -205,8 +206,7 @@ do
       log:TEST("login by ",field," with invalid entity (",invalid,")")
       assertLoginFailure({
         orb = orb,
-        bushost = bushost,
-        busport = busport,
+        busref = bus,
         entity = invalid,
         [field] = secret,
         domain = field=="password" and domain or nil,
@@ -218,8 +218,7 @@ do
     log:TEST("login with invalid password (",invalid,")")
     assertLoginFailure({
       orb = orb,
-      bushost = bushost,
-      busport = busport,
+      busref = bus,
       entity = user,
       password = invalid,
       domain = domain,
@@ -230,8 +229,7 @@ do
     log:TEST("login with invalid private key (",invalid,")")
     assertLoginFailure({
       orb = orb,
-      bushost = bushost,
-      busport = busport,
+      busref = bus,
       entity = user,
       privatekey = invalid,
     }, "bad argument #3 to 'loginByCertificate' (expected userdata, got "..type(invalid)..")")
@@ -240,8 +238,7 @@ do
   log:TEST "login with wrong password"
   assertLoginFailure({
     orb = orb,
-    bushost = bushost,
-    busport = busport,
+    busref = bus,
     entity = user,
     password = "WrongPassword",
     domain = domain,
@@ -250,8 +247,7 @@ do
   log:TEST "login with entity without certificate"
   assertLoginFailure({
     orb = orb,
-    bushost = bushost,
-    busport = busport,
+    busref = bus,
     entity = "NoCertif.",
     privatekey = syskey,
   }, {_repid = assert(idl.types.services.access_control.MissingCertificate)})
@@ -259,8 +255,7 @@ do
   log:TEST "login with wrong private key"
   assertLoginFailure({
     orb = orb,
-    bushost = bushost,
-    busport = busport,
+    busref = bus,
     entity = system,
     privatekey = openbus.newKey(),
   }, {_repid = assert(idl.types.services.access_control.AccessDenied)})
@@ -270,9 +265,10 @@ log:TEST(false)
 
 -- login as admin and provide additional functionality for the test
 local invalidate, sharedauth, shutdown, leasetime do
-  local orb = openbus.initORB()
+  local orb = openbus.initORB(orbcfg)
   local OpenBusContext = orb.OpenBusContext
-  local conn = OpenBusContext:createConnection(bushost, busport)
+  local bus = orb:newproxy(busref, nil, "::scs::core::IComponent")
+  local conn = OpenBusContext:connectByReference(bus)
   conn:loginByPassword(admin, admpsw, domain)
   OpenBusContext:setDefaultConnection(conn)
   leasetime = conn.AccessControl:renew()
@@ -319,8 +315,7 @@ do
   log:TEST(true, "login by password")
   testlogin{
     orb = orb,
-    bushost = bushost,
-    busport = busport,
+    busref = bus,
     entity = user,
     password = password,
     domain = domain,
@@ -329,8 +324,7 @@ do
   log:TEST(true, "login by private key")
   testlogin{
     orb = orb,
-    bushost = bushost,
-    busport = busport,
+    busref = bus,
     entity = system,
     privatekey = syskey,
   }
@@ -338,8 +332,7 @@ do
   log:TEST(true, "login by shared authentication")
   testlogin{
     orb = orb,
-    bushost = bushost,
-    busport = busport,
+    busref = bus,
     loginargs = function () return "SharedAuth", sharedauth() end,
   }
   log:TEST(false)
@@ -352,8 +345,7 @@ for interval = 1, 3 do
   local a
   a = assistant.create{
     orb = orb,
-    bushost = bushost,
-    busport = busport,
+    busref = bus,
     loginargs = function () return "Password", entity, secret, domain end,
     interval = interval,
     observer = {

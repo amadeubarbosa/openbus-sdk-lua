@@ -326,7 +326,12 @@ local Assistant = class{ interval = 5 }
 function Assistant:__init()
   if self.orb == nil then self.orb = initORB() end
   local OpenBusContext = assert(self.orb.OpenBusContext, "invalid ORB")
-  local conn = OpenBusContext:createConnection(self.bushost, self.busport, self)
+  local conn
+  if self.busref ~= nil then
+    conn = OpenBusContext:connectByReference(self.busref, self)
+  else
+    conn = OpenBusContext:connectByAddress(self.bushost, self.busport, self)
+  end
   --if OpenBusContext:getDefaultConnection() == nil then
   --  OpenBusContext:setDefaultConnection(conn)
   --end
@@ -502,8 +507,9 @@ argcheck.convertclass(Assistant, {
 })
 argcheck.convertmodule(module, {
   create = {
-    bushost = "string",
-    busport = "number|string",
+    busref = "nil|table",
+    bushost = "nil|string",
+    busport = "nil|number|string",
   },
   newSearchProps = { "string", "string" },
   getProperty = { "table", "string" },

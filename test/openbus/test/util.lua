@@ -5,6 +5,27 @@ local openbus = require "openbus"
 
 require "openbus.test.configs"
 
+function setorbcfg(security, client)
+  security = security or orbsecurity
+  if security ~= nil and security ~= "" then
+    ssl = { cafile = sslcacrt }
+    if client then
+      ssl.key = sslusrkey
+      ssl.certificate = sslusrcrt
+    else
+      ssl.key = sslsyskey
+      ssl.certificate = sslsyscrt
+    end
+    orbcfg = {
+      flavor = "cooperative;corba.intercepted;corba.ssl;kernel.ssl",
+      options = {
+        security = security,
+        ssl = ssl,
+      },
+    }
+  end
+end
+
 function settestcfg(testname, security)
   local name = arg[0]:match("(%w+)%.lua$")
   local language = "lua"
@@ -13,6 +34,7 @@ function settestcfg(testname, security)
   user = domain.."_"..language.."_client"
   password = user
   properties = {{name="offer.domain",value="Interoperability Tests"}}
+  setorbcfg(security, name=="client")
 end
 
 function chain2str(chain)

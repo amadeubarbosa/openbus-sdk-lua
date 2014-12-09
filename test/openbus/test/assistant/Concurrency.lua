@@ -17,23 +17,25 @@ local libidl = require "openbus.idl"
 local idl = require "openbus.core.idl"
 local msg = require "openbus.util.messages"
 local log = require "openbus.util.logger"
+local util = require "openbus.util.server"
 
 local sysex = giop.SystemExceptionIDs
 
-bushost, busport, verbose = ...
-require "openbus.test.configs"
+require "openbus.test.util"
 
---cothread.verbose:flag("threads", true)
---cothread.verbose:flag("state", true)
+setorbcfg(...)
+
+busref = assert(util.readfrom(busref, "r"))
 
 local smalltime = .1
 local accesskey = openbus.newKey()
 
 -- login as admin and provide additional functionality for the test
 local invalidate, shutdown do
-  local orb = openbus.initORB()
+  local orb = openbus.initORB(orbcfg)
   local OpenBusContext = orb.OpenBusContext
-  local conn = OpenBusContext:createConnection(bushost, busport)
+  local busref = orb:newproxy(busref, nil, "::scs::core::IComponent")
+  local conn = OpenBusContext:connectByReference(busref)
   conn:loginByPassword(admin, admpsw, domain)
   OpenBusContext:setDefaultConnection(conn)
   function invalidate(loginId)
@@ -45,16 +47,15 @@ local invalidate, shutdown do
   end
 end
 
-local orb = openbus.initORB()
+local orb = openbus.initORB(orbcfg)
 local OpenBusContext = orb.OpenBusContext
 assert(OpenBusContext.orb == orb)
-
+local busref = orb:newproxy(busref, nil, "::scs::core::IComponent")
 
 do log:TEST("Two threads logging in")
   local conn = assistant.create{
     orb = orb,
-    bushost = bushost,
-    busport = busport,
+    busref = busref,
     accesskey = accesskey,
   }
   local failures = 0
@@ -84,8 +85,7 @@ end
 do log:TEST("Two threads getting invalid login and trying to relog")
   local conn = assistant.create{
     orb = orb,
-    bushost = bushost,
-    busport = busport,
+    busref = busref,
     accesskey = accesskey,
   }
   conn:loginByPassword(user, password, domain)

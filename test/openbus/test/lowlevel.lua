@@ -26,7 +26,9 @@ local logintypes = idl.types.services.access_control
 local offertypes = idl.types.services.offer_registry
 local credtypes = idl.types.credential
 
-require "openbus.test.configs"
+require "openbus.test.util"
+
+setorbcfg()
 
 do -- CORBA GIOP message context manipuation functions
   
@@ -63,7 +65,7 @@ do -- CORBA GIOP message context manipuation functions
 
   local orb
   function initORB()
-    orb = newORB{ flavor = "cooperative;corba.intercepted" }
+    orb = newORB(orbcfg or { flavor = "cooperative;corba.intercepted" })
     orb:setinterceptor(iceptor, "corba")
     return orb
   end
@@ -154,14 +156,11 @@ do -- protocol predefined formats
   }
 end
 
-function connectToBus(host, port, orb)
+function connectToBus(ref, orb)
   if orb == nil then orb = initORB(orb) end
   loadIDL(orb)
   
-  local bus = orb:newproxy(
-    "corbaloc::"..host..":"..port.."/"..idl.const.BusObjectKey,
-    nil, -- default proxy type
-    "scs::core::IComponent")
+  local bus = orb:newproxy(ref, nil, "scs::core::IComponent")
   
   local AccessControl = assert(bus:getFacet(logintypes.AccessControl))
   AccessControl = orb:narrow(AccessControl, logintypes.AccessControl)

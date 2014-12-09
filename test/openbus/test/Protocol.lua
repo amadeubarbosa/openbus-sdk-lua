@@ -24,7 +24,7 @@ syskey = assert(decodeprvkey(readfrom(syskey)))
 -- test initialization ---------------------------------------------------------
 
 do -- connect to the bus
-  local bus, orb = connectToBus(bushost, busport)
+  local bus, orb = connectToBus(readfrom(busref, "r"))
   local accesskey = newkey(EncryptedBlockSize)
   local otherkey = newkey(EncryptedBlockSize)
 

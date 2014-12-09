@@ -1,5 +1,6 @@
 local openbus = require "openbus"
 local log = require "openbus.util.logger"
+local util = require "openbus.util.server"
 local ComponentContext = require "scs.core.ComponentContext"
 
 -- create service implementation
@@ -64,7 +65,9 @@ component._facets[iface.name] = {
 component[iface.name] = servant
 
 -- connect to the bus
-local conn = OpenBusContext:createConnection(bushost, busport)
+busref = assert(util.readfrom(busref, "r"))
+busref = orb:newproxy(busref, nil, "::scs::core::IComponent")
+local conn = OpenBusContext:connectByReference(busref)
 OpenBusContext:setDefaultConnection(conn)
 
 -- login to the bus
