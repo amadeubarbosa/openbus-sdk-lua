@@ -1,5 +1,5 @@
-local log = require "openbus.util.logger"
 local openbus = require "openbus"
+local log = require "openbus.util.logger"
 local ComponentContext = require "scs.core.ComponentContext"
 
 -- create service implementation
@@ -37,11 +37,11 @@ end
 
 require "openbus.test.util"
 
--- setup and start the ORB
-local orb = openbus.initORB()
-
 -- customize test configuration for this case
-settestcfg(iface, ...)
+settestcfg(...)
+
+-- setup and start the ORB
+local orb = openbus.initORB(orbcfg)
 
 -- get bus context manager
 local OpenBusContext = orb.OpenBusContext

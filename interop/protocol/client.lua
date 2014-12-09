@@ -1,20 +1,20 @@
+local openbus = require "openbus"
 local idl = require "openbus.core.idl"
 local log = require "openbus.util.logger"
 local except = require "openbus.util.except"
-local openbus = require "openbus"
 
 
 require "openbus.test.util"
 
+-- customize test configuration for this case
+settestcfg(...)
+
 -- setup the ORB
-local orb = openbus.initORB()
+local orb = openbus.initORB(orbcfg)
 
 -- load interface definition
 orb:loadidlfile("idl/mock.idl")
 local iface = orb.types:lookup("tecgraf::openbus::interop::protocol::Server")
-
--- customize test configuration for this case
-settestcfg(iface, ...)
 
 -- get bus context manager
 local OpenBusContext = orb.OpenBusContext
