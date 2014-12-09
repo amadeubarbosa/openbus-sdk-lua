@@ -5,9 +5,8 @@ local openbus = require "openbus"
 
 require "openbus.test.configs"
 
-function settestcfg(interface, testname)
-  local name = interface.name:lower()
-  if name == "hello" then name = "server" end
+function settestcfg(testname, security)
+  local name = arg[0]:match("(%w+)%.lua$")
   local language = "lua"
   local domain = "interop_"..testname
   system = domain.."_"..language.."_"..name
