@@ -1,19 +1,19 @@
-local table = require "loop.table"
-local log = require "openbus.util.logger"
 local openbus = require "openbus"
+local log = require "openbus.util.logger"
 local ComponentContext = require "scs.core.ComponentContext"
+local table = require "loop.table"
 
 require "openbus.test.util"
 
+-- customize test configuration for this case
+settestcfg(...)
+
 -- setup and start the ORB
-local orb = openbus.initORB()
+local orb = openbus.initORB(orbcfg)
 
 -- load interface definition
 orb:loadidlfile("idl/hello.idl")
 local iface = orb.types:lookup("tecgraf::openbus::interop::simple::Hello")
-
--- customize test configuration for this case
-settestcfg(iface, ...)
 
 -- read login private key
 local key = assert(openbus.readKeyFile(syskey))

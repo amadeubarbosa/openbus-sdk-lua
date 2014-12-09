@@ -1,19 +1,17 @@
-local table = table
-local unpack = table.unpack or unpack
-local log = require "openbus.util.logger"
 local openbus = require "openbus"
+local log = require "openbus.util.logger"
 
 require "openbus.test.util"
 
+-- customize test configuration for this case
+settestcfg(...)
+
 -- setup and start the ORB
-local orb = openbus.initORB()
+local orb = openbus.initORB(orbcfg)
 
 -- load interface definition
 orb:loadidlfile("idl/messages.idl")
 local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::Messenger")
-
--- customize test configuration for this case
-settestcfg(iface, ...)
 
 -- get bus context manager
 local OpenBusContext = orb.OpenBusContext
@@ -31,7 +29,7 @@ local services = {}
 for _, name in ipairs{"Messenger", "Broadcaster", "Forwarder"} do
   -- define service properties
   local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::"..name)
-  local props = { unpack(properties),
+  local props = { table.unpack(properties),
     {name="openbus.component.interface",value=iface.repID},
   }
   -- retrieve service

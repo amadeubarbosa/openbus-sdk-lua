@@ -1,20 +1,19 @@
-local log = require "openbus.util.logger"
 local openbus = require "openbus"
+local log = require "openbus.util.logger"
 local ComponentContext = require "scs.core.ComponentContext"
 
 require "openbus.test.util"
 
 -- setup and start the ORBs
-local orb1 = openbus.initORB()
-local orb2 = openbus.initORB()
+settestcfg(...)
+local orb1 = openbus.initORB(orbcfg)
+settestcfg(...)
+local orb2 = openbus.initORB(orbcfg)
 
 -- load interface definition
 orb1:loadidlfile("idl/hello.idl")
 orb2:loadidlfile("idl/hello.idl")
 local iface = orb1.types:lookup("tecgraf::openbus::interop::simple::Hello")
-
--- customize test configuration for this case
-settestcfg(iface, ...)
 
 -- get bus context manager
 local OpenBusContext1 = orb1.OpenBusContext

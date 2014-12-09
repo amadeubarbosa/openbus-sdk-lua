@@ -1,20 +1,20 @@
-local log = require "openbus.util.logger"
 local openbus = require "openbus"
+local log = require "openbus.util.logger"
 local ComponentContext = require "scs.core.ComponentContext"
 local table = require "loop.table"
 local Timer = require "cothread.Timer"
 
 require "openbus.test.util"
 
+-- customize test configuration for this case
+settestcfg(...)
+
 -- setup and start the ORB
-local orb = openbus.initORB()
+local orb = openbus.initORB(orbcfg)
 
 -- load interface definitions
 orb:loadidlfile("idl/messages.idl")
 local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::Forwarder")
-
--- customize test configuration for this case
-settestcfg(iface, ...)
 
 -- get bus context manager
 local OpenBusContext = orb.OpenBusContext
