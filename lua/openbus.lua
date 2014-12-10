@@ -98,9 +98,9 @@ local AccessDenied = loginthrow.AccessDenied
 local InvalidLogins = loginthrow.InvalidLogins
 local ServiceFailure = coresrvthrow.ServiceFailure
 local exportconst = coreidl.const.data_export
-local ExportVersion = exportconst.CurrentVersion
+local ExportVersion = exportconst.ExportVersion
 local exporttypes = coreidl.types.data_export
-local ExportedVersionSeqRepId = exporttypes.ExportedVersionSeq
+local VersionedDataSeqRepId = exporttypes.VersionedDataSeq
 local ExportedCallChainRepId = exporttypes.ExportedCallChain
 local ExportedSharedAuthRepId = exporttypes.ExportedSharedAuth
 local access = require "openbus.core.Access"
@@ -695,8 +695,8 @@ function Context:__init()
   self.connectionOf = setmetatable({}, WeakKeys) -- [thread]=connection
   self.types.LoginAuthenticationInfo =
     self.orb.types:lookup_id(LoginAuthenticationInfoRepId)
-  self.types.ExportedVersionSeq =
-    self.orb.types:lookup_id(ExportedVersionSeqRepId)
+  self.types.EVersionedDataSeq =
+    self.orb.types:lookup_id(VersionedDataSeqRepId)
   self.types.ExportedCallChain =
     self.orb.types:lookup_id(ExportedCallChainRepId)
   self.types.ExportedSharedAuth =
@@ -989,7 +989,7 @@ for name, info in pairs(EncodingValues) do
       end
     end
     local encoder = orb:newencoder()
-    encoder:put(exported, types.ExportedVersionSeq)
+    encoder:put(exported, types.VersionedDataSeq)
     return info.magictag..encoder:getdata()
   end
 
@@ -999,7 +999,7 @@ for name, info in pairs(EncodingValues) do
       local types = self.types
       local orb = self.orb
       local decoder = orb:newdecoder(substring(stream, 1+#magictag))
-      local ok, result = pcall(decoder.get, decoder, types.ExportedVersionSeq)
+      local ok, result = pcall(decoder.get, decoder, types.VersionedDataSeq)
       if ok then
         local exports = result
         result = msg.NoSupportedVersionFound
