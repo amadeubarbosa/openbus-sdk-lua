@@ -157,7 +157,7 @@ do -- protocol predefined formats
 end
 
 function connectToBus(ref, orb)
-  if orb == nil then orb = initORB(orb) end
+  if orb == nil then orb = initORB() end
   loadIDL(orb)
   
   local bus = orb:newproxy(ref, nil, "scs::core::IComponent")
