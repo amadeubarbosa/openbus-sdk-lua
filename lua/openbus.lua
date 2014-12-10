@@ -695,7 +695,7 @@ function Context:__init()
   self.connectionOf = setmetatable({}, WeakKeys) -- [thread]=connection
   self.types.LoginAuthenticationInfo =
     self.orb.types:lookup_id(LoginAuthenticationInfoRepId)
-  self.types.EVersionedDataSeq =
+  self.types.VersionedDataSeq =
     self.orb.types:lookup_id(VersionedDataSeqRepId)
   self.types.ExportedCallChain =
     self.orb.types:lookup_id(ExportedCallChainRepId)
