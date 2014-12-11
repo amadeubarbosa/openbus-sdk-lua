@@ -6,20 +6,22 @@ Category {
 }
 
 for case, services in pairs{
-  Simple = { "Hello" },
-  Multiplexing = { "Hello" },
-  SharedAuth = { "Hello" },
-  ReloggedJoin = { "Hello" },
-  Delegation = { "Messenger","Broadcaster","Forwarder" },
-  Protocol = { "Server" },
+  Simple = { server = "Hello" },
+  Multiplexing = { server = "Hello" },
+  SharedAuth = { server = "Hello" },
+  ReloggedJoin = {
+    server = "Hello",
+    proxy = "Hello",
+  },
+  Delegation = {
+    messenger = "Messenger",
+    broadcaster = "Broadcaster",
+    forwarder = "Forwarder",
+  },
+  Protocol = { server = "Server" },
 } do
-  for _, iface in ipairs(services) do
-    local module = case:lower()
-    local name = iface:lower()
-    if iface == "Hello" then
-      module = "simple"
-      name = "server"
-    end
+  for name, iface in pairs(services) do
+    local module = iface == "Hello" and "simple" or case:lower()
     local ifaceId = "IDL:tecgraf/openbus/interop/"..module.."/"..iface..":1.0"
     local entity = "interop_"..case:lower().."_lua".."_"..name
     Entity { id = entity, category = category, name = "Lua "..case.." "..iface }
