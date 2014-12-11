@@ -157,7 +157,7 @@ do log:TEST "connect to unavailable host"
   local conn = OpenBusContext:connectByAddress("unavailable", busport)
   for op, params in pairs(loginways) do
     local ex = catcherr(conn[op], conn, params())
-    if orbcfg.options.security == "required" then
+    if orbcfg and orbcfg.options.security == "required" then
       assert(ex._repid == sysex.NO_PERMISSION)
       assert(ex.completed == "COMPLETED_NO")
     else
@@ -171,7 +171,7 @@ do log:TEST "connect to unavailable port"
   local conn = OpenBusContext:connectByAddress(bushost, 0)
   for op, params in pairs(loginways) do
     local ex = catcherr(conn[op], conn, params())
-    if orbcfg.options.security == "required" then
+    if orbcfg and orbcfg.options.security == "required" then
       assert(ex._repid == sysex.NO_PERMISSION)
       assert(ex.completed == "COMPLETED_NO")
     else
