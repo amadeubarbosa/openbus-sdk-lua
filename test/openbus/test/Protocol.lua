@@ -50,8 +50,11 @@ do -- connect to the bus
   local function isnotnil(value) assert(value ~= nil) end
   for _, offer in ipairs(offers) do
     local service = offer.service_ref
-    testBusCall(bus, login, otherkey, isfalse, service, "_non_existent")
-    testBusCall(bus, login, otherkey, isnotnil, service, "getComponentId")
+    local ok, result = pcall(service._non_existent, service)
+    if (ok and not result)
+    or (not ok and result._repid ~= "IDL:omg.org/CORBA/TRANSIENT:1.0") then
+      testBusCall(bus, login, otherkey, isnotnil, service, "getComponentId")
+    end
   end
 
   -- logout from the bus
