@@ -1,7 +1,6 @@
 local _G = require "_G"
 local assert = _G.assert
 local error = _G.error
-local getenv = _G.getenv
 local ipairs = _G.ipairs
 local loadfile = _G.loadfile
 local next = _G.next
@@ -40,6 +39,8 @@ local log = require "openbus.util.logger"
 local msg = require "openbus.util.messages"
 local oo = require "openbus.util.oo"
 local class = oo.class
+local sandbox = require "openbus.util.sandbox"
+local newsandbox = sandbox.create()
 
 
 
@@ -47,7 +48,7 @@ local module = {}
 
 
 
-local SafeEnv = {__index = { error = error, getenv = getenv }}
+local SafeEnv = { __index = newsandbox() }
 
 local function defaultAdd(list, value)
   list[#list+1] = tostring(value)
