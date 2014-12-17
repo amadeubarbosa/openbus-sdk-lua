@@ -34,7 +34,7 @@ local msg = require "openbus.util.messages"
 local oo = require "openbus.util.oo"
 local class = oo.class
 local sandbox = require "openbus.util.sandbox"
-local newsandbox = sandbox.create()
+local newsandbox = sandbox.create
 
 
 
