@@ -427,10 +427,15 @@ function Connection:receivereply(request)
         login = invlogin.id,
         entity = invlogin.entity,
       })
+      local ok, result
       local logins = self.LoginRegistry
-      NoInvalidLoginHandling[thread] = true
-      local ok, result = pcall(logins.getLoginValidity, logins, invlogin.id)
-      NoInvalidLoginHandling[thread] = nil
+      if logins ~= nil then
+        NoInvalidLoginHandling[thread] = true
+        ok, result = pcall(logins.getLoginValidity, logins, invlogin.id)
+        NoInvalidLoginHandling[thread] = nil
+      else -- we aren't logged
+        ok, result = true, 0
+      end
       if ok and result > 0 then
         log:exception(msg.GotFalseInvalidLogin:tag{
           invlogin = invlogin.id,
