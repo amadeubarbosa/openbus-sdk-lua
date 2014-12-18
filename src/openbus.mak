@@ -28,6 +28,7 @@ LUASRC= \
   $(LUADIR)/openbus/util/logger.lua \
   $(LUADIR)/openbus/util/messages.lua \
   $(LUADIR)/openbus/util/oo.lua \
+  $(LUADIR)/openbus/util/sandbox.lua \
   $(LUADIR)/openbus/util/server.lua \
   $(LUADIR)/openbus/util/sysex.lua \
   $(LUADIR)/openbus/util/tickets.lua \
