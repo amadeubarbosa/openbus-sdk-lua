@@ -1,7 +1,10 @@
 PROJNAME= luaopenbus
 LIBNAME= $(PROJNAME)
 
-SRC= $(PRELOAD_DIR)/$(LIBNAME).c
+SRC= \
+  openbuslua.c \
+  threadlib.c \
+  $(PRELOAD_DIR)/$(LIBNAME).c
 
 OPENBUSSCSIDL= ${SCS_IDL1_2_HOME}/src
 OPENBUSNEWIDL= ${OPENBUS_IDL2_1_HOME}/src
@@ -32,7 +35,10 @@ LUASRC= \
   $(LUADIR)/openbus/util/server.lua \
   $(LUADIR)/openbus/util/sysex.lua \
   $(LUADIR)/openbus/util/tickets.lua \
-  $(LUADIR)/openbus.lua
+  $(LUADIR)/openbus.lua \
+  threadlib.c \
+  $(LUADIR)/openbus/console/costdin.lua \
+  $(LUADIR)/openbus/console/utils.lua
 
 LIBIDL= $(OPENBUSLIBIDL)/openbus.idl
 
@@ -62,7 +68,54 @@ OLDDEPENDENTIDL= \
   $(OPENBUSOLDIDL)/credential.idl \
   $(OPENBUSSCSIDL)/scs.idl
 
+LUAPRELOADFLAGS= -s
+
 include ${OIL_HOME}/openbus/base.mak
+
+LIBS:= \
+  luastruct \
+  luasocket \
+  luatuple \
+  loop \
+  luacothread \
+  luaidl \
+  oil \
+  luavararg \
+  lfs \
+  luuid \
+  lce \
+  luasec \
+  luascs
+
+INCLUDES+= . \
+  $(LUASTRUCT_HOME)/src \
+  $(LUASOCKET_HOME)/include \
+  $(LUATUPLE_HOME)/obj/$(TEC_UNAME) \
+  $(LOOP_HOME)/obj/$(TEC_UNAME) \
+  $(LUACOTHREAD_HOME)/obj/$(TEC_UNAME) \
+  $(LUAIDL_HOME)/obj/$(TEC_UNAME) \
+  $(OIL_HOME)/obj/$(TEC_UNAME) \
+  $(LUAVARARG_HOME)/src \
+  $(LUAFILESYSTEM_HOME)/include \
+  $(LUUID_HOME)/include \
+  $(LCE_HOME)/include \
+  $(LUASEC_HOME)/include \
+  $(SCS_LUA_HOME)/obj/$(TEC_UNAME)
+
+LDIR+= \
+  $(LUASTRUCT_HOME)/lib/$(TEC_UNAME) \
+  $(LUASOCKET_HOME)/lib/$(TEC_UNAME) \
+  $(LUATUPLE_HOME)/lib/$(TEC_UNAME) \
+  $(LOOP_HOME)/lib/$(TEC_UNAME) \
+  $(LUACOTHREAD_HOME)/lib/$(TEC_UNAME) \
+  $(LUAIDL_HOME)/lib/$(TEC_UNAME) \
+  $(OIL_HOME)/lib/$(TEC_UNAME) \
+  $(LUAVARARG_HOME)/lib/$(TEC_UNAME) \
+  $(LUAFILESYSTEM_HOME)/lib/$(TEC_UNAME) \
+  $(LUUID_HOME)/lib/$(TEC_UNAME) \
+  $(LCE_HOME)/lib/$(TEC_UNAME) \
+  $(LUASEC_HOME)/lib/$(TEC_UNAME) \
+  $(SCS_LUA_HOME)/lib/$(TEC_UNAME)
 
 $(LUADIR)/openbus/idl/parsed.lua: $(IDL2LUA) $(LIBIDL) $(NEWIDL) $(NEWDEPENDENTIDL) $(LIBDEPENDENTIDL)
 	$(OILBIN) $(IDL2LUA) -I $(OPENBUSSCSIDL) -I $(OPENBUSNEWIDL) -I $(OPENBUSLIBIDL) -o $@ $(LIBIDL)
@@ -72,3 +125,5 @@ $(LUADIR)/openbus/core/idl/parsed.lua: $(IDL2LUA) $(NEWIDL) $(NEWDEPENDENTIDL)
 
 $(LUADIR)/openbus/core/legacy/parsed.lua: $(IDL2LUA) $(OLDIDL) $(OLDDEPENDENTIDL)
 	$(OILBIN) $(IDL2LUA) -I $(OPENBUSSCSIDL) -I $(OPENBUSOLDIDL) -I $(OPENBUSNEWIDL) -o $@ $(OLDIDL)
+
+openbuslua.c: $(PRELOAD_DIR)/luaopenbus.c

@@ -22,7 +22,7 @@ local string = require "string"
 
 local module = {}
 
-function module.create()
+function module.create(...)
   local preloaded = {}
   local packcfg = {
     preload = preloaded,
@@ -155,23 +155,31 @@ function module.create()
     env[name] = module
   end
 
+  local forbiden = {...}
   function env.require(name)
     local module = allowed[name]
     if module == nil then
+      local isforbiden
+      for _, pattern in ipairs(forbiden) do
+        if match(name, pattern) then
+          isforbiden = true
+        end
+      end
+      if isforbiden then
+        error("no permission to load module '"..name.."'")
+      end
       local loader = preloaded[name]
       if loader ~= nil then
         module = loader(name)
         if module == nil then
           module = true
         end
-      elseif preload[name] == nil and loaded[name] == nil then
+      else
         local path, cpath = package.path, package.cpath
         package.path, package.cpath = packcfg.path, packcfg.cpath
         local ok, result = xpcall(require, traceback, name)
         package.path, package.cpath = path, cpath
         if not ok then error(result) end
-      else
-        error("no permission to load module '"..name.."'")
       end
       allowed[name] = module
     end

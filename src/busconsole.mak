@@ -1,11 +1,21 @@
 PROJNAME= busconsole
 APPNAME= $(PROJNAME)
+CODEREV?= r$(shell svnversion -n $(PROJDIR))
 
-ifdef USE_LUA52
-	SRC= console.c
-else
-	SRC= consoleLua51.c
-endif
+SRC= \
+  launcher.c \
+  consolelibs.c \
+  $(PRELOAD_DIR)/luaconsole.c
+
+LUADIR= ../lua
+LUASRC= \
+  $(LUADIR)/openbus/console.lua
+
+include ${LOOP_HOME}/openbus/base.mak
+
+DEFINES= \
+  OPENBUS_PROGNAME=\"$(APPNAME)\" \
+  OPENBUS_CODEREV=\"$(CODEREV)\"
 
 LIBS:= \
   luastruct \
@@ -23,7 +33,8 @@ LIBS:= \
   luascs \
   luaopenbus
 
-INCLUDES+= . $(SRCLUADIR) \
+INCLUDES+= . \
+  $(SRCLUADIR) \
   $(LUASTRUCT_HOME)/src \
   $(LUASOCKET_HOME)/include \
   $(LUATUPLE_HOME)/obj/$(TEC_UNAME) \
@@ -108,3 +119,13 @@ ifneq ($(findstring $(TEC_SYSNAME), Win32 Win64), )
 else
   LIBS+= dl
 endif
+
+$(PRELOAD_DIR)/luaconsole.c $(PRELOAD_DIR)/luaconsole.h: $(LUAPRELOADER) $(LUASRC)
+	$(LOOPBIN) $(LUAPRELOADER) -l "$(LUADIR)/?.lua" \
+	                           -d $(PRELOAD_DIR) \
+	                           -h luaconsole.h \
+	                           -o luaconsole.c \
+	                           $(LUASRC)
+
+luaconsole.c: $(PRELOAD_DIR)/luaconsole.h
+consolelibs.c: $(PRELOAD_DIR)/luaconsole.h

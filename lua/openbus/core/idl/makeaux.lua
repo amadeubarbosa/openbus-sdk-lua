@@ -37,13 +37,23 @@ local function makeaux(def, types, consts, excepts)
     local repID = def.repID
     types[name] = repID
     local logmsg = name.." "
-    excepts[name] = function(fields)
+    local function new(fields)
       if fields == nil then fields = {} end
-      log:exception(logmsg:tag(fields))
       fields[1] = message
       fields._repid = repID
-      error(Exception(fields))
+      return Exception(fields)
     end
+    local function throw(fields)
+      local except = new(fields)
+      log:exception(logmsg:tag(except))
+      error(except)
+    end
+    local function isa(value)
+      return type(value) == "table" and value._repid == repID
+    end
+    excepts[name] = throw
+    excepts["new_"..name] = new
+    excepts["is_"..name] = isa
   elseif def._type == "const" then
     consts[name] = def.val
   elseif name ~= nil then
