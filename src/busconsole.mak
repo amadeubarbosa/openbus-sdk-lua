@@ -18,6 +18,7 @@ DEFINES= \
   OPENBUS_CODEREV=\"$(CODEREV)\"
 
 LIBS:= \
+  luaopenbus \
   luastruct \
   luasocket \
   luatuple \
@@ -30,8 +31,7 @@ LIBS:= \
   luuid \
   lce \
   luasec \
-  luascs \
-  luaopenbus
+  luascs
 
 INCLUDES+= . \
   $(SRCLUADIR) \
@@ -72,7 +72,7 @@ ifdef USE_LUA51
 endif
 
 ifeq "$(TEC_SYSNAME)" "Linux"
-  LFLAGS = -Wl,-E
+  LFLAGS = -Wl,-E -lpthread
 endif
 ifeq "$(TEC_SYSNAME)" "SunOS"
   USE_CC=Yes
