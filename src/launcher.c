@@ -62,9 +62,7 @@ static int pmain (lua_State *L) {
       if ( (status == LUA_OK) && lua_isnumber(L, -1) ) return 1;
     }
   }
-  openbuslua_report(L, status);
-  lua_pushinteger(L, EXIT_FAILURE);
-  return 1;
+  return 0;
 }
 
 
