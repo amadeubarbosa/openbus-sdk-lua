@@ -37,8 +37,9 @@ static int l_setlogpath (lua_State *L) {
 static int pmain (lua_State *L) {
   char **argv = (char **)lua_touserdata(L, 2);
   int debugmode = argv[0] && argv[1] && strcmp(argv[1], "DEBUG") == 0;
+  int status;
   luapreload_extralibraries(L);
-  int status = openbuslua_init(L, 1, debugmode);
+  status = openbuslua_init(L, 1, debugmode);
   if (status == LUA_OK) {
     lua_pushliteral(L, OPENBUS_PROGNAME);
     lua_setglobal(L, "OPENBUS_PROGNAME");
@@ -56,8 +57,9 @@ static int pmain (lua_State *L) {
     lua_pushstring(L, OPENBUS_MAIN);
     status = lua_pcall(L, 1, 1, 0);
     if (status == LUA_OK) {
+      int narg;
       if (debugmode) ++argv;
-      int narg = openbuslua_pushargs(L, argv);  /* collect arguments */
+      narg = openbuslua_pushargs(L, argv);  /* collect arguments */
       status = openbuslua_call(L, narg+1, 1);
       if ( (status == LUA_OK) && lua_isnumber(L, -1) ) return 1;
     }
@@ -78,7 +80,7 @@ int main (int argc, char **argv) {
     lua_pushlightuserdata(L, argv); /* 2nd argument */
     status = lua_pcall(L, 2, 1, 0);
     if (status == LUA_OK) {
-      result = lua_tointeger(L, -1);  /* get result */
+      result = (int)lua_tointeger(L, -1);  /* get result */
     } else {
       const char *msg = (lua_type(L, -1) == LUA_TSTRING) ? lua_tostring(L, -1)
                                                          : NULL;

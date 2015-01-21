@@ -83,15 +83,15 @@ ifeq "$(TEC_SYSNAME)" "SunOS"
   LFLAGS= $(CFLAGS) -xildoff
 endif
 
-ifdef USE_STATIC
-  SLIB:= $(foreach libname, $(LIBS) uuid ssl crypto, ${OPENBUS_HOME}/lib/lib$(libname).a)
-  ifeq "$(TEC_SYSNAME)" "SunOS"
-    LIBS:= rt nsl socket resolv
+ifeq ($(findstring $(TEC_SYSNAME), Win32 Win64), )
+  ifdef USE_STATIC
+    SLIB:= $(foreach libname, $(LIBS) uuid ssl crypto, ${OPENBUS_HOME}/lib/lib$(libname).a)
+    ifeq "$(TEC_SYSNAME)" "SunOS"
+      LIBS:= rt nsl socket resolv
+    else
+      LIBS:= 
+    endif
   else
-    LIBS:= 
-  endif
-else
-  ifeq ($(findstring $(TEC_SYSNAME), Win32 Win64), )
     ifneq "$(TEC_SYSNAME)" "Darwin"
       LIBS+= uuid
     endif

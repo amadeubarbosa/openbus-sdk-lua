@@ -1,9 +1,34 @@
 #include <lua.h>
 #include <lauxlib.h>
 
+#include <openbuslua.h>
+
 #if defined(_WIN32)
 
-TODO:
+#include <errno.h>
+#include <process.h>
+
+int prompt_newthread(void (__cdecl *func) (void *), void *data) {
+  uintptr_t res = _beginthread(func, 0, data);
+  if (res == -1L) return errno;
+	return 0;
+}
+
+const char *prompt_errormessage(int code) {
+  switch (code) {
+    case EAGAIN: return "too many threads";
+    case EINVAL: return "stack size is incorrect";
+    case EACCES: return "insufficient resources";    
+  }
+	return "unexpected error";
+}
+
+void OpenBusLuaThread (void *data)
+{
+	lua_State *L = (lua_State *)data;
+	int status = openbuslua_call(L, 1, 0);
+	openbuslua_report(L, status);
+}
 
 #else
 
@@ -11,7 +36,7 @@ TODO:
 #include <errno.h>
 #include <string.h>
 
-int prompt_newthread(void *(func) (void *), void *data) {
+int prompt_newthread(void *(*func) (void *), void *data) {
 	pthread_t thread;
 	int res = pthread_create(&thread, NULL, func, data);
 	if (res) return errno;
@@ -22,11 +47,6 @@ const char *prompt_errormessage(int code) {
 	return strerror(code);
 }
 
-#endif
-
-#include "openbuslua.h"
-
-
 static void *OpenBusLuaThread (void *data)
 {
 	lua_State *L = (lua_State *)data;
@@ -34,6 +54,11 @@ static void *OpenBusLuaThread (void *data)
 	openbuslua_report(L, status);
 	pthread_exit(NULL);
 }
+
+#endif
+
+#include "openbuslua.h"
+
 
 static void copyPreload (lua_State *from, lua_State *to)
 {
