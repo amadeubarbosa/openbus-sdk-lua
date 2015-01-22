@@ -10,7 +10,7 @@ PASSWORD=$USER
 CONSOLE="${OPENBUS_HOME}/bin/busconsole"
 
 if [ "$1" == "DEBUG" ]; then
-	CONSOLE="$CONSOLE -d"
+	CONSOLE="$CONSOLE DEBUG"
 elif [ "$1" != "RELEASE" ]; then
 	echo "Usage: runtest.sh [RELEASE|DEBUG] <dir> [services]"
 	exit 1

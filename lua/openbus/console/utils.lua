@@ -97,6 +97,8 @@ end
 local module = {}
 
 function module.processargs(env, ignorevars, interactive, executables, script, ...)
+	env.arg = {[0]=script, ...}
+
 	local errmsg
 
 	if not ignorevars then

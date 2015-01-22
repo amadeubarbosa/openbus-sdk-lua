@@ -7,7 +7,7 @@ services="server"
 busconsole="${OPENBUS_SDKLUA_HOME}/bin/busconsole"
 
 if [[ "$mode" == "DEBUG" ]]; then
-	busconsole="$busconsole -d"
+	busconsole="$busconsole DEBUG"
 elif [[ "$mode" != "RELEASE" ]]; then
 	echo "Usage: $0 <RELEASE|DEBUG> <test> [services...]"
 	exit 1
