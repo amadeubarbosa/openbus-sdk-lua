@@ -5,7 +5,7 @@ mode=$1
 if [[ "$mode" == "" ]]; then
 	mode=RELEASE
 elif [[ "$mode" != "RELEASE" && "$mode" != "DEBUG" ]]; then
-	echo "Usage: $0 <RELEASE|DEBUG>"
+	echo "Usage: $0 [RELEASE|DEBUG]"
 	exit 1
 fi
 
