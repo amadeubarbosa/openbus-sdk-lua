@@ -20,6 +20,9 @@ local stderr = io.stderr
 local debug = require "debug"
 local traceback = debug.traceback
 
+local vararg = require "vararg"
+local append = vararg.append
+
 local pubkey = require "lce.pubkey"
 local decodeprivatekey = pubkey.decodeprivate
 local x509 = require "lce.x509"
