@@ -1,20 +1,25 @@
 #include <lua.h>
 #include <lauxlib.h>
 
-#include <openbuslua.h>
+#if !defined(LUA_VERSION_NUM) || LUA_VERSION_NUM == 501
+#include "compat-5.2.h"
+#endif
+
+#include "openbuslua.h"
+
 
 #if defined(_WIN32)
 
 #include <errno.h>
 #include <process.h>
 
-int prompt_newthread(void (__cdecl *func) (void *), void *data) {
+static int newthread(void (__cdecl *func) (void *), void *data) {
   uintptr_t res = _beginthread(func, 0, data);
   if (res == -1L) return errno;
 	return 0;
 }
 
-const char *prompt_errormessage(int code) {
+static const char *geterrmsg(int code) {
   switch (code) {
     case EAGAIN: return "too many threads";
     case EINVAL: return "stack size is incorrect";
@@ -23,7 +28,7 @@ const char *prompt_errormessage(int code) {
 	return "unexpected error";
 }
 
-void OpenBusLuaThread (void *data)
+static void luathread (void *data)
 {
 	lua_State *L = (lua_State *)data;
 	int status = openbuslua_call(L, 1, 0);
@@ -36,18 +41,18 @@ void OpenBusLuaThread (void *data)
 #include <errno.h>
 #include <string.h>
 
-int prompt_newthread(void *(*func) (void *), void *data) {
+static int newthread(void *(*func) (void *), void *data) {
 	pthread_t thread;
 	int res = pthread_create(&thread, NULL, func, data);
 	if (res) return errno;
 	return 0;
 }
 
-const char *prompt_errormessage(int code) {
+static const char *geterrmsg(int code) {
 	return strerror(code);
 }
 
-static void *OpenBusLuaThread (void *data)
+static void *luathread (void *data)
 {
 	lua_State *L = (lua_State *)data;
 	int status = openbuslua_call(L, 1, 0);
@@ -57,10 +62,8 @@ static void *OpenBusLuaThread (void *data)
 
 #endif
 
-#include "openbuslua.h"
 
-
-static void copyPreload (lua_State *from, lua_State *to)
+static void copypreload (lua_State *from, lua_State *to)
 {
 	/* table is in the stack at index 't' */
 #if defined(LUA_VERSION_NUM) && LUA_VERSION_NUM > 501
@@ -96,12 +99,12 @@ static int l_spawn (lua_State *L)
 	lua_getfield(L, LUA_REGISTRYINDEX, "OPENBUS_DEBUG");
 	status = openbuslua_init(newL, 0, !lua_isnil(L, -1));
 	if (status == LUA_OK) {
-		copyPreload(L, newL);
+		copypreload(L, newL);
 		status = luaL_loadbuffer(newL, code, codelen, code);
 		if (status == LUA_OK) {
-			int res = prompt_newthread(OpenBusLuaThread, newL);
+			int res = newthread(luathread, newL);
 			if (res) {
-				const char *errmsg = prompt_errormessage(errno);
+				const char *errmsg = geterrmsg(errno);
 				lua_close(newL);
 				luaL_error(L, "unable to start thread (error=%s)", errmsg);
 			}

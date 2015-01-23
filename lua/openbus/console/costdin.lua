@@ -38,25 +38,30 @@ return function (...)
 	local _, port = assert(sock:getsockname())
 	assert(sock:listen())
 
-	local extra = ""
-
-	if preload.lpw ~= nil then
-		extra = [[
-			["*?"] = require("lpw").getpass,
-		]]
-	end
-
 	spawn([[
 		local io = require "io"
 		local readline = io.read
+		local writetext = io.write
+
 		local cothread = require "cothread"
 		cothread.plugin(require "cothread.plugin.socket")
 		local socket = require "cothread.socket"
 		local newsocket = socket.tcp
 
+		local echo = require "openbus.util.echo"
+		local getecho = echo.getecho
+		local setecho = echo.setecho
+
 		local Message = "%d\n%s"
 		local handlers = {
-			]]..extra..[[
+			["*?"] = function()
+				local active = getecho()
+				if active then setecho(false) end
+				result = readline()
+				if active then setecho(true) end
+				writetext("\n")
+				return result
+			end,
 		}
 
 		local sock = newsocket()
@@ -65,13 +70,8 @@ return function (...)
 		while true do
 			local format = sock:receive()
 			if format ~= nil then
-				local handler = handlers[format]
-				if handler ~= nil then
-					result = handler()
-				else
-					result = readline(format)
-				end
-				assert(sock:send(#result.."\n"..result))
+				local ok, result = pcall(handlers[format] or readline, format)
+				assert(sock:send((ok and "." or "!")..#result.."\n"..result))
 			else
 				assert(sock:close())
 				break
@@ -95,9 +95,15 @@ return function (...)
 		if #results == 0 then results[1] = "*l" end
 		if mutex:try() then
 			for index, format in ipairs(results) do
-				conn:send(tostring(format).."\n")
-				local size = tonumber(conn:receive())
-				results[index] = size == 0 and "" or conn:receive(size)
+				assert(conn:send(tostring(format).."\n"))
+				local ok = (assert(conn:receive(1)) == ".")
+				local size = assert(tonumber(assert(conn:receive())))
+				local result = (size == 0) and "" or assert(conn:receive(size))
+				if not ok then
+					mutex:free()
+					error(result)
+				end
+				results[index] = result
 			end
 			mutex:free()
 			return unpack(results)

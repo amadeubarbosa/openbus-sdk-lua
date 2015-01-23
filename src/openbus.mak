@@ -3,7 +3,8 @@ LIBNAME= $(PROJNAME)
 
 SRC= \
   openbuslua.c \
-  threadlib.c \
+  lecholib.c \
+  lthreadlib.c \
   $(PRELOAD_DIR)/$(LIBNAME).c
 
 OPENBUSSCSIDL= ${SCS_IDL1_2_HOME}/src
@@ -36,7 +37,8 @@ LUASRC= \
   $(LUADIR)/openbus/util/sysex.lua \
   $(LUADIR)/openbus/util/tickets.lua \
   $(LUADIR)/openbus.lua \
-  threadlib.c \
+  lecholib.c \
+  lthreadlib.c \
   $(LUADIR)/openbus/console/costdin.lua \
   $(LUADIR)/openbus/console/utils.lua
 
