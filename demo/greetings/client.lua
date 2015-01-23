@@ -3,13 +3,14 @@ local openbus = require "openbus"
 
 
 -- process command-line arguments
-local bushost, busport, entity, password, language = ...
+local bushost, busport, entity, domain, password, language = ...
 bushost = assert(bushost, "o 1o. argumento é o host do barramento")
 busport = assert(busport, "o 2o. argumento é a porta do barramento")
 busport = assert(tonumber(busport), "o 2o. argumento é um número de porta")
 entity = assert(entity, "o 3o. argumento é a entidade a ser autenticada")
+domain = assert(domain, "o 4o. argumento é o dominio da senha de autenticação")
 language = assert(language or "Portuguese",
-  "o 4o. argumento deve ser uma das opções: English, Spanish, Portuguese")
+  "o 6o. argumento deve ser uma das opções: English, Spanish, Portuguese")
 local params = {
   bushost = bushost,
   busport = busport,
@@ -26,8 +27,9 @@ OpenBusContext:setDefaultConnection(
 -- perform operations in protected mode and handle eventual errors
 local ok, result = pcall(function ()
     -- login to the bus
-  OpenBusContext:getCurrentConnection():loginByPassword(entity, password
-                                                                or entity)
+  OpenBusContext:getCurrentConnection():loginByPassword(entity,
+                                                        password or entity,
+                                                        domain)
     -- find the offered service
   local OfferRegistry = OpenBusContext:getOfferRegistry()
   return OfferRegistry:findServices{

@@ -34,7 +34,7 @@ local errmsg = {
   },
   LoginByPassword = {
     [repid.AccessDenied]
-      = "a senha fornecida para a entidade $entity foi negada",
+      = "a senha fornecida para a entidade $entity foi negada ($message)",
   },
   LoginByCertificate = {
     [repid.AccessDenied]

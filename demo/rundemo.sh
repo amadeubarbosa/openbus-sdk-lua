@@ -5,6 +5,7 @@ BUSPORT=2089
 SYSTEM=testsyst
 KEYPATH=$(dirname $OPENBUS_TESTCFG)/testsyst.key
 USER=testuser
+DOMAIN=testing
 PASSWORD=$USER
 
 CONSOLE="${OPENBUS_HOME}/bin/busconsole"
@@ -33,4 +34,4 @@ for service in server proxy; do
 done
 
 echo "Executing demo '$2' ... "
-$CONSOLE $2/client.lua $BUSHOST $BUSPORT $USER $PASSWORD
+$CONSOLE $2/client.lua $BUSHOST $BUSPORT $USER $DOMAIN $PASSWORD

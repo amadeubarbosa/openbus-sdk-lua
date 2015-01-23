@@ -9,7 +9,8 @@ bushost = assert(bushost, "o 1o. argumento é o host do barramento")
 busport = assert(busport, "o 2o. argumento é a porta do barramento")
 busport = assert(tonumber(busport), "o 2o. argumento é um número de porta")
 entity = assert(entity, "o 3o. argumento é a entidade a ser autenticada")
-interval = assert(tonumber(interval or 1), "o 5o. argumento é um tempo entre "..
+domain = assert(domain, "o 4o. argumento é o dominio da senha de autenticação")
+interval = assert(tonumber(interval or 1), "o 6o. argumento é um tempo entre "..
                   "tentativas de acesso ao barramento em virtude de falhas")
 local params = {
   bushost = bushost,
@@ -55,8 +56,9 @@ OpenBusContext:setDefaultConnection(conn)
 -- define callback for auto-relogin
 function conn:onInvalidLogin()
   repeat
-    local ok, result = pcall(self.loginByPassword, self, entity, password
-                                                                 or entity)
+    local ok, result = pcall(self.loginByPassword, self, entity,
+                                                         password or entity,
+                                                         domain)
     if not ok then
       if result._repid == except.repid.AlreadyLoggedIn then
         ok = true -- ignore this exception
