@@ -187,6 +187,31 @@ module.ConfigArgs = class({
   _norepeat = "parâmetro '%s' só pode ser definido uma vez",
 }, Arguments)
 
+local function processlist(path, name, list, func, ...)
+  for index, value in ipairs(list) do
+    local itemname = name.."["..index.."]"
+    local kind = type(value)
+    if kind == "string" then
+      local errmsg = func(append(tostring(value), ...))
+      if errmsg ~= nil then
+        log:misconfig(msg.BadParamListInConfigFile:tag{
+          configname = itemname,
+          index = index,
+          path = path,
+          error = errmsg,
+        })
+      end
+    else
+      log:misconfig(msg.BadParamTypeInConfigFile:tag{
+        configname = itemname,
+        path = path,
+        expected = "string",
+        actual = kind,
+      })
+    end
+  end
+end
+
 function module.ConfigArgs:configs(_, path)
   local sandbox = setmetatable({}, SafeEnv)
   local result, errmsg = loadfile(path, "t", sandbox)
@@ -201,28 +226,42 @@ function module.ConfigArgs:configs(_, path)
             path = path,
           })
           self[name] = value
-        elseif kind ~= type(value) then
-          log:misconfig(msg.BadParamTypeInConfigFile:tag{
-            configname = name,
-            path = path,
-            expected = kind,
-            actual = type(value),
-          })
-        elseif kind == "table" then
-          local list = self[name]
-          local add = list.add or defaultAdd
-          for index, value in ipairs(value) do
-            local errmsg = add(list, tostring(value))
-            if errmsg ~= nil then
-              log:misconfig(msg.BadParamListInConfigFile:tag{
+        else
+          local valkind = type(value)
+          if kind == "function" then
+            if valkind == "string" then
+              local errmsg = self[name](self, name, value)
+              if errmsg ~= nil then
+                log:misconfig(msg.BadParamInConfigFile:tag{
+                  configname = name,
+                  path = path,
+                  error = errmsg,
+                })
+              end
+            elseif valkind == "table" then
+              processlist(path, name, value, self[name], self, name)
+            else
+              log:misconfig(msg.BadParamTypeInConfigFile:tag{
                 configname = name,
-                index = index,
                 path = path,
+                expected = "string|table",
+                actual = valkind,
               })
             end
+          elseif kind ~= valkind then
+            log:misconfig(msg.BadParamTypeInConfigFile:tag{
+              configname = name,
+              path = path,
+              expected = kind,
+              actual = valkind,
+            })
+          elseif kind == "table" then
+            local list = self[name]
+            local add = list.add or defaultAdd
+            processlist(path, name, value, add, list)
+          else
+            self[name] = value
           end
-        else
-          self[name] = value
         end
       end
       log:config(msg.ConfigFileLoaded:tag{path=path})
