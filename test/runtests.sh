@@ -16,8 +16,6 @@ openbus/test/util/tickets \
 openbus/test/util/database \
 openbus/test/NoLoginIceptorCalls \
 openbus/test/Concurrency \
-openbus/test/MakeChainFor \
-openbus/test/ChainExport \
 openbus/test/LoginLogout \
 openbus/test/assistant/Concurrency \
 openbus/test/assistant/NoLoginIceptorCalls \
