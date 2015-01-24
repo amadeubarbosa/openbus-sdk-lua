@@ -170,6 +170,7 @@ function module.create()
         local ok, result = xpcall(require, traceback, name)
         package.path, package.cpath = path, cpath
         if not ok then error(result) end
+        module = result
       else
         error("no permission to load module '"..name.."'")
       end
