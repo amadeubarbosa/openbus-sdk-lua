@@ -11,4 +11,4 @@ elif [[ "$mode" != "RELEASE" ]]; then
 	exit 1
 fi
 
-$busconsole ${@:2:${#@}} || exit $?
+$busconsole "${@:2:${#@}}" || exit $?
