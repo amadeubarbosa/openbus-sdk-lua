@@ -39,14 +39,14 @@ static int pmain (lua_State *L) {
   int debugmode = argv[0] && argv[1] && strcmp(argv[1], "DEBUG") == 0;
   int status;
   luapreload_extralibraries(L);
+#ifdef OPENBUS_CODEREV
+  lua_pushliteral(L, OPENBUS_CODEREV);
+  lua_setglobal(L, "OPENBUS_CODEREV");
+#endif
   status = openbuslua_init(L, 1, debugmode);
   if (status == LUA_OK) {
     lua_pushliteral(L, OPENBUS_PROGNAME);
     lua_setglobal(L, "OPENBUS_PROGNAME");
-  #ifdef OPENBUS_CODEREV
-    lua_pushliteral(L, OPENBUS_CODEREV);
-    lua_setglobal(L, "OPENBUS_CODEREV");
-  #endif
     lua_pushstring(L, OPENBUS_MAIN);
     lua_setglobal(L, "OPENBUS_MAIN");
     lua_pushstring(L, argv[0]);
