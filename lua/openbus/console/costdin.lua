@@ -1,6 +1,7 @@
 return function (...)
 	local _G = require "_G"
 	local assert = _G.assert
+	local error = _G.error
 	local ipairs = _G.ipairs
 	local select = _G.select
 	local tonumber = _G.tonumber

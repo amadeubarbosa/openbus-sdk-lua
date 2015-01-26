@@ -1,4 +1,5 @@
 local _G = require "_G"
+local assert = _G.assert
 local ipairs = _G.ipairs
 local pairs = _G.pairs
 local pcall = _G.pcall

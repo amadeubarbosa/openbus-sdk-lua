@@ -1,5 +1,6 @@
 local _G = require "_G"
 local error = _G.error
+local ipairs = _G.ipairs
 local pairs = _G.pairs
 local require = _G.require
 local xpcall = _G.xpcall
@@ -19,6 +20,7 @@ local loaded = package.loaded
 local preload = package.preload
 
 local string = require "string"
+local match = string.match
 
 local module = {}
 

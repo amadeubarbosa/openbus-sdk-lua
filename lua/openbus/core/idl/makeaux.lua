@@ -2,6 +2,7 @@ local _G = require "_G"
 local assert = _G.assert
 local error = _G.error
 local ipairs = _G.ipairs
+local type = _G.type
 
 local array = require "table"
 local concat = array.concat
