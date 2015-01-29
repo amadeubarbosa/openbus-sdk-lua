@@ -2,19 +2,16 @@
 
 mode=$1
 testcase=$2
-services="server"
+tasks=$3
+services=$4
 
 busconsole="${OPENBUS_SDKLUA_HOME}/bin/busconsole"
 
 if [[ "$mode" == "DEBUG" ]]; then
 	busconsole="$busconsole -d"
 elif [[ "$mode" != "RELEASE" ]]; then
-	echo "Usage: $0 <RELEASE|DEBUG> <test> [services...]"
+	echo "Usage: $0 <RELEASE|DEBUG> <tasks> <services>"
 	exit 1
-fi
-
-if [[ ${#@} > 2 ]]; then
-	services="${@:3:${#@}}"
 fi
 
 cd $testcase
@@ -26,9 +23,12 @@ for service in $services; do
 	trap "kill $pid > /dev/null 2>&1" 0
 done
 
-echo -n "Executing test '$testcase' ... "
-$busconsole client.lua $testcase
-echo "OK"
+for task in $tasks; do
+	echo -n "Executing task '$task' of test '$testcase' ... "
+	$busconsole $task.lua $testcase
+	echo "OK"
+done
+
 cd ../../test
 echo -n "Test protocol with server of test '$testcase' ... "
 $busconsole openbus/test/Protocol.lua
