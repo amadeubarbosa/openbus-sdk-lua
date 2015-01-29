@@ -56,7 +56,6 @@ ldapurl =        get("ldap.url.tcp"        , "ldap://ldap-teste:389")
 ldapssl =        get("ldap.url.ssl"        , "ldaps://ldap-teste:636")
 ldappat =        get("ldap.pattern"        , "cn=%U,ou=usuarios,dc=tecgraf,dc=puc-rio,dc=br")
 ldaptimeout =    get("ldap.timeout"        , 5)
-admscript =      get("admin.script.test"   , "testscript.adm")
 admoutput =      get("admin.output.file"   , "busadmin.txt")
 
 orbsecurity =    get("oil.security.mode")
