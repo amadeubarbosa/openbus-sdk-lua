@@ -5,7 +5,7 @@ testcase=$2
 tasks=$3
 services=$4
 
-busconsole="${OPENBUS_HOME}/bin/busconsole"
+busconsole="${OPENBUS_SDKLUA_HOME}/bin/busconsole"
 
 if [[ "$mode" == "DEBUG" ]]; then
 	busconsole="$busconsole DEBUG"

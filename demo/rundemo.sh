@@ -8,7 +8,7 @@ USER=testuser
 DOMAIN=testing
 PASSWORD=$USER
 
-CONSOLE="${OPENBUS_HOME}/bin/busconsole"
+CONSOLE="${OPENBUS_SDKLUA_HOME}/bin/busconsole"
 
 if [ "$1" == "DEBUG" ]; then
 	CONSOLE="$CONSOLE DEBUG"
