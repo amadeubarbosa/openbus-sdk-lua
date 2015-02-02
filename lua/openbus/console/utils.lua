@@ -159,8 +159,7 @@ function module.processargs(env, ignorevars, interactive, executables, script, .
 	end
 
 	if errmsg ~= nil then
-		stderr:write(tostring(errmsg), "\n")
-		return 1
+		error(errmsg)
 	elseif interactive then
 		openconsole(env)
 	elseif exitvalue ~= nil then
