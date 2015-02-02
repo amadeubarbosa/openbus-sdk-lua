@@ -7,7 +7,7 @@ KEYPATH=$(dirname $OPENBUS_TESTCFG)/testsyst.key
 USER=testuser
 PASSWORD=$USER
 
-CONSOLE="${OPENBUS_HOME}/bin/busconsole"
+CONSOLE="${OPENBUS_SDKLUA_HOME}/bin/busconsole"
 
 if [ "$1" == "DEBUG" ]; then
 	CONSOLE="$CONSOLE -d"
