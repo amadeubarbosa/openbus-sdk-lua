@@ -604,11 +604,18 @@ local module = {
 }
 
 function module.initORB(configs)
-  if configs == nil then configs = {} end
-  if configs.tcpoptions == nil then
-    configs.tcpoptions = {reuseaddr = true}
+  if configs == nil then
+    configs = {}
   end
-  configs.flavor = configs.flavor or "cooperative;corba.intercepted"
+  if configs.options == nil then
+    configs.options = {}
+  end
+  if configs.options.tcp == nil then
+    configs.options.tcp = {reuseaddr=true}
+  end
+  if configs.flavor == nil then
+    configs.flavor = "cooperative;corba.intercepted"
+  end
   local orb = neworb(configs)
   loadidl(orb)
   loadoldidl(orb)
