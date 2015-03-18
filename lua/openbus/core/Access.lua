@@ -39,8 +39,6 @@ local OctetSeq = idl.OctetSeq
 
 local hash = require "lce.hash"
 local sha256 = hash.sha256
-local pubkey = require "lce.pubkey"
-local newkey = pubkey.create
 
 local LRUCache = require "loop.collection.LRUCache"
 
