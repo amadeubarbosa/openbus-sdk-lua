@@ -135,8 +135,36 @@ lib luaopenbus
   ;
 explicit luaopenbus ;
 
+exe busconsole
+  : src/console.c
+    /lua//lua
+    /luuid//luuid
+    /lce//lce
+    /luafilesystem//lfs
+    /luavararg//luavararg
+    /luastruct//luastruct
+    /luasocket//luasocket
+    /loop//loop
+    /loop//luatuple
+    /loop//luacothread
+    /oil//oil
+    /oil//luaidl
+    /luascs//luascs
+    /luaopenbus//luaopenbus    
+  : <dependency>/loop//loop
+    <dependency>/loop//luatuple
+    <dependency>/loop//luacothread
+    <dependency>/oil//oil
+    <dependency>/oil//luaidl
+    <dependency>/lce//lce
+    <dependency>/luascs//luascs
+    <dependency>/luaopenbus//luaopenbus
+;
+explicit busconsole ;
+
 install stage
   : luaopenbus
+    busconsole
   : <location>install
   ;
   
