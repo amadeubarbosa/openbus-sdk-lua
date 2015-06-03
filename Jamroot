@@ -72,6 +72,8 @@ make luaopenbus.c
     lua/openbus/core/legacy/idl.lua
     lua/openbus/core/legacy/parsed.lua
     lua/openbus/core/messages.lua
+    lua/openbus/console/costdin.lua
+    lua/openbus/console/utils.lua    
     lua/openbus/idl/parsed.lua
     lua/openbus/idl.lua
     lua/openbus/util/argcheck.lua
@@ -86,6 +88,8 @@ make luaopenbus.c
     lua/openbus/util/sysex.lua
     lua/openbus/util/tickets.lua
     lua/openbus.lua
+    src/lthreadlib.c
+    src/lecholib.c
   : preloader.pre-compile
   : <search>$(here)
   ;
@@ -96,6 +100,13 @@ using idl2lua ;
 
 make lua/openbus/idl/parsed.lua 
   : $(openbus-lib-idl-path)/src/openbus.idl
+    $(openbus-lib-idl-path)/src/corba.idl
+    $(openbus-idl-path)/src/tecgraf/openbus/core/v2_1/services/access_control.idl
+    $(openbus-idl-path)/src/tecgraf/openbus/core/v2_1/services/offer_registry.idl
+    $(openbus-idl-path)/src/tecgraf/openbus/core/v2_1/data_export.idl
+    $(openbus-idl-path)/src/tecgraf/openbus/core/v2_1/core.idl
+    $(openbus-idl-path)/src/tecgraf/openbus/core/v2_1/credential.idl
+    $(scs-idl-path)/src/scs.idl
   : idl2lua.compile
   : <include>$(openbus-lib-idl-path)/src
     <include>$(openbus-idl-path)/src
@@ -103,35 +114,60 @@ make lua/openbus/idl/parsed.lua
   ;
 
 make lua/openbus/core/idl/parsed.lua 
-  : $(openbus-idl-path)/src/access_control.idl
-    $(openbus-idl-path)/src/offer_registry.idl
-    $(openbus-idl-path)/src/data_export.idl
-    $(openbus-idl-path)/src/core.idl
-    $(openbus-idl-path)/src/credential.idl
+  : $(openbus-idl-path)/src/tecgraf/openbus/core/v2_1/services/access_control.idl
+    $(openbus-idl-path)/src/tecgraf/openbus/core/v2_1/services/offer_registry.idl
+    $(openbus-idl-path)/src/tecgraf/openbus/core/v2_1/data_export.idl
+    $(openbus-idl-path)/src/tecgraf/openbus/core/v2_1/core.idl
+    $(openbus-idl-path)/src/tecgraf/openbus/core/v2_1/credential.idl
     $(scs-idl-path)/src/scs.idl
   : idl2lua.compile
   : <include>$(openbus-idl-path)/src
+    <include>$(openbus-legacy-idl-path)/src
     <include>$(scs-idl-path)/src
   ;
 
 make lua/openbus/core/legacy/parsed.lua 
-  : $(openbus-legacy-idl-path)/src/access_control_service.idl
-    $(openbus-legacy-idl-path)/src/registry_service.idl
-    $(openbus-legacy-idl-path)/src/fault_tolerance.idl
+  : $(openbus-legacy-idl-path)/src/access_control.idl
+    $(openbus-legacy-idl-path)/src/offer_registry.idl
+    $(openbus-legacy-idl-path)/src/data_export.idl
     $(openbus-legacy-idl-path)/src/core.idl
+    $(openbus-legacy-idl-path)/src/credential.idl
     $(scs-idl-path)/src/scs.idl
+    $(openbus-idl-path)/src/tecgraf/openbus/core/v2_1/services/legacy_support.idl
+    $(openbus-idl-path)/src/tecgraf/openbus/core/v2_1/services/access_control.idl
+    $(openbus-idl-path)/src/tecgraf/openbus/core/v2_1/core.idl
+    $(openbus-idl-path)/src/tecgraf/openbus/core/v2_1/credential.idl
   : idl2lua.compile
   : <include>$(openbus-legacy-idl-path)/src
+    <include>$(openbus-idl-path)/src
     <include>$(scs-idl-path)/src
   ;
 
 lib luaopenbus
   : luaopenbus.c
+    src/openbuslua.c
+    src/lthreadlib.c
+    src/lecholib.c
     /lua//lua
+    /luuid//luuid
+    /lce//lce
+    /luafilesystem//lfs
+    /luavararg//luavararg
+    /luastruct//luastruct
+    /luasocket//luasocket
+    /loop//loop
+    /loop//luatuple
+    /loop//luacothread
+    /oil//oil
+    /oil//luaidl
+    /luascs//luascs
+    /luasec//luasec
   : <include>src
+    <include>.
     <target-os>windows,<link>shared:<linkflags>"/def:$(here)/luaopenbus.def"
   :
   : <include>.
+    <include>src
   ;
 explicit luaopenbus ;
 
