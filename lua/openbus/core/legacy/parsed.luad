@@ -7,7 +7,7 @@ local luaidl = require "luaidl"
 local parse = luaidl.parse
 
 local idlspec = [[
-#include "tecgraf/openbus/core/v2_1/services/legacy_support.idl"
+#include "openbus_legacy-2.1.idl"
 #include "access_control.idl"
 #include "offer_registry.idl"
 #include "data_export.idl"
