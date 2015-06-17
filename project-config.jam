@@ -2,6 +2,35 @@
 
 import os ;
 
+project win ;
+
+lib wsock32
+  :
+  : <search>c:/Windows/System32
+  ;
+
+lib rpcrt4
+  :
+  : <search>c:/Windows/System32
+  ;
+
+project unix ;
+
+lib dl
+  :
+  : <link>shared
+  ;
+
+lib uuid
+  :
+  : <link>shared
+  ;
+
+lib pthread
+  :
+  : <link>shared
+  ;
+
 path-constant here : . ;
 
 local lua-install-path = [ os.environ LUA_INSTALL_PATH ] ;
