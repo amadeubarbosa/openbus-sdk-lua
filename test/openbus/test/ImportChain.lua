@@ -1,6 +1,7 @@
 local _G = require "_G"
 local assert = _G.assert
 local pcall = _G.pcall
+local uuid = require "uuid"
 local giop = require "oil.corba.giop"
 local openbus = require "openbus"
 local idl = require "openbus.core.idl"
@@ -46,11 +47,11 @@ for _, count in ipairs{0, 1, 10, 100} do
   local imported = OpenBusContext:importChain(token, domain)
   assert(imported.busid == busid)
   assert(imported.target == entity)
-  assert(imported.caller.id == "<unknown>")
+  assert(uuid.isvalid(imported.caller.id))
   assert(imported.caller.entity == "ExternalCaller")
   assert(#imported.originators == #originators)
   for index, entity in ipairs(originators) do
-    assert(imported.originators[index].id == "<unknown>")
+    assert(uuid.isvalid(imported.originators[index].id))
     assert(imported.originators[index].entity == "ExternalOriginator"..index)
   end
 
@@ -64,10 +65,10 @@ for _, count in ipairs{0, 1, 10, 100} do
   assert(joined.caller.entity == entity)
   assert(#joined.originators == 1+#originators)
   for index, entity in ipairs(originators) do
-    assert(joined.originators[index].id == "<unknown>")
+    assert(uuid.isvalid(joined.originators[index].id))
     assert(joined.originators[index].entity == "ExternalOriginator"..index)
   end
-  assert(joined.originators[1+#originators].id == "<unknown>")
+  assert(uuid.isvalid(joined.originators[1+#originators].id))
   assert(joined.originators[1+#originators].entity == "ExternalCaller")
 
   OpenBusContext:setDefaultConnection(nil)
