@@ -94,6 +94,12 @@ make luaopenbus.c
   : <search>$(here)
   ;
 
+make luaconsole.c
+  : lua/openbus/console.lua
+  : preloader.pre-compile
+  : <search>$(here)
+  ;
+
 modules.load idl2lua : : $(oil-root-path) ;
 import idl2lua ; 
 using idl2lua ;
@@ -172,7 +178,9 @@ lib luaopenbus
 explicit luaopenbus ;
 
 exe busconsole
-  : src/console.c
+  : src/launcher.c
+    src/consolelibs.c
+    luaconsole.c
     /lua//lua
     /luuid//luuid
     /lce//lce
@@ -195,6 +203,7 @@ exe busconsole
     <dependency>/lce//lce
     <dependency>/luascs//luascs
     <dependency>/luaopenbus//luaopenbus
+    <define>OPENBUS_PROGNAME=\\\""busconsole\\\""
 ;
 explicit busconsole ;
 
