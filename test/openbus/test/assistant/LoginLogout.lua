@@ -160,6 +160,14 @@ do log:TEST "connect to unavailable port"
   end
 end
 
+do log:TEST "password validator error"
+  local busref = orb:newproxy(busref, nil, "::scs::core::IComponent")
+  local conn = assistant.create{orb=orb, busref=busref}
+  local ex = catcherr(conn.loginByPassword, conn, "error", "Oops!", baddomain)
+  assert(ex._repid == idl.types.services.ServiceFailure)
+  assert(string.find(ex.message, "Oops!") ~= nil)
+end
+
 do log:TEST "connect to bus"
   for i = 1, 2 do
     local busref = orb:newproxy(busref, nil, "::scs::core::IComponent")

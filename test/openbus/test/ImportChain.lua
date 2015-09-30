@@ -104,4 +104,19 @@ do log:TEST("Fail to import chain from invalid token")
   conn:logout()
 end
 
+do log:TEST("Fail to import chain from token that raises an error")
+  local conn = OpenBusContext:connectByReference(busref, connprops)
+  conn:loginByPassword(user, password, domain)
+  OpenBusContext:setDefaultConnection(conn)
+  
+  local token = conn.login.entity.."@"..conn.login.id..": ExternalOriginator, ExternalCaller"
+  local ok, ex = pcall(OpenBusContext.importChain, OpenBusContext, token, baddomain)
+  assert(ok == false)
+  assert(ex._repid == idl.types.services.ServiceFailure)
+  assert(string.find(ex.message, "Oops!") ~= nil)
+  
+  OpenBusContext:setDefaultConnection(nil)
+  conn:logout()
+end
+
 orb:shutdown()
