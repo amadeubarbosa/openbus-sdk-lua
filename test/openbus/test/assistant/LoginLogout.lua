@@ -143,6 +143,13 @@ do log:TEST "connect to unavailable port"
   end
 end
 
+do log:TEST "password validator error"
+  local conn = assistant.create{orb=orb, bushost=bushost, busport=busport}
+  local ex = catcherr(conn.loginByPassword, conn, "error", "Oops!")
+  assert(ex._repid == idl.types.services.ServiceFailure)
+  assert(string.find(ex.message, "Oops!") ~= nil)
+end
+
 do log:TEST "connect to bus"
   for i = 1, 2 do
     conns[i] = assertlogoff(assistant.create{orb=orb, bushost=bushost, busport=busport})
