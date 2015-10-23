@@ -2,11 +2,9 @@
 
 mode=$1
 
-busconsole="${OPENBUS_SDKLUA_HOME}/bin/busconsole"
+busconsole="env LUA_PATH=${OPENBUS_SDKLUA_TEST}/?.lua ${OPENBUS_SDKLUA_HOME}/bin/busconsole"
 
-if [[ "$mode" == "DEBUG" ]]; then
-	busconsole="$busconsole DEBUG"
-elif [[ "$mode" != "RELEASE" ]]; then
+if [[ "$mode" != "DEBUG" && "$mode" != "RELEASE" ]]; then
 	echo "Usage: $0 <RELEASE|DEBUG> <args>"
 	exit 1
 fi

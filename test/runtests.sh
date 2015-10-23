@@ -2,11 +2,9 @@
 
 mode=$1
 
-busconsole="${OPENBUS_SDKLUA_HOME}/bin/busconsole"
+runconsole="source ${OPENBUS_SDKLUA_TEST}/runconsole.sh $mode"
 
-if [[ "$mode" == "DEBUG" ]]; then
-	busconsole="$busconsole DEBUG"
-elif [[ "$mode" != "RELEASE" ]]; then
+if [[ "$mode" != "DEBUG" && "$mode" != "RELEASE" ]]; then
 	echo "Usage: $0 <RELEASE|DEBUG>"
 	exit 1
 fi
@@ -27,6 +25,6 @@ openbus/test/assistant/AssistantLoginLogout \
 "
 for case in $cases; do
 	echo -n "Test '${case}' ... "
-	$busconsole $case.lua ${@:2:${#@}} || exit $?
+	$runconsole $case.lua ${@:2:${#@}} || exit $?
 	echo "OK"
 done
