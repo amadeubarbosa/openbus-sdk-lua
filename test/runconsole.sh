@@ -2,7 +2,7 @@
 
 mode=$1
 
-busconsole="${OPENBUS_SDKLUA_HOME}/bin/busconsole"
+busconsole="env LUA_PATH=${OPENBUS_SDKLUA_TEST}/?.lua ${OPENBUS_SDKLUA_HOME}/bin/busconsole"
 
 if [[ "$mode" == "DEBUG" ]]; then
 	busconsole="$busconsole -d"

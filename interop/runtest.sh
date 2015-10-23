@@ -4,11 +4,9 @@ mode=$1
 testcase=$2
 services="server"
 
-busconsole="${OPENBUS_SDKLUA_HOME}/bin/busconsole"
+runconsole="source ${OPENBUS_SDKLUA_TEST}/runconsole.sh $mode"
 
-if [[ "$mode" == "DEBUG" ]]; then
-	busconsole="$busconsole -d"
-elif [[ "$mode" != "RELEASE" ]]; then
+if [[ "$mode" != "DEBUG" && "$mode" != "RELEASE" ]]; then
 	echo "Usage: $0 <RELEASE|DEBUG> <test> [services...]"
 	exit 1
 fi
@@ -21,16 +19,16 @@ cd $testcase
 pid=
 for service in $services; do
 	echo "Starting service '$service' of test '$testcase'"
-	$busconsole $service.lua $testcase &
+	$runconsole $service.lua $testcase &
 	pid="$pid $!"
 	trap "kill $pid > /dev/null 2>&1" 0
 done
 
 echo -n "Executing test '$testcase' ... "
-$busconsole client.lua $testcase
+$runconsole client.lua $testcase
 echo "OK"
 cd ../../test
 echo -n "Test protocol with server of test '$testcase' ... "
-$busconsole openbus/test/Protocol.lua
+$runconsole openbus/test/Protocol.lua
 echo "OK"
 cd ../interop
