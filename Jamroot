@@ -168,7 +168,18 @@ lib luaopenbus
     /oil//luaidl
     /luascs//luascs
     /luasec//luasec
-  : <include>src
+  : <dependency>/lce//lce
+    <dependency>/luasec//luasec
+    <dependency>/loop//loop
+    <dependency>/loop//luacothread
+    <dependency>/loop//luatuple
+    <dependency>/oil//oil
+    <dependency>/oil//luaidl
+    <dependency>/luascs//luascs
+    <dependency>/luasocket//luasocket
+    <dependency>/luastruct//luastruct
+    <dependency>/luavararg//luavararg    
+    <include>src
     <include>.
     <target-os>windows,<link>shared:<linkflags>"/def:$(here)/luaopenbus.def"
   :
