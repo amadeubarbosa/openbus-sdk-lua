@@ -1,5 +1,3 @@
--- $Id$
-
 local _G = require "_G"
 local assert = _G.assert
 local ipairs = _G.ipairs
@@ -101,9 +99,14 @@ local function saveto(path, ...)
       local code
       result, errmsg, code = renamefile(temp, path)
       if result == nil then
-        if errmsg == "File exists" and code == 17 then
+        if errmsg:find("File exists", 1, true) and code == 17 then
+          ---[[
           assert(removefile(path))
-          result, errmsg = assert(renamefile(temp, path))
+          --[=[--]]
+          result, errmsg = assert(renamefile(path, path .. ".delete.me"))
+          assert(removefile(path .. ".delete.me"))
+          --]=]
+          result, errmsg = renamefile(temp, path)
         else
           errmsg = "unable to replace file '"..path.."' (with file "..errmsg..")"
         end
