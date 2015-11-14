@@ -5,23 +5,89 @@ import modules ;
 
 path-constant here : . ;
 
-lua-install-path = [ os.environ LUA_INSTALL_PATH ] ;
-if ! $(lua-install-path)
+local lua-jam-path = [ os.environ LUA_JAM_PATH ] ;
+if ! $(lua-jam-path)
 {
-  lua-install-path = "$(here)/../../install/lua" ;
+  lua-jam-path = "$(here)/../lua.jam" ;
 }
+use-project lua : $(lua-jam-path) ; 
 
-loop-root-path = [ os.environ LOOP_ROOT_PATH ] ;
+local luuid-root-path = [ os.environ LUUID_ROOT_PATH ] ;
+if ! $(luuid-root-path)
+{
+  luuid-root-path = "$(here)/../luuid" ;
+}
+use-project luuid : $(luuid-root-path) ;
+
+local openssl-jam-path = [ os.environ OPENSSL_JAM_PATH ] ;
+if ! $(openssl-jam-path)
+{
+  openssl-jam-path = "$(here)/../openssl.jam" ;
+}
+use-project openssl : $(openssl-jam-path) ; 
+
+local lce-root-path = [ os.environ LCE_ROOT_PATH ] ;
+if ! $(lce-root-path)
+{
+  lce-root-path = "$(here)/../lce" ;
+}
+use-project lce : $(lce-root-path) ;
+
+local lfs-root-path = [ os.environ LFS_ROOT_PATH ] ;
+if ! $(lfs-root-path)
+{
+  lfs-root-path = "$(here)/../luafilesystem" ;
+}
+use-project lfs : $(lfs-root-path) ;
+
+local luavararg-root-path = [ os.environ LUAVARARG_ROOT_PATH ] ;
+if ! $(luavararg-root-path)
+{
+  luavararg-root-path = "$(here)/../luavararg" ;
+}
+use-project luavararg : $(luavararg-root-path) ;
+
+local luastruct-root-path = [ os.environ LUASTRUCT_ROOT_PATH ] ;
+if ! $(luastruct-root-path)
+{
+  luastruct-root-path = "$(here)/../luastruct" ;
+}
+use-project luastruct : $(luastruct-root-path) ;
+
+local luasocket-root-path = [ os.environ LUASOCKET_ROOT_PATH ] ;
+if ! $(luasocket-root-path)
+{
+  luasocket-root-path = "$(here)/../luasocket" ;
+}
+use-project luasocket : $(luasocket-root-path) ;
+
+local loop-root-path = [ os.environ LOOP_ROOT_PATH ] ;
 if ! $(loop-root-path)
 {
   loop-root-path = "$(here)/../loop" ;
 }
+use-project loop : $(loop-root-path) ;
 
-oil-root-path = [ os.environ OIL_ROOT_PATH ] ;
+local oil-root-path = [ os.environ OIL_ROOT_PATH ] ;
 if ! $(oil-root-path)
 {
   oil-root-path = "$(here)/../oil" ;
 }
+use-project oil : $(oil-root-path) ;
+
+local luascs-root-path = [ os.environ LUASCS_ROOT_PATH ] ;
+if ! $(luascs-root-path)
+{
+  luascs-root-path = "$(here)/../scs-lua" ;
+}
+use-project luascs : $(luascs-root-path) ;
+
+local luasec-root-path = [ os.environ LUASEC_ROOT_PATH ] ;
+if ! $(luasec-root-path)
+{
+  luasec-root-path = "$(here)/../luasec" ;
+}
+use-project luasec : $(luasec-root-path) ;
 
 scs-idl-path = [ os.environ SCS_IDL_PATH ] ;
 if ! $(scs-idl-path)
@@ -179,6 +245,7 @@ lib luaopenbus
     <dependency>/luasocket//luasocket
     <dependency>/luastruct//luastruct
     <dependency>/luavararg//luavararg    
+    <dependency>luaopenbus.c
     <include>src
     <include>.
     <target-os>windows,<link>shared:<linkflags>"/def:$(here)/luaopenbus.def"
