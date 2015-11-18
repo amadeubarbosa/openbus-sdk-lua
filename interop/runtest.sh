@@ -14,6 +14,11 @@ elif [[ "$mode" != "RELEASE" ]]; then
 	exit 1
 fi
 
+# let all previous offers to expire
+leasetime=`$busconsole -l openbus.test.configs -e 'print(leasetime)'`
+sleep $leasetime
+sleep $leasetime
+
 cd $testcase
 pid=
 for service in $services; do
