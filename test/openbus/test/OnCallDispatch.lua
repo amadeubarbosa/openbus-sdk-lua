@@ -31,7 +31,7 @@ local invalidate, shutdown, busid, caller do
   local orb = openbus.initORB()
   local OpenBusContext = orb.OpenBusContext
   local conn = OpenBusContext:createConnection(bushost, busport)
-  conn:loginByPassword(admin, admpsw)
+  conn:loginByPassword(admin, admpsw, domain)
   busid = conn.busid
   caller = conn.login
   OpenBusContext:setDefaultConnection(conn)
@@ -109,7 +109,7 @@ end
 
 do log:TEST("Default connection fallback")
   local conn = OpenBusContext:createConnection(bushost, busport, connprops)
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn)
 
   function OpenBusContext:onCallDispatch(bus, login, objkey, opname, ...)
@@ -134,11 +134,11 @@ end
 
 do log:TEST("Return connection to another bus")
   local conn = OpenBusContext:createConnection(bushost, busport, connprops)
-  conn:loginByPassword(user, password)
+  conn:loginByPassword(user, password, domain)
   OpenBusContext:setDefaultConnection(conn)
 
   local conn2 = OpenBusContext:createConnection(bus2host, bus2port, connprops)
-  conn2:loginByPassword(user, password)
+  conn2:loginByPassword(user, password, domain)
   function OpenBusContext:onCallDispatch(bus, login, objkey, opname, ...)
     assert(bus == busid)
     assert(login == caller.id)
