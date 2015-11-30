@@ -126,6 +126,9 @@ project luaopenbus
     <target-os>windows:<define>_CRT_SECURE_NO_WARNINGS
     <toolset>msvc-12.0:<cxxflags>/FS
     <debug-symbols>on
+  : default-build
+    <variant>release
+    <link>static
   ;
 
 make luaopenbus.c
