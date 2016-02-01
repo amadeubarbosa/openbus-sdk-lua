@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define lua_c
 
@@ -117,19 +118,6 @@ static const char *callerchunk =
 static const char *setdebugchunk =
 "table.insert(package.searchers, (table.remove(package.searchers, 1)))";
 
-static void lstop (lua_State *L, lua_Debug *ar) {
-  (void)ar;  /* unused arg. */
-  lua_sethook(L, NULL, 0, 0);
-  luaL_error(L, "interrupted!");
-}
-
-
-static void laction (int i) {
-  signal(i, SIG_DFL); /* if another SIGINT happens before lstop,
-                              terminate process (default action) */
-  lua_sethook(globalL, lstop, LUA_MASKCALL | LUA_MASKRET | LUA_MASKCOUNT, 1);
-}
-
 
 static void print_usage (const char *badoption) {
   luai_writestringerror("%s: ", progname);
@@ -183,6 +171,41 @@ static void finalreport (lua_State *L, int status) {
 }
 
 
+/*
+** By default, Lua uses gmtime/localtime, except when POSIX is available,
+** where it uses gmtime_r/localtime_r
+*/
+#if defined(LUA_USE_GMTIME_R)
+
+#define l_localtime(t,r)  localtime_r(t,r)
+
+#elif !defined(l_gmtime)
+
+#define l_localtime(t,r)    ((void)r, localtime(t))
+
+#endif
+
+
+static void laction (int i) {
+  struct tm tmr, *stm;
+  time_t t;
+  lua_close(globalL);
+  globalL = NULL;
+  t = time(NULL);
+  stm = l_localtime(&t, &tmr);
+  if (stm == NULL) {
+    l_message(NULL,
+      "--/--/---- --:--:-- [uptime]    process terminated forcefully");
+  } else {
+    char buff[63];
+    strftime(buff, sizeof(buff),
+      "%d/%m/%Y %H:%M:%S [uptime]    process terminated forcefully", stm);
+    l_message(NULL, buff);
+  }
+  exit(1);
+}
+
+
 static int traceback (lua_State *L) {
   const char *msg = lua_tostring(L, 1);
   if (msg)
@@ -204,8 +227,10 @@ static int docall (lua_State *L, int narg, int nres) {
   lua_insert(L, base);  /* put it under chunk and args */
   globalL = L;  /* to be available to 'laction' */
   signal(SIGINT, laction);
+  signal(SIGTERM, laction);
   status = lua_pcall(L, narg+1, nres, base);
   signal(SIGINT, SIG_DFL);
+  signal(SIGTERM, SIG_DFL);
   lua_remove(L, base);  /* remove traceback function */
   return status;
 }
