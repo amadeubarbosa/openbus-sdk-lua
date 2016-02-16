@@ -6,12 +6,15 @@ local ComponentContext = require "scs.core.ComponentContext"
 local impl, servant, iface do
   require "openbus.test.lowlevel"
   local idl = require "openbus.core.idl"
+  local interopidl = require "openbus.interop.idl"
+  local loadidl = interopidl.loadto
+  local protocolidl = require "openbus.interop.idl.protocol"
   local sysex = require "openbus.util.sysex"
   -- initialize the ORB
   local orb = initORB()
   idl.loadto(orb)
   -- load interface definition
-  orb:loadidlfile("idl/mock.idl")
+  loadidl(orb, protocolidl)
   iface = orb.types:lookup("tecgraf::openbus::interop::protocol::Server")
   impl = { __type = iface }
   function impl:NonBusCall(...)
