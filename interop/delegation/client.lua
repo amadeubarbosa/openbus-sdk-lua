@@ -2,6 +2,10 @@ local openbus = require "openbus"
 local log = require "openbus.util.logger"
 local util = require "openbus.util.server"
 
+local idl = require "openbus.interop.idl"
+local loadidl = idl.loadto
+local delegationidl = require "openbus.interop.idl.delegation"
+
 require "openbus.test.util"
 
 -- customize test configuration for this case
@@ -11,7 +15,7 @@ settestcfg(...)
 local orb = openbus.initORB(orbcfg)
 
 -- load interface definition
-orb:loadidlfile("idl/messages.idl")
+loadidl(orb, delegationidl)
 local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::Messenger")
 
 -- get bus context manager
