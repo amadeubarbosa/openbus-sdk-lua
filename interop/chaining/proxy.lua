@@ -13,8 +13,10 @@ settestcfg(...)
 local orb = openbus.initORB(orbcfg)
 
 -- load interface definition
-orb:loadidlfile("idl/proxy.idl")
-orb:loadidlfile("helloidl/hello.idl")
+local idlInteropChainingHome = os.getenv("OPENBUS_SDK_IDL_INTEROP_CHAINING_HOME") or "idl/"
+orb:loadidlfile(idlInteropChainingHome.."/proxy.idl")
+local idlInteropBasicHome = os.getenv("OPENBUS_SDK_IDL_INTEROP_BASIC_HOME") or "idl/"
+orb:loadidlfile(idlInteropBasicHome.."/hello.idl")
 local iface = orb.types:lookup("tecgraf::openbus::interop::chaining::HelloProxy")
 local serviface = orb.types:lookup("tecgraf::openbus::interop::simple::Hello")
 

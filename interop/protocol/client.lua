@@ -14,7 +14,8 @@ settestcfg(...)
 local orb = openbus.initORB(orbcfg)
 
 -- load interface definition
-orb:loadidlfile("idl/mock.idl")
+local idlInteropHome = os.getenv("OPENBUS_SDK_IDL_INTEROP_PROTOCOL_HOME") or "idl/"
+orb:loadidlfile(idlInteropHome.."/mock.idl")
 local iface = orb.types:lookup("tecgraf::openbus::interop::protocol::Server")
 
 -- get bus context manager

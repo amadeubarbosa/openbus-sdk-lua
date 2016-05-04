@@ -19,6 +19,11 @@ leasetime=`$busconsole -l openbus.test.configs -e 'print(leasetime)'`
 sleep $leasetime
 sleep $leasetime
 
+SETUP_INTEROP_IDLS=setup-interop-idls.sh
+if [ -a $SETUP_INTEROP_IDLS ]; then
+  source $SETUP_INTEROP_IDLS
+fi
+
 cd $testcase
 pid=
 for service in $services; do

@@ -10,7 +10,8 @@ settestcfg(...)
 
 -- setup and start the ORB
 local orb = openbus.initORB(orbcfg)
-orb:loadidlfile("idl/hello.idl")
+local idlInteropHome = os.getenv("OPENBUS_SDK_IDL_INTEROP_BASIC_HOME") or "idl/"
+orb:loadidlfile(idlInteropHome.."/hello.idl")
 
 -- load interface definition
 local iface = orb.types:lookup("tecgraf::openbus::interop::simple::Hello")

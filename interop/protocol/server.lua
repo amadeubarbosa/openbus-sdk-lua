@@ -12,7 +12,8 @@ local impl, servant, iface do
   local orb = initORB()
   idl.loadto(orb)
   -- load interface definition
-  orb:loadidlfile("idl/mock.idl")
+  local idlInteropHome = os.getenv("OPENBUS_SDK_IDL_INTEROP_PROTOCOL_HOME") or "idl/"
+  orb:loadidlfile(idlInteropHome.."/mock.idl")
   iface = orb.types:lookup("tecgraf::openbus::interop::protocol::Server")
   impl = { __type = iface }
   function impl:NonBusCall(...)

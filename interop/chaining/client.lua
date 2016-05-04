@@ -11,7 +11,8 @@ settestcfg(...)
 local orb = openbus.initORB(orbcfg)
 
 -- load interface definition
-orb:loadidlfile("idl/proxy.idl")
+local idlInteropHome = os.getenv("OPENBUS_SDK_IDL_INTEROP_CHAINING_HOME") or "idl/"
+orb:loadidlfile(idlInteropHome.."/proxy.idl")
 local iface = orb.types:lookup("tecgraf::openbus::interop::chaining::HelloProxy")
 
 -- get bus context manager

@@ -13,7 +13,8 @@ settestcfg(...)
 local orb = openbus.initORB(orbcfg)
 
 -- load interface definitions
-orb:loadidlfile("idl/messages.idl")
+local idlInteropHome = os.getenv("OPENBUS_SDK_IDL_INTEROP_DELEGATION_HOME") or "idl/"
+orb:loadidlfile(idlInteropHome.."/messages.idl")
 local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::Messenger")
 
 -- get bus context manager

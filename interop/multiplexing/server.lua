@@ -13,8 +13,9 @@ local orb1 = openbus.initORB(orbcfg)
 local orb2 = openbus.initORB(orbcfg)
 
 -- load interface definition
-orb1:loadidlfile("idl/hello.idl")
-orb2:loadidlfile("idl/hello.idl")
+local idlInteropHome = os.getenv("OPENBUS_SDK_IDL_INTEROP_BASIC_HOME") or "idl/"
+orb1:loadidlfile(idlInteropHome.."/hello.idl")
+orb2:loadidlfile(idlInteropHome.."/hello.idl")
 local iface = orb1.types:lookup("tecgraf::openbus::interop::simple::Hello")
 
 -- get bus context manager
