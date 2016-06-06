@@ -1,0 +1,304 @@
+# -*- coding: iso-8859-1-unix -*-
+
+import os ;
+import modules ;
+
+path-constant here : . ;
+path-constant root : $(here)/.. ;
+path-constant deps : $(root)/.. ;
+
+local lua-jam-path = [ os.environ LUA_JAM_PATH ] ;
+if ! $(lua-jam-path)
+{
+  lua-jam-path = "$(deps)/lua.jam" ;
+}
+use-project lua : $(lua-jam-path) ; 
+
+local luuid-root-path = [ os.environ LUUID_ROOT_PATH ] ;
+if ! $(luuid-root-path)
+{
+  luuid-root-path = "$(deps)/luuid" ;
+}
+use-project luuid : $(luuid-root-path)/bbuild ;
+
+local openssl-jam-path = [ os.environ OPENSSL_JAM_PATH ] ;
+if ! $(openssl-jam-path)
+{
+  openssl-jam-path = "$(deps)/openssl.jam" ;
+}
+use-project openssl : $(openssl-jam-path) ; 
+
+local lce-root-path = [ os.environ LCE_ROOT_PATH ] ;
+if ! $(lce-root-path)
+{
+  lce-root-path = "$(deps)/lce" ;
+}
+use-project lce : $(lce-root-path)/bbuild ;
+
+local lfs-root-path = [ os.environ LFS_ROOT_PATH ] ;
+if ! $(lfs-root-path)
+{
+  lfs-root-path = "$(deps)/luafilesystem" ;
+}
+use-project lfs : $(lfs-root-path)/bbuild ;
+
+local luavararg-root-path = [ os.environ LUAVARARG_ROOT_PATH ] ;
+if ! $(luavararg-root-path)
+{
+  luavararg-root-path = "$(deps)/luavararg" ;
+}
+use-project luavararg : $(luavararg-root-path)/bbuild ;
+
+local luastruct-root-path = [ os.environ LUASTRUCT_ROOT_PATH ] ;
+if ! $(luastruct-root-path)
+{
+  luastruct-root-path = "$(deps)/luastruct" ;
+}
+use-project luastruct : $(luastruct-root-path)/bbuild ;
+
+local luasocket-root-path = [ os.environ LUASOCKET_ROOT_PATH ] ;
+if ! $(luasocket-root-path)
+{
+  luasocket-root-path = "$(deps)/luasocket" ;
+}
+use-project luasocket : $(luasocket-root-path)/bbuild ;
+
+local loop-root-path = [ os.environ LOOP_ROOT_PATH ] ;
+if ! $(loop-root-path)
+{
+  loop-root-path = "$(deps)/loop" ;
+}
+use-project loop : $(loop-root-path)/bbuild ;
+
+local oil-root-path = [ os.environ OIL_ROOT_PATH ] ;
+if ! $(oil-root-path)
+{
+  oil-root-path = "$(deps)/oil" ;
+}
+use-project oil : $(oil-root-path)/bbuild ;
+
+local luascs-root-path = [ os.environ LUASCS_ROOT_PATH ] ;
+if ! $(luascs-root-path)
+{
+  luascs-root-path = "$(deps)/scs-lua" ;
+}
+use-project luascs : $(luascs-root-path)/bbuild ;
+
+local luasec-root-path = [ os.environ LUASEC_ROOT_PATH ] ;
+if ! $(luasec-root-path)
+{
+  luasec-root-path = "$(deps)/luasec" ;
+}
+use-project luasec : $(luasec-root-path)/bbuild ;
+
+scs-idl-path = [ os.environ SCS_IDL_PATH ] ;
+if ! $(scs-idl-path)
+{
+  scs-idl-path = "$(deps)/scs-idl" ;
+}
+
+openbus-idl-path = [ os.environ OPENBUS_IDL_PATH ] ;
+if ! $(openbus-idl-path)
+{
+  openbus-idl-path = "$(deps)/openbus-idl" ;
+}
+
+openbus-legacy-idl-path = [ os.environ OPENBUS_LEGACY_IDL_PATH ] ;
+if ! $(openbus-legacy-idl-path)
+{
+  openbus-legacy-idl-path = "$(deps)/openbus-legacy-idl" ;
+}
+
+openbus-lib-idl-path = [ os.environ OPENBUS_LIB_IDL_PATH ] ;
+if ! $(openbus-lib-idl-path)
+{
+  openbus-lib-idl-path = "$(deps)/openbus-lib-idl" ;
+}
+
+modules.load preloader : : $(loop-root-path)/bbuild ;
+import preloader ; 
+using preloader ;
+
+project luaopenbus
+  : requirements
+    <target-os>windows:<pch>off
+    <target-os>windows,<link>shared:<runtime-link>shared
+    <target-os>windows,<link>static:<runtime-link>static
+    <target-os>windows:<debug-store>database
+    <target-os>windows:<define>_CRT_SECURE_NO_WARNINGS
+    <toolset>msvc-12.0:<cxxflags>/FS
+    <debug-symbols>on
+  : default-build
+    <variant>release
+    <link>static
+  ;
+
+make luaopenbus.c
+  : 
+    $(root)/lua/openbus/assistant.lua
+    $(root)/lua/openbus/assistant2.lua
+    $(root)/lua/openbus/core/Access.lua
+    $(root)/lua/openbus/core/idl/makeaux.lua
+    $(root)/lua/openbus/core/idl.lua
+    $(root)/lua/openbus/core/legacy/idl.lua
+    $(root)/lua/openbus/core/legacy/parsed.lua
+    $(root)/lua/openbus/core/messages.lua
+    $(root)/lua/openbus/console/costdin.lua
+    $(root)/lua/openbus/console/utils.lua    
+    $(root)/lua/openbus/idl/parsed.lua
+    $(root)/lua/openbus/idl.lua
+    $(root)/lua/openbus/util/argcheck.lua
+    $(root)/lua/openbus/util/autotable.lua
+    $(root)/lua/openbus/util/database.lua
+    $(root)/lua/openbus/util/except.lua
+    $(root)/lua/openbus/util/logger.lua
+    $(root)/lua/openbus/util/messages.lua
+    $(root)/lua/openbus/util/oo.lua
+    $(root)/lua/openbus/util/sandbox.lua
+    $(root)/lua/openbus/util/server.lua
+    $(root)/lua/openbus/util/sysex.lua
+    $(root)/lua/openbus/util/tickets.lua
+    $(root)/lua/openbus.lua
+    $(root)/src/lthreadlib.c
+    $(root)/src/lecholib.c
+    $(root)/lua/openbus/core/idl/parsed.lua
+  : preloader.pre-compile
+  : <search>$(root)
+    <location>$(here)
+  ;
+
+make luaconsole.c
+  : $(root)/lua/openbus/console.lua
+  : preloader.pre-compile
+  : <search>$(root)
+    <location>$(here)
+  ;
+
+modules.load idl2lua : : $(oil-root-path)/bbuild ;
+import idl2lua ; 
+using idl2lua ;
+
+make $(root)/lua/openbus/idl/parsed.lua 
+  : $(openbus-lib-idl-path)/src/openbus.idl
+    $(openbus-lib-idl-path)/src/corba.idl
+    $(openbus-idl-path)/src/openbus_access-2.1.idl
+    $(openbus-idl-path)/src/openbus_offers-2.1.idl
+    $(openbus-idl-path)/src/openbus_export-2.1.idl
+    $(openbus-idl-path)/src/openbus_core-2.1.idl
+    $(openbus-idl-path)/src/openbus_creden-2.1.idl
+    $(scs-idl-path)/src/scs.idl
+  : idl2lua.compile
+  : <include>$(openbus-lib-idl-path)/src
+    <include>$(openbus-idl-path)/src
+    <include>$(scs-idl-path)/src
+    <location>$(here)
+  ;
+
+make $(root)/lua/openbus/core/idl/parsed.lua 
+  : $(openbus-idl-path)/src/openbus_access-2.1.idl
+    $(openbus-idl-path)/src/openbus_offers-2.1.idl
+    $(openbus-idl-path)/src/openbus_export-2.1.idl
+    $(openbus-idl-path)/src/openbus_core-2.1.idl
+    $(openbus-idl-path)/src/openbus_creden-2.1.idl
+    $(scs-idl-path)/src/scs.idl
+  : idl2lua.compile
+  : <include>$(openbus-idl-path)/src
+    <include>$(openbus-legacy-idl-path)/src
+    <include>$(scs-idl-path)/src
+    <location>$(here)
+  ;
+
+make $(root)/lua/openbus/core/legacy/parsed.lua 
+  : $(openbus-legacy-idl-path)/src/access_control.idl
+    $(openbus-legacy-idl-path)/src/offer_registry.idl
+    $(openbus-legacy-idl-path)/src/data_export.idl
+    $(openbus-legacy-idl-path)/src/core.idl
+    $(openbus-legacy-idl-path)/src/credential.idl
+    $(scs-idl-path)/src/scs.idl
+    $(openbus-idl-path)/src/openbus_legacy-2.1.idl
+    $(openbus-idl-path)/src/openbus_access-2.1.idl
+    $(openbus-idl-path)/src/openbus_core-2.1.idl
+    $(openbus-idl-path)/src/openbus_creden-2.1.idl
+  : idl2lua.compile
+  : <include>$(openbus-legacy-idl-path)/src
+    <include>$(openbus-idl-path)/src
+    <include>$(scs-idl-path)/src
+    <location>$(here)
+  ;
+
+lib luaopenbus
+  : luaopenbus.c
+    $(root)/src/openbuslua.c
+    $(root)/src/lthreadlib.c
+    $(root)/src/lecholib.c
+    /lua//lua
+    /luuid//luuid
+    /lce//lce
+    /luafilesystem//lfs
+    /luavararg//luavararg
+    /luastruct//luastruct
+    /luasocket//luasocket
+    /loop//loop
+    /loop//luatuple
+    /loop//luacothread
+    /oil//oil
+    /oil//luaidl
+    /luascs//luascs
+    /luasec//luasec
+  : <dependency>/lce//lce
+    <dependency>/luasec//luasec
+    <dependency>/loop//loop
+    <dependency>/loop//luacothread
+    <dependency>/loop//luatuple
+    <dependency>/oil//oil
+    <dependency>/oil//luaidl
+    <dependency>/luascs//luascs
+    <dependency>/luasocket//luasocket
+    <dependency>/luastruct//luastruct
+    <dependency>/luavararg//luavararg    
+    <dependency>luaopenbus.c
+    <include>$(root)/src
+    <include>$(here)
+    <target-os>windows,<link>shared:<linkflags>"/def:$(here)/luaopenbus.def"
+  :
+  : <include>$(here)
+    <include>$(root)/src
+  ;
+explicit luaopenbus ;
+
+exe busconsole
+  : $(root)/src/launcher.c
+    $(root)/src/consolelibs.c
+    luaconsole.c
+    /lua//lua
+    /luuid//luuid
+    /lce//lce
+    /luafilesystem//lfs
+    /luavararg//luavararg
+    /luastruct//luastruct
+    /luasocket//luasocket
+    /loop//loop
+    /loop//luatuple
+    /loop//luacothread
+    /oil//oil
+    /oil//luaidl
+    /luascs//luascs
+    /luaopenbus//luaopenbus    
+  : <dependency>/loop//loop
+    <dependency>/loop//luatuple
+    <dependency>/loop//luacothread
+    <dependency>/oil//oil
+    <dependency>/oil//luaidl
+    <dependency>/lce//lce
+    <dependency>/luascs//luascs
+    <dependency>/luaopenbus//luaopenbus
+    <dependency>luaconsole.c
+    <define>OPENBUS_PROGNAME=\\\""busconsole\\\""
+;
+explicit busconsole ;
+
+install stage
+  : luaopenbus
+    busconsole
+  : <location>install
+  ;
