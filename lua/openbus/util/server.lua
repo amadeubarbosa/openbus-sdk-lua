@@ -194,7 +194,12 @@ local MultipleKind = {
   ["table"] = true,
 }
 
-function module.ConfigArgs:configs(_, path)
+function module.ConfigArgs:configs(_, path, reload)
+  if reload then
+    for conf, _ in pairs(reload) do
+      self[conf] = type(reload[conf]) == "table" and {} or reload[conf]
+    end
+  end
   local sandbox = setmetatable({}, SafeEnv)
   local interceptor = setmetatable({}, {
     __index = sandbox,
@@ -255,7 +260,14 @@ function module.ConfigArgs:configs(_, path)
   if result ~= nil then
     result, errmsg = xpcall(result, traceback)
     if result then
-      log:config(msg.ConfigFileLoaded:tag{path=path})
+      local prefix = "ConfigFile"
+      local phrase
+      if reload then
+        phrase = prefix.."Reloaded"
+      else
+        phrase = prefix.."Loaded"
+      end
+      log:config(msg[phrase]:tag{path=path})
     else
       log:misconfig(msg.UnableToLoadConfigFile:tag{path=path,errmsg=errmsg})
     end
