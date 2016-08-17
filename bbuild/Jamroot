@@ -84,6 +84,13 @@ if ! $(luascs)
 }
 use-project luascs : $(luascs)/bbuild ;
 
+local luasqlite3 = [ os.environ LUASQLITE3 ] ;
+if ! $(luasqlite3)
+{
+  luasqlite3 = "$(deps)/luasqlite3" ;
+}
+use-project luasqlite3 : $(luasqlite3)/bbuild ;
+
 scs-idl = [ os.environ SCS_IDL ] ;
 if ! $(scs-idl)
 {
@@ -141,7 +148,9 @@ make luaopenbus.c
     $(root)/lua/openbus/idl.lua
     $(root)/lua/openbus/util/argcheck.lua
     $(root)/lua/openbus/util/autotable.lua
+    $(root)/lua/openbus/util/database_converter.lua
     $(root)/lua/openbus/util/database.lua
+    $(root)/lua/openbus/util/database_legacy.lua
     $(root)/lua/openbus/util/except.lua
     $(root)/lua/openbus/util/logger.lua
     $(root)/lua/openbus/util/messages.lua
@@ -211,6 +220,8 @@ local common-requirements =
   <library>/oil//oil
   <library>/oil//luaidl
   <library>/luascs//luascs
+  <library>/sqlite//sqlite3
+  <library>/luasqlite3//lsqlite3
   <dependency>/lce//lce
   <dependency>/loop//loop
   <dependency>/loop//luacothread
@@ -221,6 +232,8 @@ local common-requirements =
   <dependency>/luasocket//luasocket
   <dependency>/luastruct//luastruct
   <dependency>/luavararg//luavararg    
+  <dependency>/sqlite//sqlite3
+  <dependency>/luasqlite3//lsqlite3
 ;
 
 lib luaopenbus
