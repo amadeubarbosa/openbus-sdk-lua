@@ -23,6 +23,7 @@ local log = Verbose{
     {"debug"},          -- informações de depuração para usuários do serviço
     {"access"},         -- informações sobre as chamadas interceptadas
     {"multiplex"},      -- informações sobre logins utilizados nas chamadas
+    {"database"},
     
     error = {
       "unexpected", -- unexpected errors, usually indicates a bug.
