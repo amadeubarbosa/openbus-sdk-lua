@@ -181,50 +181,50 @@ import idl2lua ;
 using idl2lua : $(lua) ;
 
 make $(root)/lua/openbus/idl/parsed.lua 
-  : $(openbus-lib-idl-path)/src/openbus.idl
-    $(openbus-lib-idl-path)/src/corba.idl
-    $(openbus-idl-path)/src/openbus_access-2.1.idl
-    $(openbus-idl-path)/src/openbus_offers-2.1.idl
-    $(openbus-idl-path)/src/openbus_export-2.1.idl
-    $(openbus-idl-path)/src/openbus_core-2.1.idl
-    $(openbus-idl-path)/src/openbus_creden-2.1.idl
-    $(scs-idl-path)/src/scs.idl
+  : $(openbus-lib-idl)/src/openbus.idl
+    $(openbus-lib-idl)/src/corba.idl
+    $(openbus-idl)/src/openbus_access-2.1.idl
+    $(openbus-idl)/src/openbus_offers-2.1.idl
+    $(openbus-idl)/src/openbus_export-2.1.idl
+    $(openbus-idl)/src/openbus_core-2.1.idl
+    $(openbus-idl)/src/openbus_creden-2.1.idl
+    $(scs-idl)/src/scs.idl
   : idl2lua.compile
-  : <include>$(openbus-lib-idl-path)/src
-    <include>$(openbus-idl-path)/src
-    <include>$(scs-idl-path)/src
+  : <include>$(openbus-lib-idl)/src
+    <include>$(openbus-idl)/src
+    <include>$(scs-idl)/src
     <location>$(here)
   ;
 
 make $(root)/lua/openbus/core/idl/parsed.lua 
-  : $(openbus-idl-path)/src/openbus_access-2.1.idl
-    $(openbus-idl-path)/src/openbus_offers-2.1.idl
-    $(openbus-idl-path)/src/openbus_export-2.1.idl
-    $(openbus-idl-path)/src/openbus_core-2.1.idl
-    $(openbus-idl-path)/src/openbus_creden-2.1.idl
-    $(scs-idl-path)/src/scs.idl
+  : $(openbus-idl)/src/openbus_access-2.1.idl
+    $(openbus-idl)/src/openbus_offers-2.1.idl
+    $(openbus-idl)/src/openbus_export-2.1.idl
+    $(openbus-idl)/src/openbus_core-2.1.idl
+    $(openbus-idl)/src/openbus_creden-2.1.idl
+    $(scs-idl)/src/scs.idl
   : idl2lua.compile
-  : <include>$(openbus-idl-path)/src
-    <include>$(openbus-legacy-idl-path)/src
-    <include>$(scs-idl-path)/src
+  : <include>$(openbus-idl)/src
+    <include>$(openbus-legacy-idl)/src
+    <include>$(scs-idl)/src
     <location>$(here)
   ;
 
 make $(root)/lua/openbus/core/legacy/parsed.lua 
-  : $(openbus-legacy-idl-path)/src/access_control.idl
-    $(openbus-legacy-idl-path)/src/offer_registry.idl
-    $(openbus-legacy-idl-path)/src/data_export.idl
-    $(openbus-legacy-idl-path)/src/core.idl
-    $(openbus-legacy-idl-path)/src/credential.idl
-    $(scs-idl-path)/src/scs.idl
-    $(openbus-idl-path)/src/openbus_legacy-2.1.idl
-    $(openbus-idl-path)/src/openbus_access-2.1.idl
-    $(openbus-idl-path)/src/openbus_core-2.1.idl
-    $(openbus-idl-path)/src/openbus_creden-2.1.idl
+  : $(openbus-legacy-idl)/src/access_control.idl
+    $(openbus-legacy-idl)/src/offer_registry.idl
+    $(openbus-legacy-idl)/src/data_export.idl
+    $(openbus-legacy-idl)/src/core.idl
+    $(openbus-legacy-idl)/src/credential.idl
+    $(scs-idl)/src/scs.idl
+    $(openbus-idl)/src/openbus_legacy-2.1.idl
+    $(openbus-idl)/src/openbus_access-2.1.idl
+    $(openbus-idl)/src/openbus_core-2.1.idl
+    $(openbus-idl)/src/openbus_creden-2.1.idl
   : idl2lua.compile
-  : <include>$(openbus-legacy-idl-path)/src
-    <include>$(openbus-idl-path)/src
-    <include>$(scs-idl-path)/src
+  : <include>$(openbus-legacy-idl)/src
+    <include>$(openbus-idl)/src
+    <include>$(scs-idl)/src
     <location>$(here)
   ;
 
