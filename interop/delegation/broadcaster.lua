@@ -4,6 +4,10 @@ local util = require "openbus.util.server"
 local ComponentContext = require "scs.core.ComponentContext"
 local table = require "loop.table"
 
+local idl = require "openbus.interop.idl"
+local loadidl = idl.loadto
+local delegationidl = require "openbus.interop.idl.delegation"
+
 require "openbus.test.util"
 
 -- customize test configuration for this case
@@ -13,7 +17,7 @@ settestcfg(...)
 local orb = openbus.initORB(orbcfg)
 
 -- load interface definitions
-orb:loadidlfile("idl/messages.idl")
+loadidl(orb, delegationidl)
 local iface = orb.types:lookup("tecgraf::openbus::interop::delegation::Broadcaster")
 
 -- get bus context manager
