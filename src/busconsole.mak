@@ -20,7 +20,9 @@ LIBS:= \
   luuid \
   lce \
   luascs \
-  luaopenbus
+  luaopenbus \
+  sqlite3 \
+  lsqlite3
 
 INCLUDES+= . $(SRCLUADIR) \
   $(LUASTRUCT_HOME)/src \
@@ -35,7 +37,9 @@ INCLUDES+= . $(SRCLUADIR) \
   $(LUUID_HOME)/include \
   $(LCE_HOME)/include \
   $(SCS_LUA_HOME)/obj/$(TEC_UNAME) \
-  $(OPENBUS_LUA_HOME)/obj/$(TEC_UNAME)
+  $(OPENBUS_LUA_HOME)/obj/$(TEC_UNAME) \
+  $(SQLITE_HOME) \
+  $(LSQLITE3_HOME)
 LDIR+= \
   $(LUASTRUCT_HOME)/lib/$(TEC_UNAME) \
   $(LUASOCKET_HOME)/lib/$(TEC_UNAME) \
@@ -49,7 +53,9 @@ LDIR+= \
   $(LUUID_HOME)/lib/$(TEC_UNAME) \
   $(LCE_HOME)/lib/$(TEC_UNAME) \
   $(SCS_LUA_HOME)/lib/$(TEC_UNAME) \
-  $(OPENBUS_LUA_HOME)/lib/$(TEC_UNAME)
+  $(OPENBUS_LUA_HOME)/lib/$(TEC_UNAME) \
+  $(SQLITE_HOME)/.libs \
+  $(LSQLITE3_HOME)/dist
 
 ifdef USE_LUA51
   INCLUDES+= $(LUACOMPAT52_HOME)/c-api $(LUACOMPAT52_HOME)/obj/$(TEC_UNAME)
