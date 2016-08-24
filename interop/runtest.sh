@@ -5,7 +5,9 @@ testcase=$2
 tasks=$3
 services=$4
 
-busconsole="env LUA_PATH=${OPENBUS_SDKLUA_TEST}/?.lua ${OPENBUS_SDKLUA_HOME}/bin/busconsole"
+sdklua_interop=`dirname "$(readlink -f "$0")"`
+
+busconsole="env LUA_PATH=${OPENBUS_SDKLUA_TEST}/?.lua;${sdklua_interop}/lua/?.lua ${OPENBUS_SDKLUA_HOME}/bin/busconsole"
 
 if [[ "$mode" == "DEBUG" ]]; then
 	busconsole="$busconsole -d"

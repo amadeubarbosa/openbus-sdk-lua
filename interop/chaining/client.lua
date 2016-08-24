@@ -1,6 +1,11 @@
 local openbus = require "openbus"
 local log = require "openbus.util.logger"
 
+local idl = require "openbus.interop.idl"
+local loadidl = idl.loadto
+local basicidl = require "openbus.interop.idl.basic"
+local chainingidl = require "openbus.interop.idl.chaining"
+
 require "openbus.test.util"
 
 -- customize test configuration for this case
@@ -10,7 +15,8 @@ settestcfg(...)
 local orb = openbus.initORB(orbcfg)
 
 -- load interface definition
-orb:loadidlfile("idl/proxy.idl")
+loadidl(orb, basicidl)
+loadidl(orb, chainingidl)
 local iface = orb.types:lookup("tecgraf::openbus::interop::chaining::HelloProxy")
 
 -- get bus context manager

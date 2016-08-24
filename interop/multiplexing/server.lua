@@ -2,6 +2,9 @@ local openbus = require "openbus"
 local log = require "openbus.util.logger"
 local ComponentContext = require "scs.core.ComponentContext"
 
+local idl = require "openbus.interop.idl"
+local basicidl = require "openbus.interop.idl.basic"
+
 require "openbus.test.util"
 
 -- setup and start the ORBs
@@ -11,8 +14,8 @@ settestcfg(...)
 local orb2 = openbus.initORB(orbcfg)
 
 -- load interface definition
-orb1:loadidlfile("idl/hello.idl")
-orb2:loadidlfile("idl/hello.idl")
+idl.loadto(orb1, basicidl)
+idl.loadto(orb2, basicidl)
 local iface = orb1.types:lookup("tecgraf::openbus::interop::simple::Hello")
 
 -- get bus context manager

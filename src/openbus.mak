@@ -67,3 +67,19 @@ $(LUADIR)/openbus/core/idl/parsed.lua: $(IDL2LUA) $(NEWIDL) $(NEWDEPENDENTIDL)
 
 $(LUADIR)/openbus/core/legacy/parsed.lua: $(IDL2LUA) $(OLDIDL) $(OLDDEPENDENTIDL)
 	$(OILBIN) $(IDL2LUA) -I $(OPENBUSSCSIDL) -I $(OPENBUSOLDIDL) -o $@ $(OLDIDL)
+
+openbuslua.c: $(PRELOAD_DIR)/luaopenbus.c
+
+INTEROPIDLSDIR=../interop/lua/openbus/interop/idl
+
+IDL_INTEROPS="BASIC" "CHAINING" "DELEGATION" "PROTOCOL"
+
+$(INTEROPIDLSDIR):
+	mkdir -p $(INTEROPIDLSDIR)
+	for interop in $(IDL_INTEROPS) ; do \
+	    lc_interop=`echo $$interop | tr A-Z a-z` ; \
+	    eval path='$$'{OPENBUS_SDK_IDL_INTEROP_$${interop}_HOME} ; \
+	    $(OILBIN) $(IDL2LUA) -o $(INTEROPIDLSDIR)/$${lc_interop}.lua `ls $$path/*.*` ; \
+	done
+
+parse-interops-idls: $(INTEROPIDLSDIR)
