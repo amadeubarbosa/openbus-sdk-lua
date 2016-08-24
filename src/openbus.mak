@@ -28,6 +28,8 @@ LUASRC= \
   $(LUADIR)/openbus/util/argcheck.lua \
   $(LUADIR)/openbus/util/autotable.lua \
   $(LUADIR)/openbus/util/database.lua \
+  $(LUADIR)/openbus/util/database_legacy.lua \
+  $(LUADIR)/openbus/util/database_converter.lua \
   $(LUADIR)/openbus/util/except.lua \
   $(LUADIR)/openbus/util/logger.lua \
   $(LUADIR)/openbus/util/messages.lua \
@@ -87,7 +89,11 @@ LIBS:= \
   luuid \
   lce \
   luasec \
-  luascs
+  luascs \
+  luasec \
+  luascs \
+  sqlite3 \
+  lsqlite3
 
 INCLUDES+= . \
   $(LUASTRUCT_HOME)/src \
@@ -102,7 +108,9 @@ INCLUDES+= . \
   $(LUUID_HOME)/include \
   $(LCE_HOME)/include \
   $(LUASEC_HOME)/include \
-  $(SCS_LUA_HOME)/obj/$(TEC_UNAME)
+  $(SCS_LUA_HOME)/obj/$(TEC_UNAME) \
+  $(SQLITE_HOME) \
+  $(LSQLITE3_HOME)
 
 LDIR+= \
   $(LUASTRUCT_HOME)/lib/$(TEC_UNAME) \
@@ -117,7 +125,9 @@ LDIR+= \
   $(LUUID_HOME)/lib/$(TEC_UNAME) \
   $(LCE_HOME)/lib/$(TEC_UNAME) \
   $(LUASEC_HOME)/lib/$(TEC_UNAME) \
-  $(SCS_LUA_HOME)/lib/$(TEC_UNAME)
+  $(SCS_LUA_HOME)/lib/$(TEC_UNAME) \
+  $(SQLITE_HOME)/.libs \
+  $(LSQLITE3_HOME)/dist
 
 $(LUADIR)/openbus/idl/parsed.lua: $(IDL2LUA) $(LIBIDL) $(NEWIDL) $(NEWDEPENDENTIDL) $(LIBDEPENDENTIDL)
 	$(OILBIN) $(IDL2LUA) -I $(OPENBUSSCSIDL) -I $(OPENBUSNEWIDL) -I $(OPENBUSLIBIDL) -o $@ $(LIBIDL)
