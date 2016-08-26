@@ -32,8 +32,8 @@ LIBS:= \
   lce \
   luasec \
   luascs \
-  sqlite3 \
-  lsqlite3
+  lsqlite3 \
+  sqlite3
 
 INCLUDES+= . \
   $(SRCLUADIR) \
