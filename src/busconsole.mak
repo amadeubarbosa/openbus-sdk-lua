@@ -21,8 +21,8 @@ LIBS:= \
   lce \
   luascs \
   luaopenbus \
-  sqlite3 \
-  lsqlite3
+  lsqlite3 \
+  sqlite3
 
 INCLUDES+= . $(SRCLUADIR) \
   $(LUASTRUCT_HOME)/src \
