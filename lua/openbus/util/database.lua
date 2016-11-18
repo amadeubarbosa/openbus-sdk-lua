@@ -37,14 +37,12 @@ local SQL_create_tables = [[
   CREATE TABLE IF NOT EXISTS login (
     id                  TEXT PRIMARY KEY,
     entity              TEXT NOT NULL,
-    encodedkey          BLOB NOT NULL,
-    allowLegacyDelegate INTEGER
+    encodedkey          BLOB NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS loginObserver (
     id       TEXT PRIMARY KEY,
     ior      TEXT NOT NULL,
-    legacy   INTEGER,
     login TEXT NOT NULL
       REFERENCES login(id)
       ON DELETE CASCADE
