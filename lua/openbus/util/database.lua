@@ -38,7 +38,7 @@ local SQL_create_tables = [[
     id                  TEXT PRIMARY KEY,
     entity              TEXT NOT NULL,
     encodedkey          BLOB NOT NULL,
-    allowLegacyDelegate INTEGER NOT NULL
+    allowLegacyDelegate INTEGER
   );
 
   CREATE TABLE IF NOT EXISTS loginObserver (
@@ -163,9 +163,9 @@ local actions = {
   { name="addSettings",
     values = { "key", "value" } },
   { name="addLogin",
-    values = { "id", "entity", "encodedKey", "allowLegacyDelegate" } },
+    values = { "id", "entity", "encodedKey" } },
   { name="addLoginObserver",
-    values = { "id", "ior", "legacy", "login" } },
+    values = { "id", "ior", "login" } },
   { name="addWatchedLogin",
     values = { "login_observer", "login" } },
   { name="addCertificate",

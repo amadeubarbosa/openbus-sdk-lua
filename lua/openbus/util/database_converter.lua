@@ -4,10 +4,6 @@ local dblegacy = require "openbus.util.database_legacy"
 
 local module = {}
 
-local function bool2int(val)
-  return (val and 1) or 0
-end
-
 function module.convert(dblegacy, db)
   db.conn:exec("BEGIN;")
   local certificateDB = dblegacy:gettable("Certificates")
@@ -24,14 +20,12 @@ function module.convert(dblegacy, db)
 
   local loginsDB = dblegacy:gettable("Logins")
   for id, data in loginsDB:ientries() do
-    assert(db:pexec("addLogin", id, data.entity, data.encodedkey,
-		    bool2int(data.allowLegacyDelegate)))
+    assert(db:pexec("addLogin", id, data.entity, data.encodedkey))
   end
 
   local loginobsDB = dblegacy:gettable("LoginObservers")
   for id, data in loginobsDB:ientries() do
-    assert(db:pexec("addLoginObserver", id, data.ior, bool2int(data.legacy),
-		    data.login))
+    assert(db:pexec("addLoginObserver", id, data.ior, data.login))
     for login in pairs(data.watched) do
       assert(db:pexec("addWatchedLogin", id, login))
     end
