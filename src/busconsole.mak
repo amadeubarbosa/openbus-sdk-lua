@@ -70,7 +70,7 @@ LDIR+= \
   $(SCS_LUA_HOME)/lib/$(TEC_UNAME) \
   $(OPENBUS_LUA_HOME)/lib/$(TEC_UNAME) \
   $(SQLITE_HOME)/.libs \
-  $(LSQLITE3_HOME)/dist
+  $(LSQLITE3_HOME)/bbuild/install
 
 ifdef USE_LUA51
   INCLUDES+= $(LUACOMPAT52_HOME)/c-api $(LUACOMPAT52_HOME)/obj/$(TEC_UNAME)
