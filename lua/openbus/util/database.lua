@@ -369,9 +369,9 @@ local stmts = {}
 
 function DataBase:__init()
   local conn = self.conn
+  self:aexec("PRAGMA foreign_keys=ON;")
   self:aexec("BEGIN;")
   self:aexec(SQL_create_tables)
-  self:aexec("PRAGMA foreign_keys=ON;")
   local pstmts = {}
   for _, action in ipairs(actions) do
     local sql = buildSQL(action)
