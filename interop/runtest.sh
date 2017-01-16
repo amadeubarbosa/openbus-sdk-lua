@@ -32,12 +32,12 @@ done
 
 for task in $tasks; do
 	echo -n "Executing task '$task' of test '$testcase' ... "
-	$busconsole $task.lua $testcase
-	echo "OK"
+	$busconsole $task.lua $testcase || exit $?
+        echo "OK"
 done
 
 cd ../../test
 echo -n "Test protocol with server of test '$testcase' ... "
-$busconsole openbus/test/Protocol.lua
+$busconsole openbus/test/Protocol.lua || exit $?
 echo "OK"
 cd ../interop

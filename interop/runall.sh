@@ -1,9 +1,15 @@
 #!/bin/bash
 
-/bin/bash runtest.sh $1 protocol client server
-/bin/bash runtest.sh $1 simple client server
-/bin/bash runtest.sh $1 multiplexing client server
-/bin/bash runtest.sh $1 sharedauth "sharing consuming"
-/bin/bash runtest.sh $1 reloggedjoin client "server proxy"
-/bin/bash runtest.sh $1 chaining client "server proxy"
-/bin/bash runtest.sh $1 delegation client "messenger broadcaster forwarder"
+mode=$1
+
+function runner() {
+  /bin/bash runtest.sh "$@" || exit $?
+}
+
+runner $mode protocol client server
+runner $mode simple client server
+runner $mode multiplexing client server
+runner $mode sharedauth "sharing consuming"
+runner $mode reloggedjoin client "server proxy"
+runner $mode chaining client "server proxy"
+runner $mode delegation client "messenger broadcaster forwarder"
