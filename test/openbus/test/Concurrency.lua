@@ -45,6 +45,17 @@ local orb = openbus.initORB()
 local OpenBusContext = orb.OpenBusContext
 assert(OpenBusContext.orb == orb)
 
+do log:TEST("Make changes on LRU max cache size")
+  local default = require("loop.collection.LRUCache").maxsize
+  local conn = OpenBusContext:createConnection(bushost, busport, connprops)
+  assert(conn:maxCacheSize() == default)
+  conn:maxCacheSize(1024)
+  assert(conn:maxCacheSize() == 1024)
+  -- TODO: exercise more calls than default initial value could perform
+  conn:maxCacheSize(default)
+  assert(conn:maxCacheSize() == default)
+  conn:logout()
+end
 
 do log:TEST("Two threads logging in")
   local conn = OpenBusContext:createConnection(bushost, busport, connprops)

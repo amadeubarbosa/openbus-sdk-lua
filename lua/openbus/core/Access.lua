@@ -217,17 +217,36 @@ local Interceptor = class()
 -- login        : information about the login used to access the bus
 
 -- Optional field that may be provided to configure the interceptor:
--- prvkey: private key associated to the key registered to the login
--- legacy: ACS facet of OpenBus 1.5 to validate legacy invocations
+-- prvkey      : private key associated to the key registered to the login
+-- legacy      : ACS facet of OpenBus 1.5 to validate legacy invocations
+-- maxcachesize: max size for LRUCache objects
 
 function Interceptor:__init()
+  self.maxcachesize = self.maxcachesize or LRUCache.maxsize
   self:resetCaches()
 end
 
+function Interceptor:maxCacheSize(newsize)
+  if not newsize then
+    return self.maxcachesize
+  else
+    self.maxcachesize = newsize
+    self.profile2login.maxsize = newsize
+    self.outgoingSessions.maxsize = newsize
+    self.incomingSessions.maxsize = newsize
+  end
+end
+
+local function newLRU(self, data)
+  local data = data or {}
+  data.maxsize = self.maxcachesize
+  return LRUCache(data)
+end
+
 function Interceptor:resetCaches()
-  self.profile2login = LRUCache() -- [iop_profile] = loginid
-  self.outgoingSessions = LRUCache()
-  self.incomingSessions = LRUCache{
+  self.profile2login = newLRU(self) -- [iop_profile] = loginid
+  self.outgoingSessions = newLRU(self)
+  self.incomingSessions = newLRU(self,{
     retrieve = function(id)
       return {
         id = id,
@@ -235,7 +254,7 @@ function Interceptor:resetCaches()
         tickets = tickets(),
       }
     end,
-  }
+  })
 end
 
 function Interceptor:unmarshalSignedChain(chain, busid)
