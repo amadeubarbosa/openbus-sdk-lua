@@ -1,6 +1,6 @@
 PROJNAME= busconsole
 APPNAME= $(PROJNAME)
-CODEREV?= r$(shell svnversion -n $(PROJDIR))
+CODEREV?= $(shell git rev-parse --short HEAD)
 
 SRC= \
   launcher.c \
