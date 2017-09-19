@@ -505,12 +505,12 @@ function Connection:receiverequest(request, ...)
     if not ok then
       if is_NO_PERMISSION(ex, NoLoginCode) then
         log:exception(msg.LostLoginWhilePrepatingDispatch:tag{
-          operation = request.operation.name,
+          operation = request.operation_name,
         })
         setNoPermSysEx(request, UnknownBusCode)
       elseif is_TRANSIENT(ex) or is_COMM_FAILURE(ex) then
         log:exception(msg.UnableToVerifyLoginDueToCoreServicesUnaccessible:tag{
-          operation = request.operation.name,
+          operation = request.operation_name,
         })
         setNoPermSysEx(request, UnverifiedLoginCode)
       else
@@ -762,7 +762,7 @@ function Context:receiverequest(request)
     end
   else
     log:exception(msg.DeniedOrdinaryCall:tag{
-      operation = request.operation.name,
+      operation = request.operation_name,
     })
     setNoPermSysEx(request, NoCredentialCode)
   end
