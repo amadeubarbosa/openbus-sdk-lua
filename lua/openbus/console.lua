@@ -46,6 +46,7 @@ Available options are:
   -l name  require library 'name'
   -v       show version information
   -E       ignore environment variables
+  --       stop handling options and put other strings as arg table
 	]=])
 		return 1
 	end

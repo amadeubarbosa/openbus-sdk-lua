@@ -148,7 +148,7 @@ function module.processargs(env, ignorevars, interactive, executables, script, .
 			end
 		end
 
-		if errmsg == nil and script ~= nil then
+		if errmsg == nil and script ~= nil and script ~= "--" then
 			local code, result = loadfile(script, "t")
 			if code == nil then
 				errmsg = result
