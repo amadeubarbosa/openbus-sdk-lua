@@ -410,6 +410,18 @@ local ExclusivelyLocal = {
 }
 
 function Interceptor:receivereply(request)
+  do -- workaround: SDK C++ MICO resent us the same CredentialData we sent
+    local reply_ctx = request.reply_service_context
+    local reqst_ctx = request.service_context
+    local id = CredentialContextId
+    if reply_ctx and (reply_ctx[id] ~= nil) and (reply_ctx[id] == reqst_ctx[id]) then
+      log:action(msg.CleaningUpInvalidReplyServiceContext:tag{
+        operation=request.operation_name,
+        context_id=id})
+      reply_ctx[id] = nil
+    end
+  end
+
   if not request.success then
     local except = request.results[1]
     if is_NO_PERMISSION(except, nil, "COMPLETED_NO") then
