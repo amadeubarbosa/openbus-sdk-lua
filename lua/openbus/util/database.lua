@@ -388,14 +388,12 @@ end
 function DataBase:exec(stmt)
   local gsql = gsubSQL(stmt)
   log:database(stmt)
-  local res, errmsg = herror(self.conn:exec(stmt))
-  errmsg = gsql.." "..emsgprefix..tostring(errcode)
-  if errcode == lsqlite.DONE then      
+  local errcode = self.conn:exec(stmt)
+  local errmsg = gsql.." "..emsgprefix..tostring(errcode)
+  if errcode == lsqlite.DONE or errcode == lsqlite.OK then
     return true
-  elseif errcode == lsqlite.ERROR then
-    return nil, errmsg.."; "..self.conn:errmsg()
   end
-  return nil, errmsg
+  return nil, errmsg.."; "..self.conn:errmsg()
 end
 
 function DataBase:pexec(action, ...)
