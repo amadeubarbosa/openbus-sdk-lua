@@ -17,6 +17,7 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
+#include "luaiconv.h"
 #include "luuid.h"
 #include "lfs.h"
 #include "lce.h"
@@ -495,6 +496,7 @@ static int pmain (lua_State *L) {
   
   /* preload binded C libraries */
   luaL_getsubtable(L, LUA_REGISTRYINDEX, "_PRELOAD");
+  lua_pushcfunction(L,luaopen_iconv);lua_setfield(L,-2,"iconv");
   lua_pushcfunction(L,luaopen_uuid);lua_setfield(L,-2,"uuid");
   lua_pushcfunction(L,luaopen_lfs);lua_setfield(L,-2,"lfs");
   lua_pushcfunction(L,luaopen_vararg);lua_setfield(L,-2,"vararg");

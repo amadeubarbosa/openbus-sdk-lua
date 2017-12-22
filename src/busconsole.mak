@@ -15,6 +15,7 @@ LIBS:= \
   luacothread \
   luaidl \
   oil \
+  luaiconv \
   luavararg \
   lfs \
   luuid \
@@ -32,6 +33,7 @@ INCLUDES+= . $(SRCLUADIR) \
   $(LUACOTHREAD_HOME)/obj/$(TEC_UNAME) \
   $(LUAIDL_HOME)/obj/$(TEC_UNAME) \
   $(OIL_HOME)/obj/$(TEC_UNAME) \
+  $(LUAICONV_HOME)/include \
   $(LUAVARARG_HOME)/src \
   $(LUAFILESYSTEM_HOME)/include \
   $(LUUID_HOME)/include \
@@ -48,6 +50,7 @@ LDIR+= \
   $(LUACOTHREAD_HOME)/lib/$(TEC_UNAME) \
   $(LUAIDL_HOME)/lib/$(TEC_UNAME) \
   $(OIL_HOME)/lib/$(TEC_UNAME) \
+  $(LUAICONV_HOME)/lib/$(TEC_UNAME) \
   $(LUAVARARG_HOME)/lib/$(TEC_UNAME) \
   $(LUAFILESYSTEM_HOME)/lib/$(TEC_UNAME) \
   $(LUUID_HOME)/lib/$(TEC_UNAME) \
@@ -75,19 +78,23 @@ ifeq "$(TEC_SYSNAME)" "SunOS"
   LFLAGS= $(CFLAGS) -xildoff
 endif
 
-ifdef USE_STATIC
-  SLIB:= $(foreach libname, $(LIBS) uuid crypto, ${OPENBUS_HOME}/lib/lib$(libname).a)
-  ifeq "$(TEC_SYSNAME)" "SunOS"
-    LIBS:= rt nsl socket resolv
+ifeq ($(findstring $(TEC_SYSNAME), Win32 Win64), )
+  ifdef USE_STATIC
+    SLIB:= $(foreach libname, $(LIBS) uuid crypto, ${OPENBUS_HOME}/lib/lib$(libname).a)
+    ifeq "$(TEC_SYSNAME)" "SunOS"
+      LIBS:= rt nsl socket resolv
+    else
+      LIBS:= 
+    endif
   else
-    LIBS:= 
-  endif
-else
-  ifeq ($(findstring $(TEC_SYSNAME), Win32 Win64), )
-    ifneq "$(TEC_SYSNAME)" "Darwin"
+    ifeq ($(findstring $(TEC_SYSNAME), MacOS, Darwin), )
       LIBS+= uuid
     endif
   endif
+endif
+
+ifneq ($(findstring $(TEC_SYSNAME), MacOS, Darwin), )
+  LIBS+= iconv
 endif
 
 ifneq ($(findstring $(TEC_SYSNAME), Win32 Win64), )
