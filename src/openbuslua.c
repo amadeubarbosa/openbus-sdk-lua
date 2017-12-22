@@ -19,6 +19,7 @@
 #include <luacompat52.h>
 #endif
 
+#include <luaiconv.h>
 #include <luuid.h>
 #include <lce.h>
 #include <luasec.h>
@@ -201,6 +202,7 @@ LUALIB_API int openbuslua_init (lua_State *L, int interactive, int debugmode) {
 #else
     luaL_findtable(L, LUA_GLOBALSINDEX, "package.preload", 1);
 #endif
+    lua_pushcfunction(L,luaopen_iconv);lua_setfield(L,-2,"iconv");
     lua_pushcfunction(L,luaopen_uuid);lua_setfield(L,-2,"uuid");
     lua_pushcfunction(L,luaopen_lfs);lua_setfield(L,-2,"lfs");
     lua_pushcfunction(L,luaopen_vararg);lua_setfield(L,-2,"vararg");

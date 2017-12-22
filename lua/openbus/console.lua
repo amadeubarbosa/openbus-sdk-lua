@@ -65,7 +65,7 @@ Available options are:
 			OPENBUS_CODEREV,
 		}, ".")
 		print("OpenBus "..version.." for ".._VERSION..
-		      "  Copyright (C) 2006-2015 Tecgraf, PUC-Rio")
+		      "  Copyright (C) 2006-2017 Tecgraf, PUC-Rio")
 	end
 
 	OPENBUS_EXITCODE = processargs(_ENV, args.E, args.i, executables, select(start, ...))

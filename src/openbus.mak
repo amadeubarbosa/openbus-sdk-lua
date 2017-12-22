@@ -84,6 +84,7 @@ LIBS:= \
   luacothread \
   luaidl \
   oil \
+  luaiconv \
   luavararg \
   lfs \
   luuid \
@@ -103,6 +104,7 @@ INCLUDES+= . \
   $(LUACOTHREAD_HOME)/obj/$(TEC_UNAME) \
   $(LUAIDL_HOME)/obj/$(TEC_UNAME) \
   $(OIL_HOME)/obj/$(TEC_UNAME) \
+  $(LUAICONV_HOME)/include \
   $(LUAVARARG_HOME)/src \
   $(LUAFILESYSTEM_HOME)/include \
   $(LUUID_HOME)/include \
@@ -120,6 +122,7 @@ LDIR+= \
   $(LUACOTHREAD_HOME)/lib/$(TEC_UNAME) \
   $(LUAIDL_HOME)/lib/$(TEC_UNAME) \
   $(OIL_HOME)/lib/$(TEC_UNAME) \
+  $(LUAICONV_HOME)/lib/$(TEC_UNAME) \
   $(LUAVARARG_HOME)/lib/$(TEC_UNAME) \
   $(LUAFILESYSTEM_HOME)/lib/$(TEC_UNAME) \
   $(LUUID_HOME)/lib/$(TEC_UNAME) \
