@@ -14,6 +14,13 @@ if ! $(lua)
 }
 use-project lua : $(lua)/bbuild ; 
 
+local luaiconv = [ os.environ LUAICONV ] ;
+if ! $(luaiconv)
+{
+  luaiconv = "$(deps)/luaiconv" ;
+}
+use-project luaiconv : $(luaiconv)/bbuild ; 
+
 local luuid = [ os.environ LUUID ] ;
 if ! $(luuid)
 {
@@ -239,6 +246,7 @@ make $(root)/lua/openbus/core/legacy/parsed.lua
 
 local common-requirements =
   <library>/lua//lua
+  <library>/luaiconv//luaiconv
   <library>/luuid//luuid
   <library>/lce//lce
   <library>/luafilesystem//lfs
